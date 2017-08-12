@@ -2,29 +2,33 @@
 #include "utility.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <stddef.h>
 
 Lexer* gsOpenLexer( char* buffer ) {
   Lexer* lexer = malloc( sizeof( Lexer ) );
 
   lexer->line = 0;
-  lexer->start = 0;
-  lexer->current = 0;
+  lexer->column = 0;
 
   lexer->buffer = buffer;
+  lexer->currentCharacter = buffer;
 
   return lexer;
 }
 
-Token* gsCreateToken( TokenType type ) {
+List* gsCreateToken( TokenType type ) {
   Token* token = calloc( 1, sizeof( Token ) );
   token->type = type;
 
-  return token;
+  List* list = utilCreateList();
+  list->data = token;
+
+  return list;
 }
 
-void gsCloseLexer( Lexer* lexer ) {
-  free( lexer->buffer );
-  free( lexer );
+void gsCloseLexer( Lexer* self ) {
+  free( self->buffer );
+  free( self );
 }
 
 Lexer* gsGetLexerFromFile( const char* filename ) {
@@ -42,6 +46,7 @@ Lexer* gsGetLexerFromFile( const char* filename ) {
   char* buffer = malloc( sizeof( char ) * ( fileLen + 1 ) );
   if( !buffer ) {
     fprintf( stderr, "%s: Unable to allocate buffer", __FUNCTION__ );
+    return NULL;
   }
 
   fgets( buffer, fileLen, file );
@@ -50,61 +55,119 @@ Lexer* gsGetLexerFromFile( const char* filename ) {
   return gsOpenLexer( buffer );
 }
 
-List* gsLex( Lexer* lexer ) {
+List* gsPeekSet( Lexer* self, char check, TokenType ifTrue, TokenType ifFalse ) {
+  char peek = *( self->currentCharacter + 1 );
+
+  if( peek == check ) {
+    // Safe to consume the next character
+    self->currentCharacter++;
+    self->column++;
+
+    return gsCreateToken( ifTrue );
+  } else {
+    return gsCreateToken( ifFalse );
+  }
+}
+
+List* gsLex( Lexer* self ) {
   List* result = NULL;
   List* current = NULL;
   List* prev = NULL;
 
-  lexer->line = lexer->start = lexer->current = 0;
+  self->line = self->column = 1;
+  self->currentCharacter = self->buffer;
 
-  char* character = lexer->buffer;
-  while( character ) {
+  while( *self->currentCharacter ) {
 
-    current = utilCreateList();
-
-    switch( *character ) {
+    switch( *self->currentCharacter ) {
       case '(': {
-        current->data = gsCreateToken( LEFT_PAREN );
+        current = gsCreateToken( LEFT_PAREN );
         break;
       }
       case ')': {
-        current->data = gsCreateToken( RIGHT_PAREN );
+        current = gsCreateToken( RIGHT_PAREN );
         break;
       }
       case '{': {
-        current->data = gsCreateToken( LEFT_BRACE );
+        current = gsCreateToken( LEFT_BRACE );
         break;
       }
       case '}': {
-        current->data = gsCreateToken( RIGHT_BRACE );
+        current = gsCreateToken( RIGHT_BRACE );
         break;
       }
       case ',': {
-        current->data = gsCreateToken( COMMA );
+        current = gsCreateToken( COMMA );
         break;
       }
       case '.': {
-        current->data = gsCreateToken( DOT );
+        current = gsCreateToken( DOT );
         break;
       }
       case '-': {
-        current->data = gsCreateToken( MINUS );
+        current = gsCreateToken( MINUS );
         break;
       }
       case '+': {
-        current->data = gsCreateToken( PLUS );
+        current = gsCreateToken( PLUS );
         break;
       }
       case ';': {
-        current->data = gsCreateToken( SEMICOLON );
+        current = gsCreateToken( SEMICOLON );
         break;
       }
       case '*': {
-        current->data = gsCreateToken( STAR );
+        current = gsCreateToken( STAR );
         break;
       }
-      default:
+      case '!': {
+        current = gsPeekSet( self, '=', BANG_EQUAL, BANG );
         break;
+      }
+      case '=': {
+        current = gsPeekSet( self, '=', EQUAL_EQUAL, EQUAL );
+        break;
+      }
+      case '<': {
+        current = gsPeekSet( self, '=', LESS_EQUAL, EQUAL );
+        break;
+      }
+      case '>': {
+        current = gsPeekSet( self, '=', GREATER_EQUAL, EQUAL );
+        break;
+      }
+      case '/': {
+        if( *( self->currentCharacter + 1 ) == '/' ) {
+          // Single-line comment
+          // Advance currentCharacter/column to nearest 0 or \n
+          while( *self->currentCharacter && *self->currentCharacter != '\n' ) {
+            self->currentCharacter++;
+            self->column++;
+          }
+
+          continue;
+        } else {
+          current = gsCreateToken( SLASH );
+        }
+        break;
+      }
+      case ' ':
+      case '\r':
+      case '\t': {
+        self->currentCharacter++;
+        self->column++;
+        continue;
+      }
+      case '\n': {
+        self->currentCharacter++;
+        self->column = 1;
+        self->line++;
+        continue;
+      }
+      default: {
+        printf( "Unexpected character at (%d, %d): %c", self->line, self->column, *self->currentCharacter );
+        continue;
+      }
     }
 
     if( prev ) {
@@ -116,7 +179,8 @@ List* gsLex( Lexer* lexer ) {
 
     prev = current;
 
-    character++;
+    self->currentCharacter++;
+    self->column++;
   }
 
   return result;

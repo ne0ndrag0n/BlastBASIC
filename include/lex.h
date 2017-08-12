@@ -5,9 +5,9 @@
 
 typedef struct Lexer {
   char* buffer;
+  char* currentCharacter;
   unsigned int line;
-  unsigned int start;
-  unsigned int current;
+  unsigned int column;
 } Lexer;
 
 typedef union Literal {
@@ -39,18 +39,18 @@ typedef enum TokenType {
 
 typedef struct Token {
   TokenType type;
-  const char* lexeme;
   Literal literal;
   unsigned int line;
 } Token;
 
-Token* gsCreateToken( TokenType type );
+List* gsCreateToken( TokenType type );
 
 Lexer* gsOpenLexer( char* buffer );
-void gsCloseLexer( Lexer* lexer );
 
 Lexer* gsGetLexerFromFile( const char* filename );
 
-List* gsLex( Lexer* lexer );
+List* gsLex( Lexer* self );
+void gsCloseLexer( Lexer* self );
+List* gsPeekSet( Lexer* self, char check, TokenType ifTrue, TokenType ifFalse );
 
 #endif
