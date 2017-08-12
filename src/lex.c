@@ -166,6 +166,8 @@ List* gsLex( Lexer* self ) {
       }
       default: {
         printf( "Unexpected character at (%d, %d): %c", self->line, self->column, *self->currentCharacter );
+        self->currentCharacter++;
+        self->column++;
         continue;
       }
     }
