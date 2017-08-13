@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
+#include <string.h>
 
 Lexer* gsOpenLexer( char* buffer ) {
   Lexer* lexer = malloc( sizeof( Lexer ) );
@@ -49,7 +50,7 @@ Lexer* gsGetLexerFromFile( const char* filename ) {
     return NULL;
   }
 
-  fgets( buffer, fileLen, file );
+  buffer[ fread( buffer, fileLen, 1, file ) ] = 0;
   fclose( file );
 
   return gsOpenLexer( buffer );
@@ -69,6 +70,9 @@ List* gsPeekSet( Lexer* self, char check, TokenType ifTrue, TokenType ifFalse ) 
   }
 }
 
+/**
+ * Lexer buffer MUST be null-terminated before running the lexer. gsGetLexerFromFile usually handles this for you, but gsOpenLexer does not.
+ */
 List* gsLex( Lexer* self ) {
   List* result = NULL;
   List* current = NULL;
@@ -163,6 +167,45 @@ List* gsLex( Lexer* self ) {
         self->column = 1;
         self->line++;
         continue;
+      }
+      case '"': {
+        size_t stringSize = 0;
+
+        self->currentCharacter++;
+        if( *self->currentCharacter == '\n' ) {
+          self->column = 1;
+          self->line++;
+        } else {
+          self->column++;
+        }
+
+        const char* begin = self->currentCharacter;
+        while( *self->currentCharacter && *self->currentCharacter != '"' ) {
+          stringSize++;
+
+          self->currentCharacter++;
+          if( *self->currentCharacter == '\n' ) {
+            self->column = 1;
+            self->line++;
+          } else {
+            self->column++;
+          }
+        }
+
+        // If at the end of the file or an empty string, we'll get here without stringSize being incremented
+
+        if( *self->currentCharacter == 0 ) {
+          printf( "Unterminated string!" );
+          continue;
+        }
+
+        current = gsCreateToken( STRING );
+        char* string = ( ( Token* ) current->data )->literal.asString = calloc( stringSize + 1, sizeof( char ) );
+        if( stringSize ) {
+          strncpy( string, begin, stringSize );
+        }
+
+        break;
       }
       default: {
         printf( "Unexpected character at (%d, %d): %c", self->line, self->column, *self->currentCharacter );

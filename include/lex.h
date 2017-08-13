@@ -11,7 +11,7 @@ typedef struct Lexer {
 } Lexer;
 
 typedef union Literal {
-  const char* asString;
+  char* asString;
   long asNumber;
   double asDouble;
 } Literal;
@@ -40,7 +40,6 @@ typedef enum TokenType {
 typedef struct Token {
   TokenType type;
   Literal literal;
-  unsigned int line;
 } Token;
 
 List* gsCreateToken( TokenType type );

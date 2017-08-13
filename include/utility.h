@@ -14,6 +14,5 @@ typedef struct List {
 } List;
 
 List* utilCreateList();
-void utilCloseList( List* first );
 
 #endif

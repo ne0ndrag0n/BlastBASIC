@@ -9,17 +9,3 @@ List* utilCreateList() {
 
   return result;
 }
-
-void utilCloseList( List* first ) {
-
-  List* current = first;
-
-  while( current != NULL ) {
-    free( current->data );
-
-    List* prev = current;
-    current = current->next;
-    free( prev );
-  }
-
-}
