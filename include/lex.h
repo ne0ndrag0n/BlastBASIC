@@ -2,6 +2,7 @@
 #define GOLDSCORPION_LEX
 
 #include "utility.h"
+#include <stdbool.h>
 
 typedef struct Lexer {
   char* buffer;

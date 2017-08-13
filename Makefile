@@ -1,6 +1,6 @@
 CC = gcc
 DFLAGS =
-CFLAGS = -Wall -Wextra -Werror -pthread -std=c11 -g -rdynamic -pipe $(DFLAGS) #-fsanitize=address
+CFLAGS = -Wall -Wextra -pthread -std=c11 -g -rdynamic -pipe $(DFLAGS) #-fsanitize=address
 INCLUDES = -Iinclude
 LIBPATHS =
 LIBS =

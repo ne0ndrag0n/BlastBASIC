@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdbool.h>
 
 Lexer* gsOpenLexer( char* buffer ) {
   Lexer* lexer = malloc( sizeof( Lexer ) );
@@ -208,10 +209,28 @@ List* gsLex( Lexer* self ) {
         break;
       }
       default: {
-        printf( "Unexpected character at (%d, %d): %c", self->line, self->column, *self->currentCharacter );
-        self->currentCharacter++;
-        self->column++;
-        continue;
+        if( *self->currentCharacter >= '0' && *self->currentCharacter <= '9' ) {
+          char* begin = self->currentCharacter;
+
+          size_t stringSize = 0;
+          bool isHex = false;
+          bool isBin = false;
+
+          // check for hex
+          if( *self->currentCharacter == '0' && *( self->currentCharacter + 1 ) == 'x' ) {
+            isHex = true;
+            stringSize = 2;
+            self->currentCharacter += 2;
+            self->column += 2;
+          }
+
+          // TODO
+        } else {
+          printf( "Unexpected character at (%d, %d): %c", self->line, self->column, *self->currentCharacter );
+          self->currentCharacter++;
+          self->column++;
+          continue;
+        }
       }
     }
 
