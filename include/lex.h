@@ -13,7 +13,7 @@ typedef struct Lexer {
 
 typedef union Literal {
   char* asString;
-  long asNumber;
+  long asInteger;
   double asDouble;
 } Literal;
 
@@ -29,7 +29,7 @@ typedef enum TokenType {
   LESS, LESS_EQUAL,
 
   // Literals
-  IDENTIFIER, STRING, NUMBER,
+  IDENTIFIER, STRING, INTEGER, REAL,
 
   // Keywords
   AND, CLASS, ELSE, BOOL_FALSE, FUN, FOR, IF, NIL, OR,
@@ -42,6 +42,8 @@ typedef struct Token {
   TokenType type;
   Literal literal;
 } Token;
+
+List* gsProcessNumeric( Lexer* self );
 
 List* gsCreateToken( TokenType type );
 
