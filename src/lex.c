@@ -148,6 +148,22 @@ List* gsProcessNumeric( Lexer* self ) {
   return current;
 }
 
+bool gsIsAlpha( char c ) {
+  return ( c >= 'A' && c <= 'Z' ) ||
+         ( c >= 'a' && c <= 'z' ) ||
+         c == '_';
+}
+
+bool gsIsAlphanumeric( char c ) {
+  return gsIsAlpha( c ) ||
+    ( c >= '0' && c <= '9' );
+}
+
+List* gsGetReservedWordOrIdentifier( char* identifier ) {
+  // TODO !!
+  return NULL;
+}
+
 /**
  * Lexer buffer MUST be null-terminated before running the lexer. gsGetLexerFromFile usually handles this for you, but gsOpenLexer does not.
  */
@@ -211,6 +227,18 @@ List* gsLex( Lexer* self ) {
         current = gsCreateToken( STAR );
         break;
       }
+      case '%': {
+        current = gsCreateToken( MODULO );
+        break;
+      }
+      case '^': {
+        current = gsCreateToken( BITWISE_XOR );
+        break;
+      }
+      case '~': {
+        current = gsCreateToken( ONES_COMPLIMENT );
+        break;
+      }
       case '!': {
         current = gsPeekSet( self, '=', BANG_EQUAL, BANG );
         break;
@@ -219,12 +247,48 @@ List* gsLex( Lexer* self ) {
         current = gsPeekSet( self, '=', EQUAL_EQUAL, EQUAL );
         break;
       }
+      case '&': {
+        current = gsPeekSet( self, '&', AND, BITWISE_AND );
+        break;
+      }
+      case '|': {
+        current = gsPeekSet( self, '|', OR, BITWISE_OR );
+        break;
+      }
       case '<': {
-        current = gsPeekSet( self, '=', LESS_EQUAL, EQUAL );
+        switch( *( self->currentCharacter + 1 ) ) {
+          case '=': {
+            current = gsCreateToken( LESS_EQUAL );
+            break;
+          }
+          case '<': {
+            current = gsCreateToken( LEFT_SHIFT );
+            break;
+          }
+          default: {
+            current = gsCreateToken( LESS );
+            break;
+          }
+        }
+
         break;
       }
       case '>': {
-        current = gsPeekSet( self, '=', GREATER_EQUAL, EQUAL );
+        switch( *( self->currentCharacter + 1 ) ) {
+          case '=': {
+            current = gsCreateToken( GREATER_EQUAL );
+            break;
+          }
+          case '>': {
+            current = gsCreateToken( RIGHT_SHIFT );
+            break;
+          }
+          default: {
+            current = gsCreateToken( GREATER );
+            break;
+          }
+        }
+
         break;
       }
       case '/': {
@@ -301,6 +365,22 @@ List* gsLex( Lexer* self ) {
             // Couldn't create a numeric token
             continue;
           }
+        } else if ( gsIsAlpha( *self->currentCharacter ) ) {
+          // Possible identifier or reserved word
+          const char* begin = self->currentCharacter;
+          size_t stringSize = 0;
+
+          while( gsIsAlphanumeric( *self->currentCharacter ) ) {
+            self->currentCharacter++;
+            self->column++;
+            stringSize++;
+          }
+
+          char value[ stringSize + 1 ];
+          strncpy( value, begin, stringSize );
+          value[ stringSize ] = 0;
+
+          current = gsGetReservedWordOrIdentifier( value );
         } else {
           printf( "Unexpected character at (%d, %d): %c", self->line, self->column, *self->currentCharacter );
           self->currentCharacter++;
