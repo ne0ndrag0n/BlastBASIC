@@ -1,9 +1,7 @@
 #include "lex.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <stddef.h>
 #include <string.h>
-#include <stdbool.h>
 
 Lexer* gsOpenLexer( char* buffer ) {
   Lexer* lexer = malloc( sizeof( Lexer ) );
@@ -131,12 +129,12 @@ List_Token* gsProcessNumeric( Lexer* self ) {
       return NULL;
     }
 
-    current = gsCreateToken( REAL );
-
     // Interpret the value differently as real
     if( isReal ) {
+      current = gsCreateToken( REAL );
       current->data.literal.asDouble = strtod( value, NULL );
     } else {
+      current = gsCreateToken( INTEGER );
       current->data.literal.asInteger = strtoul( value, NULL, 10 );
     }
 
@@ -151,14 +149,102 @@ bool gsIsAlpha( char c ) {
          c == '_';
 }
 
-bool gsIsAlphanumeric( char c ) {
-  return gsIsAlpha( c ) ||
-    ( c >= '0' && c <= '9' );
+bool gsIsNumeric( char c ) {
+  return ( c >= '0' && c >= '9' );
 }
 
-List_Token* gsGetReservedWordOrIdentifier( char* identifier ) {
-  // TODO !!
-  return NULL;
+bool gsIsAlphanumeric( char c ) {
+  return gsIsAlpha( c ) || gsIsNumeric( c );
+}
+
+/**
+ * strLen doesn't include the null terminator
+ */
+List_Token* gsGetReservedWordOrIdentifier( char* identifier, size_t strLen ) {
+  List_Token* result = NULL;
+
+  // Return special token for any of the reserved keywords
+  if( strcmp( identifier, "class" ) ) {
+    result = gsCreateToken( CLASS );
+  } else if( strcmp( identifier, "else" ) ) {
+    result = gsCreateToken( ELSE );
+  } else if( strcmp( identifier, "false" ) ) {
+    result = gsCreateToken( BOOL_FALSE );
+  } else if( strcmp( identifier, "true" ) ) {
+    result = gsCreateToken( BOOL_TRUE );
+  } else if( strcmp( identifier, "for" ) ) {
+    result = gsCreateToken( FOR );
+  } else if( strcmp( identifier, "if" ) ) {
+    result = gsCreateToken( IF );
+  } else if( strcmp( identifier, "null" ) ) {
+    result = gsCreateToken( NULL_TOKEN );
+  } else if( strcmp( identifier, "return" ) ) {
+    result = gsCreateToken( RETURN );
+  } else if( strcmp( identifier, "super" ) ) {
+    result = gsCreateToken( SUPER );
+  } else if( strcmp( identifier, "this" ) ) {
+    result = gsCreateToken( THIS );
+  } else if( strcmp( identifier, "while" ) ) {
+    result = gsCreateToken( WHILE );
+  } else if( strcmp( identifier, "static" ) ) {
+    result = gsCreateToken( STATIC );
+  } else if( strcmp( identifier, "bool" ) ) {
+    result = gsCreateToken( BOOL );
+  } else if( strcmp( identifier, "var" ) ) {
+    result = gsCreateToken( VAR );
+  } else if( strcmp( identifier, "addr" ) ) {
+    result = gsCreateToken( ADDR );
+  } else {
+    // Check for primitive integer types
+    int uint = strncmp( identifier, "uint", 4 );
+    int sint = strncmp( identifier, "int", 3 );
+    int fltype = strncmp( identifier, "float", 5 );
+
+    if( uint || sint || fltype ) {
+      // Get size of the primitive
+      unsigned char primitiveLen;
+      if( uint ) {
+        primitiveLen = 4;
+      } else if( sint ) {
+        primitiveLen = 3;
+      } else {
+        primitiveLen = 5;
+      }
+
+      if( primitiveLen == strLen ) {
+        // You f'd up.
+        printf( "primitive type requires width." );
+        return NULL;
+      }
+
+      size_t remainder = strLen - primitiveLen;
+      char copy[ remainder + 1 ];
+      memcpy( copy, identifier + primitiveLen, remainder );
+      copy[ remainder ] = 0;
+
+      unsigned long bitDepth = strtoul( copy, NULL, 10 );
+      if( !bitDepth ) {
+        printf( "primitive type requires numeric bit depth or bit depth greater than zero." );
+        return NULL;
+      }
+
+      if( uint || sint ) {
+        result = gsCreateToken( uint ? UINT_TYPE : INT_TYPE );
+      } else {
+        result = gsCreateToken( FLOAT_TYPE );
+      }
+
+      result->data.literal.asInteger = bitDepth;
+    } else {
+      // If we get here...you got an identifier.
+      result = gsCreateToken( IDENTIFIER );
+      result->data.literal.asString = calloc( strLen + 1, sizeof( char ) );
+      memcpy( result->data.literal.asString, identifier, strLen );
+    }
+
+  }
+
+  return result;
 }
 
 /**
@@ -377,7 +463,11 @@ List_Token* gsLex( Lexer* self ) {
           strncpy( value, begin, stringSize );
           value[ stringSize ] = 0;
 
-          current = gsGetReservedWordOrIdentifier( value );
+          current = gsGetReservedWordOrIdentifier( value, stringSize );
+          if( !current ) {
+            // Invalid token after uint, int, or float type
+            continue;
+          }
         } else {
           printf( "Unexpected character at (%d, %d): %c", self->line, self->column, *self->currentCharacter );
           self->currentCharacter++;
@@ -401,4 +491,111 @@ List_Token* gsLex( Lexer* self ) {
   }
 
   return result;
+}
+
+const char* gsGetDebugOutput( List_Token* token ) {
+  switch( token->data.type ) {
+    case LEFT_PAREN:
+      return "(";
+    case RIGHT_PAREN:
+      return ")";
+    case LEFT_BRACE:
+      return "{";
+    case RIGHT_BRACE:
+      return "}";
+    case COMMA:
+      return ",";
+    case DOT:
+      return ".";
+    case MINUS:
+      return "-";
+    case PLUS:
+      return "+";
+    case SEMICOLON:
+      return ";";
+    case SLASH:
+      return "/";
+    case STAR:
+      return "*";
+    case MODULO:
+      return "%";
+    case BITWISE_XOR:
+      return "^";
+    case ONES_COMPLIMENT:
+      return "~";
+    case BANG:
+      return "!";
+    case BANG_EQUAL:
+      return "!=";
+    case EQUAL:
+      return "=";
+    case EQUAL_EQUAL:
+      return "==";
+    case GREATER:
+      return ">";
+    case GREATER_EQUAL:
+      return ">=";
+    case RIGHT_SHIFT:
+      return ">>";
+    case LESS:
+      return "<";
+    case LESS_EQUAL:
+      return "<=";
+    case LEFT_SHIFT:
+      return "<<";
+    case AND:
+      return "&&";
+    case BITWISE_AND:
+      return "&";
+    case OR:
+      return "||";
+    case BITWISE_OR:
+      return "|";
+    case IDENTIFIER:
+      return "<identifier>";
+    case STRING:
+      return "<string>";
+    case INTEGER:
+      return "<integer>";
+    case REAL:
+      return "<real>";
+    case UINT_TYPE:
+      return "<uint>";
+    case INT_TYPE:
+      return "<int>";
+    case FLOAT_TYPE:
+      return "<float>";
+    case CLASS:
+      return "class";
+    case ELSE:
+      return "else";
+    case BOOL_FALSE:
+      return "false";
+    case BOOL_TRUE:
+      return "true";
+    case FOR:
+      return "for";
+    case IF:
+      return "if";
+    case NULL_TOKEN:
+      return "null";
+    case RETURN:
+      return "return";
+    case SUPER:
+      return "super";
+    case THIS:
+      return "this";
+    case VAR:
+      return "var";
+    case WHILE:
+      return "while";
+    case STATIC:
+      return "static";
+    case BOOL:
+      return "bool";
+    case ADDR:
+      return "addr";
+    default:
+      return "<unknown>";
+  }
 }
