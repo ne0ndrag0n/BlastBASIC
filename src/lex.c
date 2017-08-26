@@ -31,7 +31,7 @@ void gsCloseLexer( Lexer* self ) {
 Lexer* gsGetLexerFromFile( const char* filename ) {
   FILE* file = fopen( filename, "r" );
   if( !file ) {
-    fprintf( stderr, "%s: Unable to open %s", __FUNCTION__, filename );
+    printf( "Unable to open %s\n", filename );
     return NULL;
   }
 
@@ -40,13 +40,13 @@ Lexer* gsGetLexerFromFile( const char* filename ) {
   fileLen = ftell( file );
   fseek( file, 0, SEEK_SET );
 
-  char* buffer = malloc( sizeof( char ) * ( fileLen + 1 ) );
+  char* buffer = calloc( fileLen + 1, sizeof( char ) );
   if( !buffer ) {
-    fprintf( stderr, "%s: Unable to allocate buffer", __FUNCTION__ );
+    printf( "Unable to allocate buffer\n" );
     return NULL;
   }
 
-  buffer[ fread( buffer, fileLen, 1, file ) ] = 0;
+  fread( buffer, fileLen, 1, file );
   fclose( file );
 
   return gsOpenLexer( buffer );
@@ -57,8 +57,7 @@ List_Token* gsPeekSet( Lexer* self, char check, TokenType ifTrue, TokenType ifFa
 
   if( peek == check ) {
     // Safe to consume the next character
-    self->currentCharacter++;
-    self->column++;
+    gsLexerIncrement( self );
 
     return gsCreateToken( ifTrue );
   } else {
@@ -76,16 +75,17 @@ List_Token* gsProcessNumeric( Lexer* self ) {
   if( *self->currentCharacter == '0' && *( self->currentCharacter + 1 ) == 'x' ) {
     // Hexadecimal case
     stringSize = 2;
-    self->currentCharacter += 2;
-    self->column += 2;
+
+    // Increment twice
+    gsLexerIncrement( self );
+    gsLexerIncrement( self );
 
     while(
       ( *self->currentCharacter >= '0' && *self->currentCharacter <= '9' ) ||
       ( *self->currentCharacter >= 'A' && *self->currentCharacter <= 'F' ) ||
       ( *self->currentCharacter >= 'a' && *self->currentCharacter <= 'f' )
     ) {
-      self->currentCharacter++;
-      self->column++;
+      gsLexerIncrement( self );
       stringSize++;
     }
 
@@ -106,15 +106,14 @@ List_Token* gsProcessNumeric( Lexer* self ) {
         isReal = true;
       }
 
-      self->currentCharacter++;
-      self->column++;
+      gsLexerIncrement( self );
       stringSize++;
     }
 
     if( stringSize == 0 ) {
       // You, the developer, didn't call this function properly if no string was created.
       // gsProcessNumeric should only ever be called if you have something that can become a number token
-      printf( "Invalid number token (should never get here)!" );
+      printf( "Invalid number token (should never get here)!\n" );
       return NULL;
     }
 
@@ -125,7 +124,7 @@ List_Token* gsProcessNumeric( Lexer* self ) {
 
     // Cannot end on a period, also cannot have a "number" which is just a period
     if( value[ stringSize - 1 ] == '.' || ( stringSize == 1 && value[ 0 ] == '.' ) ) {
-      printf( "Malformed decimal!" );
+      printf( "Malformed decimal!\n" );
       return NULL;
     }
 
@@ -150,11 +149,30 @@ bool gsIsAlpha( char c ) {
 }
 
 bool gsIsNumeric( char c ) {
-  return ( c >= '0' && c >= '9' );
+  return ( c >= '0' && c <= '9' );
 }
 
 bool gsIsAlphanumeric( char c ) {
   return gsIsAlpha( c ) || gsIsNumeric( c );
+}
+
+void gsLexerIncrement( Lexer* self ) {
+
+  // Do not increment beyond allocated buffer
+  if( *self->currentCharacter == 0 ) {
+    return;
+  }
+
+  if( *self->currentCharacter == '\n' ) {
+    // Advancing a line
+    self->column = 1;
+    self->line++;
+  } else {
+    // Just advance the column
+    self->column++;
+  }
+
+  self->currentCharacter++;
 }
 
 /**
@@ -164,47 +182,47 @@ List_Token* gsGetReservedWordOrIdentifier( char* identifier, size_t strLen ) {
   List_Token* result = NULL;
 
   // Return special token for any of the reserved keywords
-  if( strcmp( identifier, "class" ) ) {
+  if( !strcmp( identifier, "class" ) ) {
     result = gsCreateToken( CLASS );
-  } else if( strcmp( identifier, "else" ) ) {
+  } else if( !strcmp( identifier, "else" ) ) {
     result = gsCreateToken( ELSE );
-  } else if( strcmp( identifier, "false" ) ) {
+  } else if( !strcmp( identifier, "false" ) ) {
     result = gsCreateToken( BOOL_FALSE );
-  } else if( strcmp( identifier, "true" ) ) {
+  } else if( !strcmp( identifier, "true" ) ) {
     result = gsCreateToken( BOOL_TRUE );
-  } else if( strcmp( identifier, "for" ) ) {
+  } else if( !strcmp( identifier, "for" ) ) {
     result = gsCreateToken( FOR );
-  } else if( strcmp( identifier, "if" ) ) {
+  } else if( !strcmp( identifier, "if" ) ) {
     result = gsCreateToken( IF );
-  } else if( strcmp( identifier, "null" ) ) {
+  } else if( !strcmp( identifier, "null" ) ) {
     result = gsCreateToken( NULL_TOKEN );
-  } else if( strcmp( identifier, "return" ) ) {
+  } else if( !strcmp( identifier, "return" ) ) {
     result = gsCreateToken( RETURN );
-  } else if( strcmp( identifier, "super" ) ) {
+  } else if( !strcmp( identifier, "super" ) ) {
     result = gsCreateToken( SUPER );
-  } else if( strcmp( identifier, "this" ) ) {
+  } else if( !strcmp( identifier, "this" ) ) {
     result = gsCreateToken( THIS );
-  } else if( strcmp( identifier, "while" ) ) {
+  } else if( !strcmp( identifier, "while" ) ) {
     result = gsCreateToken( WHILE );
-  } else if( strcmp( identifier, "static" ) ) {
+  } else if( !strcmp( identifier, "static" ) ) {
     result = gsCreateToken( STATIC );
-  } else if( strcmp( identifier, "bool" ) ) {
+  } else if( !strcmp( identifier, "bool" ) ) {
     result = gsCreateToken( BOOL );
-  } else if( strcmp( identifier, "var" ) ) {
+  } else if( !strcmp( identifier, "var" ) ) {
     result = gsCreateToken( VAR );
-  } else if( strcmp( identifier, "addr" ) ) {
+  } else if( !strcmp( identifier, "addr" ) ) {
     result = gsCreateToken( ADDR );
-  } else if( strcmp( identifier, "package" ) ) {
+  } else if( !strcmp( identifier, "package" ) ) {
     result = gsCreateToken( PACKAGE );
-  } else if( strcmp( identifier, "import" ) ) {
+  } else if( !strcmp( identifier, "import" ) ) {
     result = gsCreateToken( IMPORT );
-  } else if( strcmp( identifier, "from" ) ) {
+  } else if( !strcmp( identifier, "from" ) ) {
     result = gsCreateToken( FROM );
   } else {
     // Check for primitive integer types
-    int uint = strncmp( identifier, "uint", 4 );
-    int sint = strncmp( identifier, "int", 3 );
-    int fltype = strncmp( identifier, "float", 5 );
+    int uint = !strncmp( identifier, "uint", 4 );
+    int sint = !strncmp( identifier, "int", 3 );
+    int fltype = !strncmp( identifier, "float", 5 );
 
     if( uint || sint || fltype ) {
       // Get size of the primitive
@@ -219,7 +237,7 @@ List_Token* gsGetReservedWordOrIdentifier( char* identifier, size_t strLen ) {
 
       if( primitiveLen == strLen ) {
         // You f'd up.
-        printf( "primitive type requires width." );
+        printf( "primitive type requires width.\n" );
         return NULL;
       }
 
@@ -230,7 +248,7 @@ List_Token* gsGetReservedWordOrIdentifier( char* identifier, size_t strLen ) {
 
       unsigned long bitDepth = strtoul( copy, NULL, 10 );
       if( !bitDepth ) {
-        printf( "primitive type requires numeric bit depth or bit depth greater than zero." );
+        printf( "primitive type requires numeric bit depth or bit depth greater than zero.\n" );
         return NULL;
       }
 
@@ -269,22 +287,27 @@ List_Token* gsLex( Lexer* self ) {
     switch( *self->currentCharacter ) {
       case '(': {
         current = gsCreateToken( LEFT_PAREN );
+        gsLexerIncrement( self );
         break;
       }
       case ')': {
         current = gsCreateToken( RIGHT_PAREN );
+        gsLexerIncrement( self );
         break;
       }
       case '{': {
         current = gsCreateToken( LEFT_BRACE );
+        gsLexerIncrement( self );
         break;
       }
       case '}': {
         current = gsCreateToken( RIGHT_BRACE );
+        gsLexerIncrement( self );
         break;
       }
       case ',': {
         current = gsCreateToken( COMMA );
+        gsLexerIncrement( self );
         break;
       }
       case '.': {
@@ -297,35 +320,43 @@ List_Token* gsLex( Lexer* self ) {
           }
         } else {
           current = gsCreateToken( DOT );
+          gsLexerIncrement( self );
         }
         break;
       }
       case '-': {
         current = gsCreateToken( MINUS );
+        gsLexerIncrement( self );
         break;
       }
       case '+': {
         current = gsCreateToken( PLUS );
+        gsLexerIncrement( self );
         break;
       }
       case ';': {
         current = gsCreateToken( SEMICOLON );
+        gsLexerIncrement( self );
         break;
       }
       case '*': {
         current = gsCreateToken( STAR );
+        gsLexerIncrement( self );
         break;
       }
       case '%': {
         current = gsCreateToken( MODULO );
+        gsLexerIncrement( self );
         break;
       }
       case '^': {
         current = gsCreateToken( BITWISE_XOR );
+        gsLexerIncrement( self );
         break;
       }
       case '~': {
         current = gsCreateToken( ONES_COMPLIMENT );
+        gsLexerIncrement( self );
         break;
       }
       case '!': {
@@ -348,10 +379,12 @@ List_Token* gsLex( Lexer* self ) {
         switch( *( self->currentCharacter + 1 ) ) {
           case '=': {
             current = gsCreateToken( LESS_EQUAL );
+            gsLexerIncrement( self );
             break;
           }
           case '<': {
             current = gsCreateToken( LEFT_SHIFT );
+            gsLexerIncrement( self );
             break;
           }
           default: {
@@ -360,16 +393,19 @@ List_Token* gsLex( Lexer* self ) {
           }
         }
 
+        gsLexerIncrement( self );
         break;
       }
       case '>': {
         switch( *( self->currentCharacter + 1 ) ) {
           case '=': {
             current = gsCreateToken( GREATER_EQUAL );
+            gsLexerIncrement( self );
             break;
           }
           case '>': {
             current = gsCreateToken( RIGHT_SHIFT );
+            gsLexerIncrement( self );
             break;
           }
           default: {
@@ -378,6 +414,7 @@ List_Token* gsLex( Lexer* self ) {
           }
         }
 
+        gsLexerIncrement( self );
         break;
       }
       case '/': {
@@ -385,55 +422,41 @@ List_Token* gsLex( Lexer* self ) {
           // Single-line comment
           // Advance currentCharacter/column to nearest 0 or \n
           while( *self->currentCharacter && *self->currentCharacter != '\n' ) {
-            self->currentCharacter++;
-            self->column++;
+            gsLexerIncrement( self );
           }
 
           continue;
         } else {
           current = gsCreateToken( SLASH );
+          gsLexerIncrement( self );
         }
         break;
       }
       case ' ':
       case '\r':
       case '\t': {
-        self->currentCharacter++;
-        self->column++;
+        gsLexerIncrement( self );
         continue;
       }
       case '\n': {
-        self->currentCharacter++;
-        self->column = 1;
-        self->line++;
+        gsLexerIncrement( self );
         continue;
       }
       case '"': {
         size_t stringSize = 0;
 
-        self->currentCharacter++;
-        if( *self->currentCharacter == '\n' ) {
-          self->column = 1;
-          self->line++;
-        } else {
-          self->column++;
-        }
+        gsLexerIncrement( self );
 
         const char* begin = self->currentCharacter;
         while( *self->currentCharacter && *self->currentCharacter != '"' ) {
           stringSize++;
-
-          self->currentCharacter++;
-          if( *self->currentCharacter == '\n' ) {
-            self->column = 1;
-            self->line++;
-          } else {
-            self->column++;
-          }
+          gsLexerIncrement( self );
         }
 
-        // If at the end of the file or an empty string, we'll get here without stringSize being incremented
+        // Eat the last "
+        gsLexerIncrement( self );
 
+        // If at the end of the file or an empty string, we'll get here without stringSize being incremented
         if( *self->currentCharacter == 0 ) {
           printf( "Unterminated string!" );
           continue;
@@ -460,8 +483,7 @@ List_Token* gsLex( Lexer* self ) {
           size_t stringSize = 0;
 
           while( gsIsAlphanumeric( *self->currentCharacter ) ) {
-            self->currentCharacter++;
-            self->column++;
+            gsLexerIncrement( self );
             stringSize++;
           }
 
@@ -476,8 +498,7 @@ List_Token* gsLex( Lexer* self ) {
           }
         } else {
           printf( "Unexpected character at (%d, %d): %c", self->line, self->column, *self->currentCharacter );
-          self->currentCharacter++;
-          self->column++;
+          gsLexerIncrement( self );
           continue;
         }
       }
@@ -491,9 +512,6 @@ List_Token* gsLex( Lexer* self ) {
     }
 
     prev = current;
-
-    self->currentCharacter++;
-    self->column++;
   }
 
   return result;

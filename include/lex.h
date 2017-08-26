@@ -55,6 +55,8 @@ bool gsIsAlpha( char c );
 bool gsIsNumeric( char c );
 bool gsIsAlphanumeric( char c );
 
+void gsLexerIncrement( Lexer* self );
+
 List_Token* gsGetReservedWordOrIdentifier( char* identifier, size_t strLen );
 
 List_Token* gsProcessNumeric( Lexer* self );
