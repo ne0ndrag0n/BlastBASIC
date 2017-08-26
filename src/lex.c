@@ -194,6 +194,12 @@ List_Token* gsGetReservedWordOrIdentifier( char* identifier, size_t strLen ) {
     result = gsCreateToken( VAR );
   } else if( strcmp( identifier, "addr" ) ) {
     result = gsCreateToken( ADDR );
+  } else if( strcmp( identifier, "package" ) ) {
+    result = gsCreateToken( PACKAGE );
+  } else if( strcmp( identifier, "import" ) ) {
+    result = gsCreateToken( IMPORT );
+  } else if( strcmp( identifier, "from" ) ) {
+    result = gsCreateToken( FROM );
   } else {
     // Check for primitive integer types
     int uint = strncmp( identifier, "uint", 4 );
@@ -595,6 +601,12 @@ const char* gsGetDebugOutput( List_Token* token ) {
       return "bool";
     case ADDR:
       return "addr";
+    case PACKAGE:
+      return "package";
+    case IMPORT:
+      return "import";
+    case FROM:
+      return "from";
     default:
       return "<unknown>";
   }
