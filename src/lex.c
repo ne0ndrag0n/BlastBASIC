@@ -1,5 +1,4 @@
 #include "lex.h"
-#include "utility.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
@@ -18,14 +17,12 @@ Lexer* gsOpenLexer( char* buffer ) {
   return lexer;
 }
 
-List* gsCreateToken( TokenType type ) {
-  Token* token = calloc( 1, sizeof( Token ) );
-  token->type = type;
+List_Token* gsCreateToken( TokenType type ) {
+  List_Token* token = calloc( 1, sizeof( List_Token ) );
 
-  List* list = utilCreateList();
-  list->data = token;
+  token->data.type = type;
 
-  return list;
+  return token;
 }
 
 void gsCloseLexer( Lexer* self ) {
@@ -57,7 +54,7 @@ Lexer* gsGetLexerFromFile( const char* filename ) {
   return gsOpenLexer( buffer );
 }
 
-List* gsPeekSet( Lexer* self, char check, TokenType ifTrue, TokenType ifFalse ) {
+List_Token* gsPeekSet( Lexer* self, char check, TokenType ifTrue, TokenType ifFalse ) {
   char peek = *( self->currentCharacter + 1 );
 
   if( peek == check ) {
@@ -71,8 +68,8 @@ List* gsPeekSet( Lexer* self, char check, TokenType ifTrue, TokenType ifFalse ) 
   }
 }
 
-List* gsProcessNumeric( Lexer* self ) {
-  List* current = NULL;
+List_Token* gsProcessNumeric( Lexer* self ) {
+  List_Token* current = NULL;
 
   char* begin = self->currentCharacter;
   size_t stringSize = 0;
@@ -99,7 +96,7 @@ List* gsProcessNumeric( Lexer* self ) {
     char value[ stringSize + 1 ];
     strncpy( value, begin, stringSize );
     value[ stringSize ] = 0;
-    ( ( Token* ) current->data )->literal.asInteger = strtoul( value, NULL, 16 );
+    current->data.literal.asInteger = strtoul( value, NULL, 16 );
 
   } else {
     // Non-hexadecimal case (decimal, binary maybe in the future)
@@ -138,9 +135,9 @@ List* gsProcessNumeric( Lexer* self ) {
 
     // Interpret the value differently as real
     if( isReal ) {
-      ( ( Token* ) current->data )->literal.asDouble = strtod( value, NULL );
+      current->data.literal.asDouble = strtod( value, NULL );
     } else {
-      ( ( Token* ) current->data )->literal.asInteger = strtoul( value, NULL, 10 );
+      current->data.literal.asInteger = strtoul( value, NULL, 10 );
     }
 
   }
@@ -159,7 +156,7 @@ bool gsIsAlphanumeric( char c ) {
     ( c >= '0' && c <= '9' );
 }
 
-List* gsGetReservedWordOrIdentifier( char* identifier ) {
+List_Token* gsGetReservedWordOrIdentifier( char* identifier ) {
   // TODO !!
   return NULL;
 }
@@ -167,10 +164,10 @@ List* gsGetReservedWordOrIdentifier( char* identifier ) {
 /**
  * Lexer buffer MUST be null-terminated before running the lexer. gsGetLexerFromFile usually handles this for you, but gsOpenLexer does not.
  */
-List* gsLex( Lexer* self ) {
-  List* result = NULL;
-  List* current = NULL;
-  List* prev = NULL;
+List_Token* gsLex( Lexer* self ) {
+  List_Token* result = NULL;
+  List_Token* current = NULL;
+  List_Token* prev = NULL;
 
   self->line = self->column = 1;
   self->currentCharacter = self->buffer;
@@ -351,7 +348,7 @@ List* gsLex( Lexer* self ) {
         }
 
         current = gsCreateToken( STRING );
-        char* string = ( ( Token* ) current->data )->literal.asString = calloc( stringSize + 1, sizeof( char ) );
+        char* string = current->data.literal.asString = calloc( stringSize + 1, sizeof( char ) );
         if( stringSize ) {
           strncpy( string, begin, stringSize );
         }

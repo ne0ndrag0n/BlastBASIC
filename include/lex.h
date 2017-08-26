@@ -1,7 +1,6 @@
 #ifndef GOLDSCORPION_LEX
 #define GOLDSCORPION_LEX
 
-#include "utility.h"
 #include <stdbool.h>
 
 typedef struct Lexer {
@@ -46,21 +45,26 @@ typedef struct Token {
   Literal literal;
 } Token;
 
+typedef struct List_Token {
+  Token data;
+  struct List_Token* next;
+} List_Token;
+
 bool gsIsAlpha( char c );
 bool gsIsAlphanumeric( char c );
 
-List* gsGetReservedWordOrIdentifier( char* identifier );
+List_Token* gsGetReservedWordOrIdentifier( char* identifier );
 
-List* gsProcessNumeric( Lexer* self );
+List_Token* gsProcessNumeric( Lexer* self );
 
-List* gsCreateToken( TokenType type );
+List_Token* gsCreateToken( TokenType type );
 
 Lexer* gsOpenLexer( char* buffer );
 
 Lexer* gsGetLexerFromFile( const char* filename );
 
-List* gsLex( Lexer* self );
+List_Token* gsLex( Lexer* self );
 void gsCloseLexer( Lexer* self );
-List* gsPeekSet( Lexer* self, char check, TokenType ifTrue, TokenType ifFalse );
+List_Token* gsPeekSet( Lexer* self, char check, TokenType ifTrue, TokenType ifFalse );
 
 #endif
