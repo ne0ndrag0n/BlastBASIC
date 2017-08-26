@@ -359,6 +359,16 @@ List_Token* gsLex( Lexer* self ) {
         gsLexerIncrement( self );
         break;
       }
+      case '[': {
+        current = gsCreateToken( LEFT_BRACKET );
+        gsLexerIncrement( self );
+        break;
+      }
+      case ']': {
+        current = gsCreateToken( RIGHT_BRACKET );
+        gsLexerIncrement( self );
+        break;
+      }
       case '!': {
         current = gsPeekSet( self, '=', BANG_EQUAL, BANG );
         break;
@@ -547,6 +557,10 @@ const char* gsGetDebugOutput( List_Token* token ) {
       return "^";
     case ONES_COMPLIMENT:
       return "~";
+    case LEFT_BRACKET:
+      return "[";
+    case RIGHT_BRACKET:
+      return "]";
     case BANG:
       return "!";
     case BANG_EQUAL:

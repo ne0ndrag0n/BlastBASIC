@@ -53,6 +53,11 @@ int main( int argumentCount, char** arguments ) {
           printf( " (%s)", current->data.literal.asString );
           break;
         }
+        case UINT_TYPE:
+        case INT_TYPE:
+        case FLOAT_TYPE: {
+          printf( " (%ld-bit)", current->data.literal.asInteger );
+        }
         default:
           break;
       }
