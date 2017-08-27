@@ -13,7 +13,7 @@ primitive-type    → UINT_TYPE | INT_TYPE | FLOAT_TYPE | BOOL | VAR | ADDR
 
 assignment        → ( scope-resolution | vardecl ) EQUAL expression
 
-packagedecl       → PACKAGE IDENTIFIER
+packagedecl       → PACKAGE scope-resolution
 importdecl        → IMPORT IDENTIFIER ( COMMA IDENTIFIER )* FROM scope-resolution
 
 return-expression → RETURN expression

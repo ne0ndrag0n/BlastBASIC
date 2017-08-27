@@ -10,6 +10,7 @@
 typedef unsigned int CachedString;
 
 typedef CachedString PackageStatement;
+typedef CachedString ScopeResolution;
 typedef struct ImportStatement {
   CachedString* imports;
   size_t numImports;
@@ -18,7 +19,8 @@ typedef struct ImportStatement {
 
 typedef enum ASTNodeType {
   ASTPackageStatement,
-  ASTImportStatement
+  ASTImportStatement,
+  ASTScopeResolution
 } ASTNodeType;
 
 typedef struct ASTNode {
@@ -26,6 +28,7 @@ typedef struct ASTNode {
   union {
     PackageStatement asPackageStatement;
     ImportStatement asImportStatement;
+    ScopeResolution asScopeResolution;
   } data;
 } ASTNode;
 
@@ -40,7 +43,7 @@ typedef struct Parser {
 } Parser;
 
 char* gsGetCachedString( CachedString cachedString );
-CachedString gsCacheString( char* string );
+CachedString gsCacheString( char* string, bool freeIfFound );
 void gsClearCachedStrings();
 
 ASTNode* gsGetScopeResolution( Parser* self, bool test );
