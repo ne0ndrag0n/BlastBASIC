@@ -49,7 +49,8 @@ int main( int argumentCount, char** arguments ) {
     while( current != NULL ) {
       printf( "Token: %s", gsGetDebugOutput( current ) );
       switch( current->data.type ) {
-        case IDENTIFIER: {
+        case IDENTIFIER:
+        case STRING: {
           printf( " (%s)", current->data.literal.asString );
           break;
         }
@@ -57,6 +58,11 @@ int main( int argumentCount, char** arguments ) {
         case INT_TYPE:
         case FLOAT_TYPE: {
           printf( " (%ld-bit)", current->data.literal.asInteger );
+          break;
+        }
+        case INTEGER: {
+          printf( " (%ld)", current->data.literal.asInteger );
+          break;
         }
         default:
           break;

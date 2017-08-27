@@ -371,18 +371,22 @@ List_Token* gsLex( Lexer* self ) {
       }
       case '!': {
         current = gsPeekSet( self, '=', BANG_EQUAL, BANG );
+        gsLexerIncrement( self );
         break;
       }
       case '=': {
         current = gsPeekSet( self, '=', EQUAL_EQUAL, EQUAL );
+        gsLexerIncrement( self );
         break;
       }
       case '&': {
         current = gsPeekSet( self, '&', AND, BITWISE_AND );
+        gsLexerIncrement( self );
         break;
       }
       case '|': {
         current = gsPeekSet( self, '|', OR, BITWISE_OR );
+        gsLexerIncrement( self );
         break;
       }
       case '<': {

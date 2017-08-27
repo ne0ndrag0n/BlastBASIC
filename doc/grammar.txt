@@ -1,9 +1,26 @@
-Taken from the "Crafting Interpreters" series
-
 expression     → equality
-equality       → comparison ( ( "!=" | "==" ) comparison )*
-comparison     → addition ( ( ">" | ">=" | "<" | "<=" ) addition )*
-addition       → multiplication ( ( "-" | "+" ) multiplication )*
-multiplication → unary ( ( "/" | "*" ) unary )*
-unary          → ( "!" | "-" ) unary | primary
-primary        → NUMBER | STRING | "false" | "true" | "nil" | "(" expression ")"
+equality       → comparison ( ( BANG_EQUAL | EQUAL_EQUAL ) comparison )*
+comparison     → addition ( ( GREATER | GREATER_EQUAL | LESS | LESS_EQUAL ) addition )*
+addition       → multiplication ( ( MINUS | PLUS ) multiplication )*
+multiplication → unary ( ( SLASH | STAR ) unary )*
+unary          → ( ( BANG | MINUS ) unary ) | primary
+primary        → IDENTIFIER | STRING | INTEGER | REAL | BOOL_FALSE | BOOL_TRUE
+                 | NULL_TOKEN | LEFT_PAREN expression RIGHT_PAREN
+
+vardecl           → ( primitive-type | scope-resolution ) ( LEFT_BRACKET RIGHT_BRACKET )? IDENTIFIER
+scope-resolution  → IDENTIFIER ( DOT IDENTIFIER )*
+primitive-type    → UINT_TYPE | INT_TYPE | FLOAT_TYPE | BOOL | VAR | ADDR
+
+assignment        → ( scope-resolution | vardecl ) EQUAL expression
+
+packagedecl       → PACKAGE IDENTIFIER
+importdecl        → IMPORT IDENTIFIER ( COMMA IDENTIFIER )* FROM scope-resolution
+
+return-expression → RETURN expression
+
+statement         → (
+                      packagedecl | importdecl | expression | vardecl
+                      | return-expression
+                    ) SEMICOLON
+
+program           → statement*
