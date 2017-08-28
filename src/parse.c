@@ -1,97 +1,55 @@
 #include "parse.h"
+#include "lex.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
-static char* CACHED_STRINGS[ GS_CACHED_STRING_MAX ] = { 0 };
 
-char* gsGetCachedString( CachedString cachedString ) {
-  return CACHED_STRINGS[ cachedString ];
-}
-
-CachedString gsCacheString( char* string, bool freeIfFound ) {
-  for( unsigned int i = 0; i != GS_CACHED_STRING_MAX; i++ ) {
-    if( !strcmp( CACHED_STRINGS[ i ], string ) ) {
-      if( freeIfFound ) {
-        free( string );
-      }
-      return i;
-    }
-
-    if( !CACHED_STRINGS[ i ] ) {
-      CACHED_STRINGS[ i ] = string;
-      return i;
-    }
-  }
-
-  printf( "Out of cached strings.\n" );
-  exit( 2 );
-}
-
-void gsClearCachedStrings() {
-  for( unsigned int i = 0; i != GS_CACHED_STRING_MAX; i++ ) {
-    free( CACHED_STRINGS[ i ] );
-    CACHED_STRINGS[ i ] = 0;
-  }
-}
-
-ASTNode* gsGetScopeResolution( Parser* self, bool test ) {
+List_String* gsGetScopeResolution( Parser* self ) {
   if( self->state.current->data.type != IDENTIFIER ) {
-    if( !test && !self->error ) {
-      self->error = "Expected: IDENTIFIER token";
+    return NULL;
+  }
+
+  List_String* first = calloc( 1, sizeof( List_String ) );
+  first->data = self->state.current->data.literal.asString;
+
+  gsParserIncrement( self );
+
+  List_String* prev = first;
+  // While next two types are DOT and IDENTIFIER in a sequence
+  while( self->state.current->data.type == DOT && self->state.current->next && self->state.current->next->data.type == IDENTIFIER ) {
+    // Eat the DOT
+    gsParserIncrement( self );
+
+    prev->next = calloc( 1, sizeof( List_String ) );
+    prev->next->data = self->state.current->data.literal.asString;
+    prev = prev->next;
+
+    // Eat that IDENTIFIER we just used
+    gsParserIncrement( self );
+  }
+
+  return first;
+}
+
+ASTNode* gsGetPackageStatement( Parser* self ) {
+  if( self->state.current->data.type != PACKAGE ) {
+    return NULL;
+  }
+
+  List_String* scopeResolution = gsGetScopeResolution( self );
+  if( !scopeResolution ) {
+    if( !self->error ) {
+      const char* preamble = "Unexpected ";
+      const char* suffix = gsGetDebugOutput( self->state.current );
+
+      self->error = calloc( strlen( preamble ) + strlen( suffix ) + 1, sizeof( char ) );
+      strcat( self->error, preamble );
+      strcat( self->error, suffix );
     }
 
     return NULL;
   }
-
-  // At least one identifier - at this point, we'll have something to return
-  int stringCount = 1;
-  size_t totalLen = strlen( self->state.current->data.literal.asString );
-  List_Token* scope = self->state.current;
-
-  gsParserIncrement( self );
-
-  // While the next two types are DOT and IDENTIFIER...
-  while( self->state.current->data.type == DOT && self->state.current->next && self->state.current->next->data.type == IDENTIFIER ) {
-    // eat the DOT
-    gsParserIncrement( self );
-
-    // add the identifier length to totalLen, plus one for the dot
-    totalLen += ( 1 + strlen( self->state.current->data.literal.asString ) );
-
-    // eat the IDENTIFIER
-    gsParserIncrement( self );
-
-    // this is another string
-    stringCount++;
-  }
-
-  // Create a new string out of the objects starting at scope
-  char* scopeString = calloc( totalLen + 1, sizeof( char ) );
-
-  // Do the first one, special case
-  memcpy( scopeString, scope->data.literal.asString, strlen( scope->data.literal.asString ) );
-  stringCount--;
-
-  for( ; stringCount != 0; stringCount-- ) {
-    // Skip over the dot token
-    scope = scope->next;
-
-    strcat( scopeString, "." );
-    strcat( scopeString, scope->data.literal.asString );
-
-    // Skip to the next dot token
-    scope = scope->next;
-  }
-
-  // Cache the string
-  CachedString csId = gsCacheString( scopeString, true );
-
-  ASTNode* result = calloc( 1, sizeof( ASTNode ) );
-  result->type = ASTScopeResolution;
-  result->data.asScopeResolution = csId;
-
-  return result;
 }
 
 void gsParserIncrement( Parser* self ) {
