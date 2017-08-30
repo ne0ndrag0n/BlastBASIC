@@ -35,9 +35,6 @@ typedef struct Parser {
   char* error;
 } Parser;
 
-List_String* gsGetScopeResolution( Parser* self );
-ASTNode* gsGetPackageStatement( Parser* self );
-
 void gsParserIncrement( Parser* self );
 
 Parser* gsGetParser( List_Token* starterToken );

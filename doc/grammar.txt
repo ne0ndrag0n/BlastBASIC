@@ -1,18 +1,25 @@
-// for now only, changes required once we fix the expression grammar
-
-expression     → equality
+expression     → assignment
+assignment     → ( scope-resolution EQUAL assignment ) | equality
 equality       → comparison ( ( BANG_EQUAL | EQUAL_EQUAL ) comparison )*
 comparison     → addition ( ( GREATER | GREATER_EQUAL | LESS | LESS_EQUAL ) addition )*
 addition       → multiplication ( ( MINUS | PLUS ) multiplication )*
 multiplication → unary ( ( SLASH | STAR ) unary )*
-unary          → ( ( BANG | MINUS ) unary ) | primary
-primary        → IDENTIFIER | STRING | INTEGER | REAL | BOOL_FALSE | BOOL_TRUE
+unary          → ( ( BANG | MINUS ) unary ) | call
+call           → primary ( LEFT_PAREN arguments? RIGHT_PAREN )*
+primary        → STRING | INTEGER | REAL | BOOL_FALSE | BOOL_TRUE
                  | NULL_TOKEN | LEFT_PAREN expression RIGHT_PAREN
+                 | scope-resolution
+
+arguments      → expression ( COMMA expression )*
 
 scope-resolution  → IDENTIFIER ( DOT IDENTIFIER )*
+type-keyword      → UINT_TYPE | INT_TYPE | FLOAT_TYPE | VAR | BOOL | ADDR
+vardecl           → ( type-keyword | scope-resolution ) IDENTIFIER ( EQUAL expression )* SEMICOLON
 
-package-statement → PACKAGE scope-resolution SEMICOLON
-import-statement  → IMPORT IDENTIFIER ( COMMA IDENTIFIER )* FROM scope-resolution SEMICOLON
-return-statement  → RETURN expression SEMICOLON
+statement         → expression SEMICOLON
+declaration       → vardecl | statement
 
-statement         → package-statement | import-statement | return-statement
+program           → declaration*
+
+Notes:
+(funcdecl will go in declaration when we have it)
