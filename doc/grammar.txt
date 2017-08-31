@@ -1,25 +1,14 @@
-expression     → assignment
-assignment     → ( scope-resolution EQUAL assignment ) | equality
-equality       → comparison ( ( BANG_EQUAL | EQUAL_EQUAL ) comparison )*
-comparison     → addition ( ( GREATER | GREATER_EQUAL | LESS | LESS_EQUAL ) addition )*
-addition       → multiplication ( ( MINUS | PLUS ) multiplication )*
-multiplication → unary ( ( SLASH | STAR ) unary )*
-unary          → ( ( BANG | MINUS ) unary ) | call
-call           → primary ( LEFT_PAREN arguments? RIGHT_PAREN )*
-primary        → STRING | INTEGER | REAL | BOOL_FALSE | BOOL_TRUE
-                 | NULL_TOKEN | LEFT_PAREN expression RIGHT_PAREN
-                 | scope-resolution
+expression      → assignment
+assignment      → call EQUAL assignment | logic_or
+logic_or        → logic_and ( OR logic_and )*
+logic_and       → equality ( AND equality )*
+equality        → comparison ( ( BANG_EQUAL | EQUAL_EQUAL ) comparison )*
+comparison      → addition ( ( GREATER | GREATER_EQUAL | LESS | LESS_EQUAL ) addition )*
+addition        → multiplication ( ( MINUS | PLUS ) multiplication )*
+multiplication  → unary ( ( SLASH | STAR ) unary )*
+unary           → ( BANG | MINUS ) unary | call
+call            → primary ( ( LEFT_PAREN arguments? RIGHT_PAREN ) | ( DOT IDENTIFIER ) )*
+primary         → BOOL_TRUE | BOOL_FALSE | NULL_TOKEN | THIS | INTEGER | REAL | STRING
+                  | IDENTIFIER | LEFT_PAREN expression RIGHT_PAREN
 
-arguments      → expression ( COMMA expression )*
-
-scope-resolution  → IDENTIFIER ( DOT IDENTIFIER )*
-type-keyword      → UINT_TYPE | INT_TYPE | FLOAT_TYPE | VAR | BOOL | ADDR
-vardecl           → ( type-keyword | scope-resolution ) IDENTIFIER ( EQUAL expression )* SEMICOLON
-
-statement         → expression SEMICOLON
-declaration       → vardecl | statement
-
-program           → declaration*
-
-Notes:
-(funcdecl will go in declaration when we have it)
+arguments       → expression ( COMMA expression )*
