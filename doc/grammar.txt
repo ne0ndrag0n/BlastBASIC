@@ -1,5 +1,5 @@
 expression      → assignment
-assignment      → call EQUAL assignment | logic_or
+assignment      → call EQUAL ( NEW STACK? )? assignment | logic_or
 logic_or        → logic_and ( OR logic_and )*
 logic_and       → equality ( AND equality )*
 equality        → comparison ( ( BANG_EQUAL | EQUAL_EQUAL ) comparison )*
