@@ -12,3 +12,11 @@ primary         → BOOL_TRUE | BOOL_FALSE | NULL_TOKEN | THIS | INTEGER | REAL 
                   | IDENTIFIER | LEFT_PAREN expression RIGHT_PAREN
 
 arguments       → expression ( COMMA expression )*
+
+packagestmt     → PACKAGE IDENTIFIER ( DOT IDENTIFIER )* SEMICOLON
+importstmt      → IMPORT IDENTIFIER ( COMMA IDENTIFIER )* FROM IDENTIFIER ( DOT IDENTIFIER )* SEMICOLON
+exprstmt        → expression SEMICOLON
+
+statement       → packagestmt | importstmt | exprstmt
+declaration     → vardecl | statement
+program         → declaration*

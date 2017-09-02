@@ -7,35 +7,6 @@
 #define PRIMARY_TOKENS_COUNT 8
 static const TokenType PRIMARY_TOKENS[ PRIMARY_TOKENS_COUNT ] = { BOOL_TRUE, BOOL_FALSE, NULL_TOKEN, THIS, INTEGER, REAL, STRING, IDENTIFIER };
 
-/*
-List_String* gsGetScopeResolution( Parser* self ) {
-  if( self->state.current->data.type != IDENTIFIER ) {
-    return NULL;
-  }
-
-  List_String* first = calloc( 1, sizeof( List_String ) );
-  first->data = self->state.current->data.literal.asString;
-
-  gsParserIncrement( self );
-
-  List_String* prev = first;
-  // While next two types are DOT and IDENTIFIER in a sequence
-  while( self->state.current->data.type == DOT && self->state.current->next && self->state.current->next->data.type == IDENTIFIER ) {
-    // Eat the DOT
-    gsParserIncrement( self );
-
-    prev->next = calloc( 1, sizeof( List_String ) );
-    prev->next->data = self->state.current->data.literal.asString;
-    prev = prev->next;
-
-    // Eat that IDENTIFIER we just used
-    gsParserIncrement( self );
-  }
-
-  return first;
-}
-*/
-
 void gsParserThrow( Parser* self, char* error ) {
   self->error = error;
 
@@ -142,15 +113,15 @@ ASTNode* gsGetArguments( Parser* self ) {
   result->type = ASTArgumentList;
 
   // Get first expression
-  result->data.expressionList = calloc( 1, sizeof( List_Expression ) );
+  result->data.expressionList = calloc( 1, sizeof( List_Node ) );
   result->data.expressionList->data = gsGetExpression( self );
 
-  List_Expression* prev = result->data.expressionList;
+  List_Node* prev = result->data.expressionList;
   while( self->current && self->current->data.type == COMMA ) {
     // Eat the COMMA
     gsParserIncrement( self );
 
-    prev->next = calloc( 1, sizeof( List_Expression ) );
+    prev->next = calloc( 1, sizeof( List_Node ) );
     prev->next->data = gsGetExpression( self );
     prev = prev->next;
   }
@@ -330,6 +301,122 @@ ASTNode* gsGetExpressionAssignment( Parser* self ) {
 
 ASTNode* gsGetExpression( Parser* self ) {
   return gsGetExpressionAssignment( self );
+}
+
+ASTNode* gsGetPackageStatement( Parser* self ) {
+  List_Token* match = NULL;
+
+  if( ( match = gsParserExpect( self, IDENTIFIER ) ) ) {
+    ASTNode* identifier = gsCreatePrimaryNode( match->data );
+
+    while( ( match = gsParserExpect( self, DOT ) ) ) {
+      if( ( match = gsParserExpect( self, IDENTIFIER ) ) ) {
+        identifier = gsCreateGetNode( identifier, match->data.literal.asString );
+      } else {
+        gsParserThrow( self, "Expected: <identifier> token after '.' token" );
+      }
+    }
+
+    if( ( match = gsParserExpect( self, SEMICOLON ) ) ) {
+      ASTNode* stmt = calloc( 1, sizeof( ASTNode ) );
+      stmt->type = ASTPackageStatement;
+      stmt->data.identifier = identifier;
+
+      return stmt;
+    } else {
+      gsParserThrow( self, "Expected: ; after 'package' statement" );
+    }
+  } else {
+    gsParserThrow( self, "Expected: <identifier> token after 'package' keyword" );
+  }
+
+  // Shut up lint
+  return NULL;
+}
+
+ASTNode* gsGetImportStatement( Parser* self ) {
+  List_Token* match = NULL;
+  List_Node* imports = NULL;
+  ASTNode* target = NULL;
+
+  if( ( match = gsParserExpect( self, IDENTIFIER ) ) ) {
+
+    imports = calloc( 1, sizeof( List_Node ) );
+    imports->data = gsCreatePrimaryNode( match->data );
+
+    List_Node* prev = imports;
+    while( ( match = gsParserExpect( self, COMMA ) ) ) {
+      if( ( match = gsParserExpect( self, IDENTIFIER ) ) ) {
+        prev->next = calloc( 1, sizeof( List_Node ) );
+        prev->next->data = gsCreatePrimaryNode( match->data );
+        prev = prev->next;
+      } else {
+        gsParserThrow( self, "Expected: <identifier> token after ',' token" );
+      }
+    }
+
+    if( ( match = gsParserExpect( self, FROM ) ) ) {
+
+      if( ( match = gsParserExpect( self, IDENTIFIER ) ) ) {
+
+        target = gsCreatePrimaryNode( match->data );
+        while( ( match = gsParserExpect( self, DOT ) ) ) {
+
+          if( ( match = gsParserExpect( self, IDENTIFIER ) ) ) {
+            target = gsCreateGetNode( target, match->data.literal.asString );
+          } else {
+            gsParserThrow( self, "Expected: <identifier> token after '.' token" );
+          }
+
+        }
+
+        if( ( match = gsParserExpect( self, SEMICOLON ) ) ) {
+          ASTNode* result = calloc( 1, sizeof( ASTNode ) );
+          result->type = ASTImportStatement;
+          result->data.import.imports = imports;
+          result->data.import.from = target;
+
+          return result;
+        } else {
+          gsParserThrow( self, "Expected: ';' token after import statement" );
+        }
+
+      } else {
+        gsParserThrow( self, "Expected: <identifier> token after 'from' keyword" );
+      }
+
+    } else {
+      gsParserThrow( self, "Expected: 'from' keyword after <identifier> list" );
+    }
+
+  } else {
+    gsParserThrow( self, "Expected: <identifier> token after 'import' keyword" );
+  }
+
+  // Shut up lint
+  return NULL;
+}
+
+ASTNode* gsGetStatement( Parser* self ) {
+  List_Token* match = NULL;
+
+  if( ( match = gsParserExpect( self, PACKAGE ) ) ) {
+    return gsGetPackageStatement( self );
+  }
+
+  if( ( match = gsParserExpect( self, IMPORT ) ) ) {
+    return gsGetImportStatement( self );
+  }
+
+  ASTNode* expr = gsGetExpression( self );
+  if( ( match = gsParserExpect( self, SEMICOLON ) ) ) {
+    return expr;
+  } else {
+    gsParserThrow( self, "Expected: ; after expression statement" );
+  }
+
+  // Shut up lint
+  return NULL;
 }
 
 void gsParserIncrement( Parser* self ) {

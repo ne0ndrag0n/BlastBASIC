@@ -16,7 +16,9 @@ typedef enum ASTNodeType {
   ASTCall,
   ASTUnaryExpression,
   ASTBinaryExpression,
-  ASTAssignment
+  ASTAssignment,
+  ASTPackageStatement,
+  ASTImportStatement
 } ASTNodeType;
 
 typedef struct ExprGet {
@@ -48,10 +50,15 @@ typedef struct AssignmentExpression {
   bool stackQualifier;
 } AssignmentExpression;
 
-typedef struct List_Expression {
+typedef struct List_Node {
   struct ASTNode* data;
-  struct List_Expression* next;
-} List_Expression;
+  struct List_Node* next;
+} List_Node;
+
+typedef struct ImportStatement {
+  List_Node* imports;
+  struct ASTNode* from;
+} ImportStatement;
 
 typedef struct ASTNode {
   ASTNodeType type;
@@ -61,7 +68,7 @@ typedef struct ASTNode {
     // ASTGetter
     ExprGet get;
     // ASTArgumentList
-    List_Expression* expressionList;
+    List_Node* expressionList;
     // ASTCall
     ExprCall call;
     // ASTUnaryExpression
@@ -70,6 +77,10 @@ typedef struct ASTNode {
     BinaryExpression binaryExpression;
     // ASTAssignment
     AssignmentExpression assignmentExpression;
+    // ASTPackageStatement
+    struct ASTNode* identifier;
+    // ASTImportStatement
+    ImportStatement import;
   } data;
 } ASTNode;
 
@@ -105,6 +116,10 @@ ASTNode* gsGetExpressionLogicAnd( Parser* self );
 ASTNode* gsGetExpressionLogicOr( Parser* self );
 ASTNode* gsGetExpressionAssignment( Parser* self );
 ASTNode* gsGetExpression( Parser* self );
+
+ASTNode* gsGetPackageStatement( Parser* self );
+ASTNode* gsGetImportStatement( Parser* self );
+ASTNode* gsGetStatement( Parser* self );
 
 Parser* gsGetParser( List_Token* starterToken );
 
