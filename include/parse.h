@@ -14,7 +14,9 @@ typedef enum ASTNodeType {
   ASTGetter,
   ASTArgumentList,
   ASTCall,
-  ASTUnaryExpression
+  ASTUnaryExpression,
+  ASTBinaryExpression,
+  ASTAssignment
 } ASTNodeType;
 
 typedef struct ExprGet {
@@ -31,6 +33,12 @@ typedef struct UnaryExpression {
   struct ASTNode* rhs;
   Token op;
 } UnaryExpression;
+
+typedef struct BinaryExpression {
+  struct ASTNode* lhs;
+  struct ASTNode* rhs;
+  Token op;
+} BinaryExpression;
 
 typedef struct List_Expression {
   struct ASTNode* data;
@@ -50,6 +58,8 @@ typedef struct ASTNode {
     ExprCall call;
     // ASTUnaryExpression
     UnaryExpression unaryExpression;
+    // ASTBinaryExpression, ASTAssignment
+    BinaryExpression binaryExpression;
   } data;
 } ASTNode;
 
@@ -68,12 +78,21 @@ List_Token* gsParserExpect( Parser* self, TokenType type );
 ASTNode* gsCreatePrimaryNode( Token token );
 ASTNode* gsCreateGetNode( ASTNode* source, char* field );
 ASTNode* gsCreateCallNode( ASTNode* source, ASTNode* arguments );
+ASTNode* gsCreateUnaryExpressionNode( Token op, ASTNode* rhs );
+ASTNode* gsCreateBinaryExpressionNode( ASTNode* lhs, Token op, ASTNode* rhs );
 
 ASTNode* gsGetArguments( Parser* self );
 
 ASTNode* gsGetExpressionPrimary( Parser* self );
 ASTNode* gsGetExpressionCall( Parser* self );
 ASTNode* gsGetExpressionUnary( Parser* self );
+ASTNode* gsGetExpressionMultiplication( Parser* self );
+ASTNode* gsGetExpressionAddition( Parser* self );
+ASTNode* gsGetExpressionComparison( Parser* self );
+ASTNode* gsGetExpressionEquality( Parser* self );
+ASTNode* gsGetExpressionLogicAnd( Parser* self );
+ASTNode* gsGetExpressionLogicOr( Parser* self );
+ASTNode* gsGetExpressionAssignment( Parser* self );
 ASTNode* gsGetExpression( Parser* self );
 
 Parser* gsGetParser( List_Token* starterToken );

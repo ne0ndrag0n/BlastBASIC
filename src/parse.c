@@ -96,6 +96,27 @@ ASTNode* gsCreateCallNode( ASTNode* source, ASTNode* arguments ) {
   return result;
 }
 
+ASTNode* gsCreateUnaryExpressionNode( Token op, ASTNode* rhs ) {
+  ASTNode* expr = calloc( 1, sizeof( ASTNode ) );
+  expr->type = ASTUnaryExpression;
+
+  expr->data.unaryExpression.op = op;
+  expr->data.unaryExpression.rhs = rhs;
+
+  return expr;
+}
+
+ASTNode* gsCreateBinaryExpressionNode( ASTNode* lhs, Token op, ASTNode* rhs ) {
+  ASTNode* expr = calloc( 1, sizeof( ASTNode ) );
+  expr->type = ASTBinaryExpression;
+
+  expr->data.binaryExpression.lhs = lhs;
+  expr->data.binaryExpression.op = op;
+  expr->data.binaryExpression.rhs = rhs;
+
+  return expr;
+}
+
 /**
  * TODO: if gsGetExpression throws, set local jmp_buf to clean up allocations. Then longjmp to original jmp_buf
  * Don't give a shit about leaks here for now because when the parser encounters an error, it'll close and the OS will deallocate it.
@@ -183,7 +204,7 @@ ASTNode* gsGetExpressionCall( Parser* self ) {
         }
       }
     } else {
-      gsParserThrow( self, "Invalid left-hand side of operator" );
+      gsParserThrow( self, "Invalid left-hand side of '(' or '.' operator" );
     }
   }
 
@@ -191,22 +212,104 @@ ASTNode* gsGetExpressionCall( Parser* self ) {
 }
 
 ASTNode* gsGetExpressionUnary( Parser* self ) {
-  if( self->current->data.type == BANG || self->current->data.type == MINUS ) {
-    ASTNode* expr = calloc( 1, sizeof( ASTNode ) );
-    expr->type = ASTUnaryExpression;
-    expr->data.unaryExpression.op = self->current->data;
-    gsParserIncrement( self );
-    expr->data.unaryExpression.rhs = gsGetExpressionUnary( self );
+  List_Token* match = NULL;
 
-    return expr;
+  if( ( match = gsParserExpect( self, BANG ) ) || ( match = gsParserExpect( self, MINUS ) ) ) {
+    return gsCreateUnaryExpressionNode( match->data, gsGetExpressionUnary( self ) );
   } else {
     return gsGetExpressionCall( self );
   }
 }
 
+ASTNode* gsGetExpressionMultiplication( Parser* self ) {
+  ASTNode* expr = gsGetExpressionUnary( self );
+  List_Token* match = NULL;
+
+  while( ( match = gsParserExpect( self, SLASH ) ) || ( match = gsParserExpect( self, STAR ) ) ) {
+    expr = gsCreateBinaryExpressionNode( expr, match->data, gsGetExpressionUnary( self ) );
+  }
+
+  return expr;
+}
+
+ASTNode* gsGetExpressionAddition( Parser* self ) {
+  ASTNode* expr = gsGetExpressionMultiplication( self );
+  List_Token* match = NULL;
+
+  while( ( match = gsParserExpect( self, MINUS ) ) || ( match = gsParserExpect( self, PLUS ) ) ) {
+    expr = gsCreateBinaryExpressionNode( expr, match->data, gsGetExpressionMultiplication( self ) );
+  }
+
+  return expr;
+}
+
+ASTNode* gsGetExpressionComparison( Parser* self ) {
+  ASTNode* expr = gsGetExpressionAddition( self );
+  List_Token* match = NULL;
+
+  while(
+    ( match = gsParserExpect( self, GREATER ) ) ||
+    ( match = gsParserExpect( self, GREATER_EQUAL ) ) ||
+    ( match = gsParserExpect( self, LESS ) ) ||
+    ( match = gsParserExpect( self, LESS_EQUAL ) )
+  ) {
+    expr = gsCreateBinaryExpressionNode( expr, match->data, gsGetExpressionAddition( self ) );
+  }
+
+  return expr;
+}
+
+ASTNode* gsGetExpressionEquality( Parser* self ) {
+  ASTNode* expr = gsGetExpressionComparison( self );
+  List_Token* match = NULL;
+
+  while( ( match = gsParserExpect( self, BANG_EQUAL ) ) || ( match = gsParserExpect( self, EQUAL_EQUAL ) ) ) {
+    expr = gsCreateBinaryExpressionNode( expr, match->data, gsGetExpressionComparison( self ) );
+  }
+
+  return expr;
+}
+
+ASTNode* gsGetExpressionLogicAnd( Parser* self ) {
+  ASTNode* expr = gsGetExpressionEquality( self );
+  List_Token* match = NULL;
+
+  while( ( match = gsParserExpect( self, AND ) ) ) {
+    expr = gsCreateBinaryExpressionNode( expr, match->data, gsGetExpressionEquality( self ) );
+  }
+
+  return expr;
+}
+
+ASTNode* gsGetExpressionLogicOr( Parser* self ) {
+  ASTNode* expr = gsGetExpressionLogicAnd( self );
+  List_Token* match = NULL;
+
+  while( ( match = gsParserExpect( self, OR ) ) ) {
+    expr = gsCreateBinaryExpressionNode( expr, match->data, gsGetExpressionLogicAnd( self ) );
+  }
+
+  return expr;
+}
+
+ASTNode* gsGetExpressionAssignment( Parser* self ) {
+  ASTNode* expr = gsGetExpressionLogicOr( self );
+  List_Token* match = NULL;
+
+  if( ( match = gsParserExpect( self, EQUAL ) ) ) {
+    // expr, the left-hand side above, must be an ASTNode of type ASTIdentifier, ASTGetter
+    if( expr->type == ASTIdentifier || expr->type == ASTGetter ) {
+      expr = gsCreateBinaryExpressionNode( expr, match->data, gsGetExpressionAssignment( self ) );
+    } else {
+      gsParserThrow( self, "Invalid left-hand side of '(' or '.' operator" );
+    }
+  }
+
+  return expr;
+}
+
 ASTNode* gsGetExpression( Parser* self ) {
-  // TODO !!
-  return NULL;
+  return gsGetExpressionAssignment( self );
 }
 
 void gsParserIncrement( Parser* self ) {
