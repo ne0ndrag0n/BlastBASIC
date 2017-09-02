@@ -30,6 +30,25 @@ List_Token* gsParserExpect( Parser* self, TokenType type ) {
   return NULL;
 }
 
+/**
+ * Get the first token *after* an alternating sequence of two token types
+ */
+List_Token* gsIndeterminateLookahead( List_Token* start, TokenType first, TokenType second ) {
+  List_Token* current = start;
+
+  while( true ) {
+    if( !current || ( current->data.type != first ) ) {
+      return current;
+    }
+
+    current = current->next;
+    if( !current || ( current->data.type != second ) ) {
+      return current;
+    }
+
+    current = current->next;
+  }
+}
 
 ASTNode* gsCreatePrimaryNode( Token token ) {
   ASTNode* result = calloc( 1, sizeof( ASTNode ) );
@@ -417,6 +436,112 @@ ASTNode* gsGetStatement( Parser* self ) {
 
   // Shut up lint
   return NULL;
+}
+
+ASTNode* gsGetVarDecl( Parser* self ) {
+  List_Token* match = NULL;
+  ASTNode* udt = NULL;
+  ASTNode* identifier = NULL;
+  ASTNode* expr = NULL;
+  Token primitive;
+
+  // Get the type of this vardecl
+  if( ( match = gsParserExpect( self, IDENTIFIER ) ) ) {
+    udt = gsCreatePrimaryNode( match->data );
+
+    while( ( match = gsParserExpect( self, DOT ) ) ) {
+      if( ( match = gsParserExpect( self, IDENTIFIER ) ) ) {
+        udt = gsCreateGetNode( udt, match->data.literal.asString );
+      } else {
+        gsParserThrow( self, "Expected: <identifier> token after '.' token" );
+      }
+    }
+  } else if(
+    ( match = gsParserExpect( self, UINT_TYPE ) ) ||
+    ( match = gsParserExpect( self, INT_TYPE ) ) ||
+    ( match = gsParserExpect( self, FLOAT_TYPE ) ) ||
+    ( match = gsParserExpect( self, VAR ) ) ||
+    ( match = gsParserExpect( self, ADDR ) )
+  ) {
+    primitive = match->data;
+  } else {
+    gsParserThrow( self, "Expected: primitive type or <identifier> token in vardecl" );
+  }
+
+  // Get the identifier
+  if( ( match = gsParserExpect( self, IDENTIFIER ) ) ) {
+    identifier = gsCreatePrimaryNode( match->data );
+  } else {
+    gsParserThrow( self, "Expected: <identifier> token after vardecl type" );
+  }
+
+  // Get the rvalue
+  if( ( match = gsParserExpect( self, EQUAL ) ) ) {
+    expr = gsGetExpression( self );
+  } else {
+    gsParserThrow( self, "Expected: '=' token after vardecl <identifier>" );
+  }
+
+  if( ( match = gsParserExpect( self, SEMICOLON ) ) ) {
+    ASTNode* result = calloc( 1, sizeof( ASTNode ) );
+    result->type = ASTVardecl;
+
+    if( udt ) {
+      result->data.vardecl.udt = true;
+      result->data.vardecl.type.udt = udt;
+    } else {
+      result->data.vardecl.udt = false;
+      result->data.vardecl.type.primitive = primitive;
+    }
+
+    result->data.vardecl.identifier = identifier;
+    result->data.vardecl.assignmentExpression = expr;
+
+    return result;
+  } else {
+    gsParserThrow( self, "Expected: ';' after vardecl statement" );
+  }
+
+  // Shut up lint
+  return NULL;
+}
+
+ASTNode* gsGetDeclaration( Parser* self ) {
+  // EZ PZ if the vardecl starts with a primitive type
+  if(
+    self->current &&
+    (
+      self->current->data.type == UINT_TYPE ||
+      self->current->data.type == INT_TYPE ||
+      self->current->data.type == FLOAT_TYPE ||
+      self->current->data.type == VAR ||
+      self->current->data.type == ADDR
+    )
+  ) {
+    return gsGetVarDecl( self );
+  }
+
+  // Still looking for a vardecl. Check for identifier, infinite lookahead past ( DOT IDENTIFIER )*, and then for the token to be stopped at another IDENTIFIER
+  if( self->current && self->current->data.type == IDENTIFIER ) {
+
+    // Burn DOT IDENTIFIER patterns
+    List_Token* tokenAfter = NULL;
+
+    if( self->current->next ) {
+      if( self->current->next->data.type == DOT ) {
+        tokenAfter = gsIndeterminateLookahead( self->current->next, DOT, IDENTIFIER );
+      } else {
+        tokenAfter = self->current->next;
+      }
+
+      if( tokenAfter && tokenAfter->data.type == IDENTIFIER ) {
+        return gsGetVarDecl( self );
+      }
+    }
+
+  }
+
+  return gsGetStatement( self );
 }
 
 void gsParserIncrement( Parser* self ) {

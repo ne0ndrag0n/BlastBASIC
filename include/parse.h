@@ -18,7 +18,8 @@ typedef enum ASTNodeType {
   ASTBinaryExpression,
   ASTAssignment,
   ASTPackageStatement,
-  ASTImportStatement
+  ASTImportStatement,
+  ASTVardecl
 } ASTNodeType;
 
 typedef struct ExprGet {
@@ -60,6 +61,16 @@ typedef struct ImportStatement {
   struct ASTNode* from;
 } ImportStatement;
 
+typedef struct Vardecl {
+  bool udt;
+  union {
+    struct ASTNode* udt;
+    Token primitive;
+  } type;
+  struct ASTNode* identifier;
+  struct ASTNode* assignmentExpression;
+} Vardecl;
+
 typedef struct ASTNode {
   ASTNodeType type;
   union {
@@ -81,6 +92,8 @@ typedef struct ASTNode {
     struct ASTNode* identifier;
     // ASTImportStatement
     ImportStatement import;
+    // ASTVardecl
+    Vardecl vardecl;
   } data;
 } ASTNode;
 
@@ -95,6 +108,7 @@ void gsParserThrow( Parser* self, char* error );
 
 void gsParserIncrement( Parser* self );
 List_Token* gsParserExpect( Parser* self, TokenType type );
+List_Token* gsIndeterminateLookahead( List_Token* start, TokenType first, TokenType second );
 
 ASTNode* gsCreatePrimaryNode( Token token );
 ASTNode* gsCreateGetNode( ASTNode* source, char* field );
@@ -120,6 +134,10 @@ ASTNode* gsGetExpression( Parser* self );
 ASTNode* gsGetPackageStatement( Parser* self );
 ASTNode* gsGetImportStatement( Parser* self );
 ASTNode* gsGetStatement( Parser* self );
+
+ASTNode* gsGetVarDecl( Parser* self );
+
+ASTNode* gsGetDeclaration( Parser* self );
 
 Parser* gsGetParser( List_Token* starterToken );
 

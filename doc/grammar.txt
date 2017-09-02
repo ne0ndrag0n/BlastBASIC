@@ -11,12 +11,18 @@ call            → primary ( ( LEFT_PAREN arguments? RIGHT_PAREN ) | ( DOT IDEN
 primary         → BOOL_TRUE | BOOL_FALSE | NULL_TOKEN | THIS | INTEGER | REAL | STRING
                   | IDENTIFIER | LEFT_PAREN expression RIGHT_PAREN
 
-arguments       → expression ( COMMA expression )*
-
 packagestmt     → PACKAGE IDENTIFIER ( DOT IDENTIFIER )* SEMICOLON
 importstmt      → IMPORT IDENTIFIER ( COMMA IDENTIFIER )* FROM IDENTIFIER ( DOT IDENTIFIER )* SEMICOLON
 exprstmt        → expression SEMICOLON
 
 statement       → packagestmt | importstmt | exprstmt
+
+vardecl         → ( primitive-type | IDENTIFIER ( DOT IDENTIFIER )* ) IDENTIFIER ( EQUALS expression )? SEMICOLON
+
 declaration     → vardecl | statement
 program         → declaration*
+
+---
+
+arguments       → expression ( COMMA expression )*
+primitive-type  → UINT_TYPE | INT_TYPE | FLOAT_TYPE | VAR | ADDR
