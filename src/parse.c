@@ -301,7 +301,7 @@ ASTNode* gsGetExpressionAssignment( Parser* self ) {
     if( expr->type == ASTIdentifier || expr->type == ASTGetter ) {
       expr = gsCreateBinaryExpressionNode( expr, match->data, gsGetExpressionAssignment( self ) );
     } else {
-      gsParserThrow( self, "Invalid left-hand side of '(' or '.' operator" );
+      gsParserThrow( self, "Invalid left-hand side of assignment operator" );
     }
   }
 
