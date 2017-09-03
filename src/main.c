@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stddef.h>
 #include "lex.h"
+#include "parse.h"
 
 int main( int argumentCount, char** arguments ) {
   char* files[ 256 ] = { 0 };
@@ -37,7 +38,10 @@ int main( int argumentCount, char** arguments ) {
 
   // Process files - 1 lexer per file
   Lexer* lexers[ numFiles ];
+  Parser* parsers[ numFiles ];
   for( size_t i = 0; i < numFiles; i++ ) {
+    printf( "Lexing...\n" );
+
     lexers[ i ] = gsGetLexerFromFile( files[ i ] );
     if( !lexers[ i ] ) {
       printf( "Skipping file %s\n", arguments[ i ] );
@@ -70,6 +74,11 @@ int main( int argumentCount, char** arguments ) {
       printf( "\n" );
       current = current->next;
     }
+
+    printf( "Parsing...\n" );
+    parsers[ i ] = gsGetParser( tokens );
+    ASTNode* program = gsGetProgram( parsers[ i ] );
+    gsDebugPrintAST( program );
   }
 
   return 0;

@@ -23,7 +23,8 @@ typedef enum ASTNodeType {
   ASTBlock,
   ASTTypeSpecifier,
   ASTFunction,
-  ASTReturnStatement
+  ASTReturnStatement,
+  ASTProgram
 } ASTNodeType;
 
 typedef struct ExprGet {
@@ -94,7 +95,7 @@ typedef struct ASTNode {
     Token token;
     // ASTGetter
     ExprGet get;
-    // ASTArgumentList, ASTBlock
+    // ASTArgumentList, ASTBlock, ASTProgram
     List_Node* expressionList;
     // ASTCall
     ExprCall call;
@@ -160,6 +161,8 @@ ASTNode* gsGetVarDecl( Parser* self, bool independent );
 ASTNode* gsGetFunDecl( Parser* self );
 
 ASTNode* gsGetDeclaration( Parser* self );
+
+ASTNode* gsGetProgram( Parser* self );
 
 ASTNode* gsGetBlock( Parser* self );
 ASTNode* gsGetTypeSpecifier( Parser* self );
