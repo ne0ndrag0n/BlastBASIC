@@ -339,7 +339,7 @@ ASTNode* gsGetPackageStatement( Parser* self ) {
     if( ( match = gsParserExpect( self, SEMICOLON ) ) ) {
       ASTNode* stmt = calloc( 1, sizeof( ASTNode ) );
       stmt->type = ASTPackageStatement;
-      stmt->data.identifier = identifier;
+      stmt->data.node = identifier;
 
       return stmt;
     } else {
@@ -416,6 +416,27 @@ ASTNode* gsGetImportStatement( Parser* self ) {
   return NULL;
 }
 
+ASTNode* gsGetReturnStatement( Parser* self ) {
+  ASTNode* expr;
+
+  if( gsParserExpect( self, SEMICOLON ) ) {
+    // Return with no expression
+    expr = NULL;
+  } else {
+    expr = gsGetExpression( self );
+
+    if( !gsParserExpect( self, SEMICOLON ) ) {
+      gsParserThrow( self, "Expected: ';' token after return statement" );
+    }
+  }
+
+  ASTNode* result = calloc( 1, sizeof( ASTNode ) );
+  result->type = ASTReturnStatement;
+  result->data.node = expr;
+
+  return result;
+}
+
 ASTNode* gsGetStatement( Parser* self ) {
   List_Token* match = NULL;
 
@@ -425,6 +446,10 @@ ASTNode* gsGetStatement( Parser* self ) {
 
   if( ( match = gsParserExpect( self, IMPORT ) ) ) {
     return gsGetImportStatement( self );
+  }
+
+  if( ( match = gsParserExpect( self, RETURN ) ) ) {
+    return gsGetReturnStatement( self );
   }
 
   ASTNode* expr = gsGetExpression( self );

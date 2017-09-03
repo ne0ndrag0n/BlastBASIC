@@ -14,13 +14,14 @@ primary         → BOOL_TRUE | BOOL_FALSE | NULL_TOKEN | THIS | INTEGER | REAL 
 packagestmt     → PACKAGE IDENTIFIER ( DOT IDENTIFIER )* SEMICOLON
 importstmt      → IMPORT IDENTIFIER ( COMMA IDENTIFIER )* FROM IDENTIFIER ( DOT IDENTIFIER )* SEMICOLON
 exprstmt        → expression SEMICOLON
+returnstmt      → RETURN expression? SEMICOLON
 
-statement       → packagestmt | importstmt | exprstmt
+statement       → packagestmt | importstmt | exprstmt | returnstmt
 
 vardecl         → type-specifier IDENTIFIER ( EQUALS expression )? SEMICOLON
 fundecl         → type-specifier IDENTIFIER LEFT_PAREN argument-list? RIGHT_PAREN block
 
-declaration     → vardecl | statement
+declaration     → vardecl | fundecl | statement
 program         → declaration*
 
 ---
