@@ -170,5 +170,6 @@ ASTNode* gsGetTypeSpecifier( Parser* self );
 Parser* gsGetParser( List_Token* starterToken );
 
 void gsDebugPrintAST( ASTNode* root );
+void gsParseOutputIndentation( int indentation );
 
 #endif

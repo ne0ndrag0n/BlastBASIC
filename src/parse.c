@@ -6,6 +6,7 @@
 
 #define PRIMARY_TOKENS_COUNT 8
 static const TokenType PRIMARY_TOKENS[ PRIMARY_TOKENS_COUNT ] = { BOOL_TRUE, BOOL_FALSE, NULL_TOKEN, THIS, INTEGER, REAL, STRING, IDENTIFIER };
+static int INDENTATION = -1;
 
 void gsParserThrow( Parser* self, char* error ) {
   self->error = error;
@@ -749,6 +750,8 @@ Parser* gsGetParser( List_Token* starterToken ) {
  * Giant mess, don't give a shit
  */
 void gsDebugPrintAST( ASTNode* root ) {
+  int indentation = ++INDENTATION;
+
   char* description = NULL;
 
   switch( root->type ) {
@@ -804,10 +807,13 @@ void gsDebugPrintAST( ASTNode* root ) {
       description = "<unknown>";
   }
 
+  gsParseOutputIndentation( indentation );
   printf( "%p::%s\n", root, description );
 
   switch( root->type ) {
     case ASTLiteral: {
+      gsParseOutputIndentation( indentation );
+
       if( root->data.token.type == INTEGER ) {
         printf( "Integer Literal (%ld)\n", root->data.token.literal.asInteger );
       } else if( root->data.token.type == STRING ) {
@@ -824,6 +830,8 @@ void gsDebugPrintAST( ASTNode* root ) {
       break;
     }
     case ASTIdentifier: {
+      gsParseOutputIndentation( indentation );
+
       if( root->data.token.type == IDENTIFIER ) {
         printf( "Identifier (%s)\n", root->data.token.literal.asString );
       } else if( root->data.token.type == THIS ) {
@@ -832,6 +840,7 @@ void gsDebugPrintAST( ASTNode* root ) {
       break;
     }
     case ASTGetter: {
+      gsParseOutputIndentation( indentation );
       printf( "Field: %s, From: %p\n", ( root->data.get.field ? root->data.get.field : "" ), root->data.get.source );
       if( root->data.get.source ) {
         gsDebugPrintAST( root->data.get.source );
@@ -843,20 +852,23 @@ void gsDebugPrintAST( ASTNode* root ) {
     case ASTProgram: {
       List_Node* current = root->data.expressionList;
       while( current ) {
-        printf( "Printing child of %p...\n", root );
         gsDebugPrintAST( current->data );
         current = current->next;
       }
       break;
     }
     case ASTCall: {
+      gsParseOutputIndentation( indentation );
       printf( "Source: %p, Arguments: %p\n", root->data.call.source, root->data.call.arguments );
+
       if( root->data.call.source ) {
+        gsParseOutputIndentation( indentation );
         printf( "Source:\n" );
         gsDebugPrintAST( root->data.call.source );
       }
 
       if( root->data.call.arguments ) {
+        gsParseOutputIndentation( indentation );
         printf( "Arguments:\n" );
         gsDebugPrintAST( root->data.call.arguments );
       }
@@ -864,14 +876,18 @@ void gsDebugPrintAST( ASTNode* root ) {
       break;
     }
     case ASTUnaryExpression: {
+      gsParseOutputIndentation( indentation );
       printf( "rhs: %p op: %s\n", root->data.unaryExpression.rhs, gsTokenToString( root->data.unaryExpression.op.type ) );
+
       if( root->data.unaryExpression.rhs ) {
         gsDebugPrintAST( root->data.unaryExpression.rhs );
       }
       break;
     }
     case ASTBinaryExpression: {
+      gsParseOutputIndentation( indentation );
       printf( "lhs: %p rhs: %p op: %s\n", root->data.binaryExpression.lhs, root->data.binaryExpression.rhs, gsTokenToString( root->data.binaryExpression.op.type ) );
+
       if( root->data.binaryExpression.lhs ) {
         gsDebugPrintAST( root->data.binaryExpression.lhs );
       }
@@ -882,6 +898,7 @@ void gsDebugPrintAST( ASTNode* root ) {
       break;
     }
     case ASTAssignment: {
+      gsParseOutputIndentation( indentation );
       printf( "lhs: %p rhs: %p op: %s new: %d stack: %d\n",
         root->data.assignmentExpression.lhs,
         root->data.assignmentExpression.rhs,
@@ -901,7 +918,8 @@ void gsDebugPrintAST( ASTNode* root ) {
     }
     case ASTPackageStatement:
     case ASTReturnStatement: {
-      printf( "identifier: %p\n", root->data.node );
+      gsParseOutputIndentation( indentation );
+      printf( "Package Identifier:\n" );
 
       if( root->data.node ) {
         gsDebugPrintAST( root->data.node );
@@ -911,18 +929,21 @@ void gsDebugPrintAST( ASTNode* root ) {
     case ASTImportStatement: {
       List_Node* current = root->data.import.imports;
       while( current ) {
-        printf( "Child: %p\n", current->data );
+        gsParseOutputIndentation( indentation );
+        printf( "Import:\n" );
         gsDebugPrintAST( current->data );
         current = current->next;
       }
 
-      printf( "From: %p\n", root->data.import.from );
+      gsParseOutputIndentation( indentation );
+      printf( "From:\n" );
       if( root->data.import.from ) {
         gsDebugPrintAST( root->data.import.from );
       }
       break;
     }
     case ASTVardecl: {
+      gsParseOutputIndentation( indentation );
       printf( "typeSpecifier: %p, identifier: %p, assignmentExpression: %p\n",
         root->data.vardecl.typeSpecifier,
         root->data.vardecl.identifier,
@@ -944,16 +965,21 @@ void gsDebugPrintAST( ASTNode* root ) {
       break;
     }
     case ASTTypeSpecifier: {
+      gsParseOutputIndentation( indentation );
       printf( "udt: %d array: %d ", root->data.specifier.udt, root->data.specifier.array );
+
       if( root->data.specifier.udt ) {
+        gsParseOutputIndentation( indentation );
         printf( "udt: %p\n", root->data.specifier.type.udt );
         gsDebugPrintAST( root->data.specifier.type.udt );
       } else {
+        gsParseOutputIndentation( indentation );
         printf( "primitive: %s\n", gsTokenToString( root->data.specifier.type.primitive.type ) );
       }
       break;
     }
     case ASTFunction: {
+      gsParseOutputIndentation( indentation );
       printf( "typeSpecifier: %p identifier: %p body: %p",
         root->data.function.typeSpecifier,
         root->data.function.identifier,
@@ -961,22 +987,26 @@ void gsDebugPrintAST( ASTNode* root ) {
       );
 
       if( root->data.function.typeSpecifier ) {
+        gsParseOutputIndentation( indentation );
         printf( "Type Specifier:\n" );
         gsDebugPrintAST( root->data.function.typeSpecifier );
       }
 
       if( root->data.function.identifier ) {
+        gsParseOutputIndentation( indentation );
         printf( "Identifier:\n" );
         gsDebugPrintAST( root->data.function.identifier );
       }
 
       if( root->data.function.body ) {
+        gsParseOutputIndentation( indentation );
         printf( "Body:\n" );
         gsDebugPrintAST( root->data.function.body );
       }
 
       List_Node* current = root->data.function.arguments;
       while( current ) {
+        gsParseOutputIndentation( indentation );
         printf( "Argument: %p\n", current->data );
         gsDebugPrintAST( current->data );
         current = current->next;
@@ -984,5 +1014,13 @@ void gsDebugPrintAST( ASTNode* root ) {
 
       break;
     }
+  }
+
+  --INDENTATION;
+}
+
+void gsParseOutputIndentation( int indentation ) {
+  for( int i = 0; i < indentation; i++ ) {
+    printf( "-" );
   }
 }
