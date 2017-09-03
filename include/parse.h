@@ -19,7 +19,10 @@ typedef enum ASTNodeType {
   ASTAssignment,
   ASTPackageStatement,
   ASTImportStatement,
-  ASTVardecl
+  ASTVardecl,
+  ASTBlock,
+  ASTTypeSpecifier,
+  ASTFunction
 } ASTNodeType;
 
 typedef struct ExprGet {
@@ -61,15 +64,27 @@ typedef struct ImportStatement {
   struct ASTNode* from;
 } ImportStatement;
 
-typedef struct Vardecl {
+typedef struct TypeSpecifier {
   bool udt;
   union {
     struct ASTNode* udt;
     Token primitive;
   } type;
+  bool array;
+} TypeSpecifier;
+
+typedef struct Vardecl {
+  struct ASTNode* typeSpecifer;
   struct ASTNode* identifier;
   struct ASTNode* assignmentExpression;
 } Vardecl;
+
+typedef struct Fundecl {
+  struct ASTNode* typeSpecifier;
+  struct ASTNode* identifier;
+  List_Node* arguments;
+  struct ASTNode* body;
+} Fundecl;
 
 typedef struct ASTNode {
   ASTNodeType type;
@@ -78,7 +93,7 @@ typedef struct ASTNode {
     Token token;
     // ASTGetter
     ExprGet get;
-    // ASTArgumentList
+    // ASTArgumentList, ASTBlock
     List_Node* expressionList;
     // ASTCall
     ExprCall call;
@@ -94,6 +109,10 @@ typedef struct ASTNode {
     ImportStatement import;
     // ASTVardecl
     Vardecl vardecl;
+    // ASTTypeSpecifier
+    TypeSpecifier specifier;
+    // ASTFunction
+    Fundecl function;
   } data;
 } ASTNode;
 
@@ -135,9 +154,13 @@ ASTNode* gsGetPackageStatement( Parser* self );
 ASTNode* gsGetImportStatement( Parser* self );
 ASTNode* gsGetStatement( Parser* self );
 
-ASTNode* gsGetVarDecl( Parser* self );
+ASTNode* gsGetVarDecl( Parser* self, bool independent );
+ASTNode* gsGetFunDecl( Parser* self );
 
 ASTNode* gsGetDeclaration( Parser* self );
+
+ASTNode* gsGetBlock( Parser* self );
+ASTNode* gsGetTypeSpecifier( Parser* self );
 
 Parser* gsGetParser( List_Token* starterToken );
 

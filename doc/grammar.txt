@@ -17,12 +17,16 @@ exprstmt        → expression SEMICOLON
 
 statement       → packagestmt | importstmt | exprstmt
 
-vardecl         → ( primitive-type | IDENTIFIER ( DOT IDENTIFIER )* ) IDENTIFIER ( EQUALS expression )? SEMICOLON
+vardecl         → type-specifier IDENTIFIER ( EQUALS expression )? SEMICOLON
+fundecl         → type-specifier IDENTIFIER LEFT_PAREN argument-list? RIGHT_PAREN block
 
 declaration     → vardecl | statement
 program         → declaration*
 
 ---
 
+block           → LEFT_BRACE declaration* RIGHT_BRACE
+type-specifier  → ( primitive-type | IDENTIFIER ( DOT IDENTIFIER )* ) ( LEFT_BRACKET RIGHT_BRACKET )?
+argument-list   → type-specifier IDENTIFIER ( COMMA argument-list )*
 arguments       → expression ( COMMA expression )*
 primitive-type  → UINT_TYPE | INT_TYPE | FLOAT_TYPE | VAR | ADDR

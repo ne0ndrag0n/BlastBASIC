@@ -438,11 +438,189 @@ ASTNode* gsGetStatement( Parser* self ) {
   return NULL;
 }
 
-ASTNode* gsGetVarDecl( Parser* self ) {
+ASTNode* gsGetVarDecl( Parser* self, bool independent ) {
   List_Token* match = NULL;
-  ASTNode* udt = NULL;
+  ASTNode* type = NULL;
   ASTNode* identifier = NULL;
   ASTNode* expr = NULL;
+
+  type = gsGetTypeSpecifier( self );
+
+  // Get the identifier
+  if( ( match = gsParserExpect( self, IDENTIFIER ) ) ) {
+    identifier = gsCreatePrimaryNode( match->data );
+  } else {
+    gsParserThrow( self, "Expected: <identifier> token after type-specifier" );
+  }
+
+  if( independent ) {
+    // Independent means check for an assignment (if present), and expect a semicolon.
+    if( gsParserExpect( self, EQUAL ) ) {
+      expr = gsGetExpression( self );
+    }
+
+    if( !gsParserExpect( self, SEMICOLON ) ) {
+      gsParserThrow( self, "Expected: ';' after vardecl statement" );
+    }
+  }
+
+  ASTNode* result = calloc( 1, sizeof( ASTNode ) );
+  result->type = ASTVardecl;
+
+  result->data.vardecl.typeSpecifer = type;
+  result->data.vardecl.identifier = identifier;
+  result->data.vardecl.assignmentExpression = expr;
+
+  return result;
+}
+
+ASTNode* gsGetFunDecl( Parser* self ) {
+  List_Token* match = NULL;
+
+  ASTNode* type = gsGetTypeSpecifier( self );
+
+  // Get the identifier
+  ASTNode* identifier = NULL;
+  if( ( match = gsParserExpect( self, IDENTIFIER ) ) ) {
+    identifier = gsCreatePrimaryNode( match->data );
+  } else {
+    gsParserThrow( self, "Expected: <identifier> token after type-specifier" );
+  }
+
+  if( !gsParserExpect( self, LEFT_PAREN ) ) {
+    gsParserThrow( self, "Expected: '(' token after <identifier> in function declaration" );
+  }
+
+  List_Node* arguments = NULL;
+  List_Node* prev = NULL;
+  bool quit = gsParserExpect( self, RIGHT_PAREN );
+  while( !quit ) {
+    // There's a vardecl to be processed
+    if( !prev ) {
+      arguments = calloc( 1, sizeof( List_Node ) );
+      arguments->data = gsGetVarDecl( self, false );
+
+      prev = arguments;
+    } else {
+      prev->next = calloc( 1, sizeof( List_Node ) );
+      prev->next->data = gsGetVarDecl( self, false );
+      prev = prev->next;
+    }
+
+    if( gsParserExpect( self, COMMA ) ) {
+      // Ate a comma, don't quit.
+      quit = false;
+    } else if( gsParserExpect( self, RIGHT_PAREN ) ) {
+      // Ate a ), quit!
+      quit = true;
+    } else {
+      gsParserThrow( self, "Unexpected token parsing argument list for function declaration" );
+    }
+  }
+
+  ASTNode* body = gsGetBlock( self );
+
+  ASTNode* result = calloc( 1, sizeof( ASTNode ) );
+  result->type = ASTFunction;
+  result->data.function.typeSpecifier = type;
+  result->data.function.identifier = identifier;
+  result->data.function.arguments = arguments;
+  result->data.function.body = body;
+
+  return result;
+}
+
+ASTNode* gsGetDeclaration( Parser* self ) {
+  // EZ PZ if the vardecl starts with a primitive type
+  if(
+    self->current &&
+    (
+      self->current->data.type == UINT_TYPE ||
+      self->current->data.type == INT_TYPE ||
+      self->current->data.type == FLOAT_TYPE ||
+      self->current->data.type == VAR ||
+      self->current->data.type == ADDR
+    )
+  ) {
+    return gsGetVarDecl( self, true );
+  }
+
+  // Still looking for something beginning with a primitive-type. Check for identifier, infinite lookahead past ( DOT IDENTIFIER )*, and then for the token to be stopped at another IDENTIFIER
+  if( self->current && self->current->data.type == IDENTIFIER ) {
+    List_Token* tokenAfter = self->current->next;
+
+    if( tokenAfter && tokenAfter->data.type == DOT ) {
+      // Get this shit out of the way
+      tokenAfter = gsIndeterminateLookahead( tokenAfter, DOT, IDENTIFIER );
+    }
+
+    if( tokenAfter && tokenAfter->data.type == LEFT_BRACKET ) {
+      // Get this shit out of the way
+      tokenAfter = tokenAfter->next;
+      // Now should be on RIGHT_BRACKET but really we don't care when looking ahead
+      if( tokenAfter ) {
+        tokenAfter = tokenAfter->next;
+        // Now should be on the token after what RIGHT_BRACKET should be
+      }
+    }
+
+    if( tokenAfter && tokenAfter->data.type == IDENTIFIER ) {
+      // So, by the time we get here, it's either a vardecl or a fundecl
+      // Go one more up to look for a LEFT_PAREN and signal the fundecl
+      tokenAfter = tokenAfter->next;
+
+      if( tokenAfter && tokenAfter->data.type == LEFT_PAREN ) {
+        return gsGetFunDecl( self );
+      } else {
+        return gsGetVarDecl( self, true );
+      }
+    }
+
+  }
+
+  return gsGetStatement( self );
+}
+
+ASTNode* gsGetBlock( Parser* self ) {
+  List_Token* match = NULL;
+  List_Node* declarations = NULL;
+
+  if( ( match = gsParserExpect( self, LEFT_BRACE ) ) ) {
+
+    List_Node* prev = NULL;
+    while( !gsParserExpect( self, RIGHT_BRACE ) ) {
+      if( !prev ) {
+        declarations = calloc( 1, sizeof( List_Node ) );
+        declarations->data = gsGetDeclaration( self );
+
+        prev = declarations;
+      } else {
+        prev->next = calloc( 1, sizeof( List_Node ) );
+        prev->next->data = gsGetDeclaration( self );
+        prev = prev->next;
+      }
+    }
+
+    // gsParserExpect can return NULL if we hit the end of the token list, not just matching RIGHT_BRACE
+    if( self->prev->data.type == RIGHT_BRACE ) {
+      ASTNode* result = calloc( 1, sizeof( ASTNode ) );
+      result->type = ASTBlock;
+      result->data.expressionList = declarations;
+
+      return result;
+    } else {
+      gsParserThrow( self, "Expected: '}' token to close block" );
+    }
+  }
+
+  // Shut up lint
+  return NULL;
+}
+
+ASTNode* gsGetTypeSpecifier( Parser* self ) {
+  List_Token* match = NULL;
+  ASTNode* udt = NULL;
+  bool array = false;
   Token primitive;
 
   // Get the type of this vardecl
@@ -465,83 +643,32 @@ ASTNode* gsGetVarDecl( Parser* self ) {
   ) {
     primitive = match->data;
   } else {
-    gsParserThrow( self, "Expected: primitive type or <identifier> token in vardecl" );
+    gsParserThrow( self, "Expected: primitive type or <identifier> token in type-specifier" );
   }
 
-  // Get the identifier
-  if( ( match = gsParserExpect( self, IDENTIFIER ) ) ) {
-    identifier = gsCreatePrimaryNode( match->data );
-  } else {
-    gsParserThrow( self, "Expected: <identifier> token after vardecl type" );
-  }
-
-  // Get the rvalue
-  if( ( match = gsParserExpect( self, EQUAL ) ) ) {
-    expr = gsGetExpression( self );
-  } else {
-    gsParserThrow( self, "Expected: '=' token after vardecl <identifier>" );
-  }
-
-  if( ( match = gsParserExpect( self, SEMICOLON ) ) ) {
-    ASTNode* result = calloc( 1, sizeof( ASTNode ) );
-    result->type = ASTVardecl;
-
-    if( udt ) {
-      result->data.vardecl.udt = true;
-      result->data.vardecl.type.udt = udt;
+  // Is it an array type?
+  if( ( match = gsParserExpect( self, LEFT_BRACKET ) ) ) {
+    if( ( match = gsParserExpect( self, RIGHT_BRACKET ) ) ) {
+      array = true;
     } else {
-      result->data.vardecl.udt = false;
-      result->data.vardecl.type.primitive = primitive;
+      gsParserThrow( self, "Expected: ']' after '[' token" );
     }
+  }
 
-    result->data.vardecl.identifier = identifier;
-    result->data.vardecl.assignmentExpression = expr;
+  ASTNode* result = calloc( 1, sizeof( ASTNode ) );
+  result->type = ASTTypeSpecifier;
 
-    return result;
+  if( udt ) {
+    result->data.specifier.udt = true;
+    result->data.specifier.type.udt = udt;
   } else {
-    gsParserThrow( self, "Expected: ';' after vardecl statement" );
+    result->data.specifier.udt = false;
+    result->data.specifier.type.primitive = primitive;
   }
 
-  // Shut up lint
-  return NULL;
-}
+  result->data.specifier.array = array;
 
-ASTNode* gsGetDeclaration( Parser* self ) {
-  // EZ PZ if the vardecl starts with a primitive type
-  if(
-    self->current &&
-    (
-      self->current->data.type == UINT_TYPE ||
-      self->current->data.type == INT_TYPE ||
-      self->current->data.type == FLOAT_TYPE ||
-      self->current->data.type == VAR ||
-      self->current->data.type == ADDR
-    )
-  ) {
-    return gsGetVarDecl( self );
-  }
-
-  // Still looking for a vardecl. Check for identifier, infinite lookahead past ( DOT IDENTIFIER )*, and then for the token to be stopped at another IDENTIFIER
-  if( self->current && self->current->data.type == IDENTIFIER ) {
-
-    // Burn DOT IDENTIFIER patterns
-    List_Token* tokenAfter = NULL;
-
-    if( self->current->next ) {
-      if( self->current->next->data.type == DOT ) {
-        tokenAfter = gsIndeterminateLookahead( self->current->next, DOT, IDENTIFIER );
-      } else {
-        tokenAfter = self->current->next;
-      }
-
-      if( tokenAfter && tokenAfter->data.type == IDENTIFIER ) {
-        return gsGetVarDecl( self );
-      }
-    }
-
-  }
-
-  return gsGetStatement( self );
+  return result;
 }
 
 void gsParserIncrement( Parser* self ) {
