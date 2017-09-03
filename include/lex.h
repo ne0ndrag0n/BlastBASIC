@@ -72,5 +72,6 @@ void gsCloseLexer( Lexer* self );
 List_Token* gsPeekSet( Lexer* self, char check, TokenType ifTrue, TokenType ifFalse );
 
 const char* gsGetDebugOutput( List_Token* token );
+const char* gsTokenToString( TokenType type );
 
 #endif

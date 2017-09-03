@@ -6,6 +6,7 @@
 
 #define PRIMARY_TOKENS_COUNT 8
 static const TokenType PRIMARY_TOKENS[ PRIMARY_TOKENS_COUNT ] = { BOOL_TRUE, BOOL_FALSE, NULL_TOKEN, THIS, INTEGER, REAL, STRING, IDENTIFIER };
+static int DEBUG_PRINT_INDENT = -1;
 
 void gsParserThrow( Parser* self, char* error ) {
   self->error = error;
@@ -492,7 +493,7 @@ ASTNode* gsGetVarDecl( Parser* self, bool independent ) {
   ASTNode* result = calloc( 1, sizeof( ASTNode ) );
   result->type = ASTVardecl;
 
-  result->data.vardecl.typeSpecifer = type;
+  result->data.vardecl.typeSpecifier = type;
   result->data.vardecl.identifier = identifier;
   result->data.vardecl.assignmentExpression = expr;
 
@@ -707,4 +708,275 @@ Parser* gsGetParser( List_Token* starterToken ) {
   parser->current = starterToken;
 
   return parser;
+}
+
+/**
+ * Print an abstract syntax tree node and the addresses of its children
+ * Giant mess, don't give a shit
+ */
+void gsDebugPrintAST( ASTNode* root ) {
+  int indent = DEBUG_PRINT_INDENT++;
+
+  char* description = NULL;
+
+  switch( root->type ) {
+    case ASTLiteral:
+      description = "Literal";
+      break;
+    case ASTIdentifier:
+      description = "Identifier";
+      break;
+    case ASTGetter:
+      description = "Getter";
+      break;
+    case ASTArgumentList:
+      description = "ArgumentList";
+      break;
+    case ASTCall:
+      description = "Call";
+      break;
+    case ASTUnaryExpression:
+      description = "UnaryExpression";
+      break;
+    case ASTBinaryExpression:
+      description = "BinaryExpression";
+      break;
+    case ASTAssignment:
+      description = "AssignmentExpression";
+      break;
+    case ASTPackageStatement:
+      description = "PackageStatement";
+      break;
+    case ASTImportStatement:
+      description = "ImportStatement";
+      break;
+    case ASTVardecl:
+      description = "Vardecl";
+      break;
+    case ASTBlock:
+      description = "Block";
+      break;
+    case ASTTypeSpecifier:
+      description = "TypeSpecifier";
+      break;
+    case ASTFunction:
+      description = "Function";
+      break;
+    case ASTReturnStatement:
+      description = "ReturnStatement";
+      break;
+    default:
+      description = "<unknown>";
+  }
+
+  for( int i = 0; i != indent; i++ ) { printf( " " ); }
+  printf( "%p::%s\n", root, description );
+
+  switch( root->type ) {
+    case ASTLiteral: {
+      for( int i = 0; i != indent; i++ ) { printf( " " ); }
+
+      if( root->data.token.type == INTEGER ) {
+        printf( "Integer Literal (%ld)\n", root->data.token.literal.asInteger );
+      } else if( root->data.token.type == STRING ) {
+        printf( "String Literal (%s)\n", root->data.token.literal.asString );
+      } else if( root->data.token.type == REAL ) {
+        printf( "Real Literal (%f)\n", root->data.token.literal.asDouble );
+      } else if( root->data.token.type == NULL_TOKEN ) {
+        printf( "Null Literal\n" );
+      } else if( root->data.token.type == BOOL_TRUE ) {
+        printf( "True Literal\n" );
+      } else if( root->data.token.type == BOOL_FALSE ) {
+        printf( "False Literal\n" );
+      }
+      break;
+    }
+    case ASTIdentifier: {
+      for( int i = 0; i != indent; i++ ) { printf( " " ); }
+
+      if( root->data.token.type == IDENTIFIER ) {
+        printf( "Identifier (%s)\n", root->data.token.literal.asString );
+      } else if( root->data.token.type == THIS ) {
+        printf( "'this' keyword\n" );
+      }
+      break;
+    }
+    case ASTGetter: {
+      for( int i = 0; i != indent; i++ ) { printf( " " ); }
+
+      printf( "Field: %s, From: %p\n", ( root->data.get.field ? root->data.get.field : "" ), root->data.get.source );
+      if( root->data.get.source ) {
+        gsDebugPrintAST( root->data.get.source );
+      }
+      break;
+    }
+    case ASTArgumentList:
+    case ASTBlock: {
+      List_Node* current = root->data.expressionList;
+      while( current ) {
+        for( int i = 0; i != indent; i++ ) { printf( " " ); }
+        printf( "Child %p\n", current );
+        gsDebugPrintAST( current->data );
+        current = current->next;
+      }
+      break;
+    }
+    case ASTCall: {
+      for( int i = 0; i != indent; i++ ) { printf( " " ); }
+
+      printf( "Source: %p, Arguments: %p\n", root->data.call.source, root->data.call.arguments );
+      if( root->data.call.source ) {
+        for( int i = 0; i != indent; i++ ) { printf( " " ); }
+        printf( "Source:\n" );
+        gsDebugPrintAST( root->data.call.source );
+      }
+
+      if( root->data.call.arguments ) {
+        for( int i = 0; i != indent; i++ ) { printf( " " ); }
+        printf( "Arguments:\n" );
+        gsDebugPrintAST( root->data.call.arguments );
+      }
+
+      break;
+    }
+    case ASTUnaryExpression: {
+      for( int i = 0; i != indent; i++ ) { printf( " " ); }
+
+      printf( "rhs: %p op: %s\n", root->data.unaryExpression.rhs, gsTokenToString( root->data.unaryExpression.op.type ) );
+      if( root->data.unaryExpression.rhs ) {
+        gsDebugPrintAST( root->data.unaryExpression.rhs );
+      }
+      break;
+    }
+    case ASTBinaryExpression: {
+      for( int i = 0; i != indent; i++ ) { printf( " " ); }
+
+      printf( "lhs: %p rhs: %p op: %s\n", root->data.binaryExpression.lhs, root->data.binaryExpression.rhs, gsTokenToString( root->data.binaryExpression.op.type ) );
+      if( root->data.binaryExpression.lhs ) {
+        gsDebugPrintAST( root->data.binaryExpression.lhs );
+      }
+
+      if( root->data.binaryExpression.rhs ) {
+        gsDebugPrintAST( root->data.binaryExpression.rhs );
+      }
+      break;
+    }
+    case ASTAssignment: {
+      for( int i = 0; i != indent; i++ ) { printf( " " ); }
+
+      printf( "lhs: %p rhs: %p op: %s new: %d stack: %d\n",
+        root->data.assignmentExpression.lhs,
+        root->data.assignmentExpression.rhs,
+        gsTokenToString( root->data.assignmentExpression.op.type ),
+        root->data.assignmentExpression.newQualifier,
+        root->data.assignmentExpression.stackQualifier
+      );
+
+      if( root->data.assignmentExpression.lhs ) {
+        gsDebugPrintAST( root->data.assignmentExpression.lhs );
+      }
+
+      if( root->data.assignmentExpression.rhs ) {
+        gsDebugPrintAST( root->data.assignmentExpression.rhs );
+      }
+      break;
+    }
+    case ASTPackageStatement:
+    case ASTReturnStatement: {
+      for( int i = 0; i != indent; i++ ) { printf( " " ); }
+      printf( "subnode: %p\n", root->data.node );
+
+      if( root->data.node ) {
+        gsDebugPrintAST( root->data.node );
+      }
+      break;
+    }
+    case ASTImportStatement: {
+      List_Node* current = root->data.import.imports;
+      while( current ) {
+        for( int i = 0; i != indent; i++ ) { printf( " " ); }
+        printf( "Child: %p\n", current->data );
+        gsDebugPrintAST( current->data );
+        current = current->next;
+      }
+
+      for( int i = 0; i != indent; i++ ) { printf( " " ); }
+      printf( "From: %p\n", root->data.import.from );
+      if( root->data.import.from ) {
+        gsDebugPrintAST( root->data.import.from );
+      }
+      break;
+    }
+    case ASTVardecl: {
+      for( int i = 0; i != indent; i++ ) { printf( " " ); }
+      printf( "typeSpecifier: %p, identifier: %p, assignmentExpression: %p\n",
+        root->data.vardecl.typeSpecifier,
+        root->data.vardecl.identifier,
+        root->data.vardecl.assignmentExpression
+      );
+
+      if( root->data.vardecl.typeSpecifier ) {
+        gsDebugPrintAST( root->data.vardecl.typeSpecifier );
+      }
+
+      if( root->data.vardecl.identifier ) {
+        gsDebugPrintAST( root->data.vardecl.identifier );
+      }
+
+      if( root->data.vardecl.assignmentExpression ) {
+        gsDebugPrintAST( root->data.vardecl.assignmentExpression );
+      }
+
+      break;
+    }
+    case ASTTypeSpecifier: {
+      for( int i = 0; i != indent; i++ ) { printf( " " ); }
+      printf( "udt: %d array: %d ", root->data.specifier.udt, root->data.specifier.array );
+      if( root->data.specifier.udt ) {
+        printf( "udt: %p\n", root->data.specifier.type.udt );
+        gsDebugPrintAST( root->data.specifier.type.udt );
+      } else {
+        printf( "primitive: %s\n", gsTokenToString( root->data.specifier.type.primitive.type ) );
+      }
+      break;
+    }
+    case ASTFunction: {
+      for( int i = 0; i != indent; i++ ) { printf( " " ); }
+      printf( "typeSpecifier: %p identifier: %p body: %p",
+        root->data.function.typeSpecifier,
+        root->data.function.identifier,
+        root->data.function.body
+      );
+
+      if( root->data.function.typeSpecifier ) {
+        for( int i = 0; i != indent; i++ ) { printf( " " ); }
+        printf( "Type Specifier:\n" );
+        gsDebugPrintAST( root->data.function.typeSpecifier );
+      }
+
+      if( root->data.function.identifier ) {
+        for( int i = 0; i != indent; i++ ) { printf( " " ); }
+        printf( "Identifier:\n" );
+        gsDebugPrintAST( root->data.function.identifier );
+      }
+
+      if( root->data.function.body ) {
+        for( int i = 0; i != indent; i++ ) { printf( " " ); }
+        printf( "Body:\n" );
+        gsDebugPrintAST( root->data.function.body );
+      }
+
+      List_Node* current = root->data.function.arguments;
+      while( current ) {
+        for( int i = 0; i != indent; i++ ) { printf( " " ); }
+        printf( "Argument: %p\n", current->data );
+        gsDebugPrintAST( current->data );
+        current = current->next;
+      }
+
+      break;
+    }
+  }
+
+  DEBUG_PRINT_INDENT--;
 }

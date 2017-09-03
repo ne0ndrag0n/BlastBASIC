@@ -535,8 +535,8 @@ List_Token* gsLex( Lexer* self ) {
   return result;
 }
 
-const char* gsGetDebugOutput( List_Token* token ) {
-  switch( token->data.type ) {
+const char* gsTokenToString( TokenType type ) {
+  switch( type ) {
     case LEFT_PAREN:
       return "(";
     case RIGHT_PAREN:
@@ -650,4 +650,8 @@ const char* gsGetDebugOutput( List_Token* token ) {
     default:
       return "<unknown>";
   }
+}
+
+const char* gsGetDebugOutput( List_Token* token ) {
+  return gsTokenToString( token->data.type );
 }

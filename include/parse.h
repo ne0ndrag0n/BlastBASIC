@@ -75,7 +75,7 @@ typedef struct TypeSpecifier {
 } TypeSpecifier;
 
 typedef struct Vardecl {
-  struct ASTNode* typeSpecifer;
+  struct ASTNode* typeSpecifier;
   struct ASTNode* identifier;
   struct ASTNode* assignmentExpression;
 } Vardecl;
@@ -165,5 +165,7 @@ ASTNode* gsGetBlock( Parser* self );
 ASTNode* gsGetTypeSpecifier( Parser* self );
 
 Parser* gsGetParser( List_Token* starterToken );
+
+void gsDebugPrintAST( ASTNode* root );
 
 #endif
