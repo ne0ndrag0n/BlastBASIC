@@ -851,7 +851,7 @@ void gsDebugPrintAST( ASTNode* root ) {
     }
     case ASTGetter: {
       gsParseOutputIndentation( indentation );
-      printf( "Field: %s, From: %p\n", ( root->data.get.field ? root->data.get.field : "" ), root->data.get.source );
+      printf( "Field: %s, From:\n", ( root->data.get.field ? root->data.get.field : "" ) );
       if( root->data.get.source ) {
         gsDebugPrintAST( root->data.get.source );
       }
@@ -868,12 +868,9 @@ void gsDebugPrintAST( ASTNode* root ) {
       break;
     }
     case ASTCall: {
-      gsParseOutputIndentation( indentation );
-      printf( "Source: %p, Arguments: %p\n", root->data.call.source, root->data.call.arguments );
-
       if( root->data.call.source ) {
         gsParseOutputIndentation( indentation );
-        printf( "Source:\n" );
+        printf( "Callee:\n" );
         gsDebugPrintAST( root->data.call.source );
       }
 
@@ -887,41 +884,49 @@ void gsDebugPrintAST( ASTNode* root ) {
     }
     case ASTUnaryExpression: {
       gsParseOutputIndentation( indentation );
-      printf( "rhs: %p op: %s\n", root->data.unaryExpression.rhs, gsTokenToString( root->data.unaryExpression.op.type ) );
+      printf( "op: %s\n", gsTokenToString( root->data.unaryExpression.op.type ) );
 
       if( root->data.unaryExpression.rhs ) {
+        gsParseOutputIndentation( indentation );
+        printf( "rhs:\n" );
         gsDebugPrintAST( root->data.unaryExpression.rhs );
       }
       break;
     }
     case ASTBinaryExpression: {
       gsParseOutputIndentation( indentation );
-      printf( "lhs: %p rhs: %p op: %s\n", root->data.binaryExpression.lhs, root->data.binaryExpression.rhs, gsTokenToString( root->data.binaryExpression.op.type ) );
+      printf( "op: %s\n", gsTokenToString( root->data.binaryExpression.op.type ) );
 
       if( root->data.binaryExpression.lhs ) {
+        gsParseOutputIndentation( indentation );
+        printf( "lhs:\n" );
         gsDebugPrintAST( root->data.binaryExpression.lhs );
       }
 
       if( root->data.binaryExpression.rhs ) {
+        gsParseOutputIndentation( indentation );
+        printf( "rhs:\n" );
         gsDebugPrintAST( root->data.binaryExpression.rhs );
       }
       break;
     }
     case ASTAssignment: {
       gsParseOutputIndentation( indentation );
-      printf( "lhs: %p rhs: %p op: %s new: %d stack: %d\n",
-        root->data.assignmentExpression.lhs,
-        root->data.assignmentExpression.rhs,
+      printf( "op: %s new: %d stack: %d\n",
         gsTokenToString( root->data.assignmentExpression.op.type ),
         root->data.assignmentExpression.newQualifier,
         root->data.assignmentExpression.stackQualifier
       );
 
       if( root->data.assignmentExpression.lhs ) {
+        gsParseOutputIndentation( indentation );
+        printf( "lhs:\n" );
         gsDebugPrintAST( root->data.assignmentExpression.lhs );
       }
 
       if( root->data.assignmentExpression.rhs ) {
+        gsParseOutputIndentation( indentation );
+        printf( "rhs:\n" );
         gsDebugPrintAST( root->data.assignmentExpression.rhs );
       }
       break;
@@ -929,7 +934,7 @@ void gsDebugPrintAST( ASTNode* root ) {
     case ASTPackageStatement:
     case ASTReturnStatement: {
       gsParseOutputIndentation( indentation );
-      printf( "Package Identifier:\n" );
+      printf( "Identifier:\n" );
 
       if( root->data.node ) {
         gsDebugPrintAST( root->data.node );
