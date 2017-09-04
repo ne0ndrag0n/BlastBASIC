@@ -167,35 +167,30 @@ ASTNode* gsGetExpressionCall( Parser* self ) {
   List_Token* match = NULL;
 
   while( self->current && ( self->current->data.type == LEFT_PAREN || self->current->data.type == DOT ) ) {
-    // Don't even do anything else if the left hand side of these exprs are incompatible types
-    if( expr->type == ASTIdentifier || expr->type == ASTCall || expr->type == ASTGetter ) {
-      if( self->current->data.type == LEFT_PAREN ) {
-        // Function call
-        gsParserIncrement( self );
+    if( self->current->data.type == LEFT_PAREN ) {
+      // Function call
+      gsParserIncrement( self );
 
-        // If the next token is a RIGHT_PAREN, there's no arguments.
-        if( ( match = gsParserExpect( self, RIGHT_PAREN ) ) ) {
-          expr = gsCreateCallNode( expr, NULL );
-        } else {
-          expr = gsCreateCallNode( expr, gsGetArguments( self ) );
-
-          // Expect a RIGHT_PAREN
-          if( !( match = gsParserExpect( self, RIGHT_PAREN ) ) ) {
-            gsParserThrow( self, "Expected: ) token" );
-          }
-        }
+      // If the next token is a RIGHT_PAREN, there's no arguments.
+      if( ( match = gsParserExpect( self, RIGHT_PAREN ) ) ) {
+        expr = gsCreateCallNode( expr, NULL );
       } else {
-        // Getter
-        gsParserIncrement( self );
+        expr = gsCreateCallNode( expr, gsGetArguments( self ) );
 
-        if( ( match = gsParserExpect( self, IDENTIFIER ) ) ) {
-          expr = gsCreateGetNode( expr, match->data.literal.asString );
-        } else {
-          gsParserThrow( self, "Expected: <identifier> token" );
+        // Expect a RIGHT_PAREN
+        if( !( match = gsParserExpect( self, RIGHT_PAREN ) ) ) {
+          gsParserThrow( self, "Expected: ) token" );
         }
       }
     } else {
-      gsParserThrow( self, "Invalid left-hand side of '(' or '.' operator" );
+      // Getter
+      gsParserIncrement( self );
+
+      if( ( match = gsParserExpect( self, IDENTIFIER ) ) ) {
+        expr = gsCreateGetNode( expr, match->data.literal.asString );
+      } else {
+        gsParserThrow( self, "Expected: <identifier> token" );
+      }
     }
   }
 
@@ -291,13 +286,8 @@ ASTNode* gsGetExpressionAssignment( Parser* self ) {
   List_Token* match = NULL;
 
   if( ( match = gsParserExpect( self, EQUAL ) ) ) {
-    // expr, the left-hand side above, must be an ASTNode of type ASTIdentifier, ASTGetter
-    if( expr->type == ASTIdentifier || expr->type == ASTGetter ) {
-      expr = gsCreateBinaryExpressionNode( expr, match->data, gsGetExpressionAssignment( self ) );
-      expr->type = ASTAssignment;
-    } else {
-      gsParserThrow( self, "Invalid left-hand side of assignment operator" );
-    }
+    expr = gsCreateBinaryExpressionNode( expr, match->data, gsGetExpressionAssignment( self ) );
+    expr->type = ASTAssignment;
   }
 
   return expr;
