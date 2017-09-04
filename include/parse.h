@@ -48,14 +48,6 @@ typedef struct BinaryExpression {
   Token op;
 } BinaryExpression;
 
-typedef struct AssignmentExpression {
-  struct ASTNode* lhs;
-  struct ASTNode* rhs;
-  Token op;
-  bool newQualifier;
-  bool stackQualifier;
-} AssignmentExpression;
-
 typedef struct List_Node {
   struct ASTNode* data;
   struct List_Node* next;
@@ -101,10 +93,8 @@ typedef struct ASTNode {
     ExprCall call;
     // ASTUnaryExpression
     UnaryExpression unaryExpression;
-    // ASTBinaryExpression
+    // ASTBinaryExpression, ASTAssignment
     BinaryExpression binaryExpression;
-    // ASTAssignment
-    AssignmentExpression assignmentExpression;
     // ASTPackageStatement, ASTReturnStatement
     struct ASTNode* node;
     // ASTImportStatement
@@ -136,7 +126,6 @@ ASTNode* gsCreateGetNode( ASTNode* source, char* field );
 ASTNode* gsCreateCallNode( ASTNode* source, ASTNode* arguments );
 ASTNode* gsCreateUnaryExpressionNode( Token op, ASTNode* rhs );
 ASTNode* gsCreateBinaryExpressionNode( ASTNode* lhs, Token op, ASTNode* rhs );
-ASTNode* gsCreateAssignmentExpressionNode( ASTNode* lhs, Token op, ASTNode* rhs, bool nw, bool stack );
 
 ASTNode* gsGetArguments( Parser* self );
 

@@ -108,20 +108,6 @@ ASTNode* gsCreateBinaryExpressionNode( ASTNode* lhs, Token op, ASTNode* rhs ) {
   return expr;
 }
 
-ASTNode* gsCreateAssignmentExpressionNode( ASTNode* lhs, Token op, ASTNode* rhs, bool nw, bool stack ) {
-  ASTNode* expr = calloc( 1, sizeof( ASTNode ) );
-  expr->type = ASTAssignment;
-
-  expr->data.assignmentExpression.lhs = lhs;
-  expr->data.assignmentExpression.op = op;
-  expr->data.assignmentExpression.rhs = rhs;
-
-  expr->data.assignmentExpression.newQualifier = nw;
-  expr->data.assignmentExpression.stackQualifier = nw ? stack : false;
-
-  return expr;
-}
-
 /**
  * TODO: if gsGetExpression throws, set local jmp_buf to clean up allocations. Then longjmp to original jmp_buf
  * Don't give a shit about leaks here for now because when the parser encounters an error, it'll close and the OS will deallocate it.
@@ -304,13 +290,8 @@ ASTNode* gsGetExpressionAssignment( Parser* self ) {
   if( ( match = gsParserExpect( self, EQUAL ) ) ) {
     // expr, the left-hand side above, must be an ASTNode of type ASTIdentifier, ASTGetter
     if( expr->type == ASTIdentifier || expr->type == ASTGetter ) {
-      bool nw = gsParserExpect( self, NEW ) ? true : false;
-      bool stack = false;
-      if( nw ) {
-        stack = gsParserExpect( self, STACK ) ? true : false;
-      }
-
-      expr = gsCreateAssignmentExpressionNode( expr, match->data, gsGetExpressionAssignment( self ), nw, stack );
+      expr = gsCreateBinaryExpressionNode( expr, match->data, gsGetExpressionAssignment( self ) );
+      expr->type = ASTAssignment;
     } else {
       gsParserThrow( self, "Invalid left-hand side of assignment operator" );
     }
@@ -893,7 +874,8 @@ void gsDebugPrintAST( ASTNode* root ) {
       }
       break;
     }
-    case ASTBinaryExpression: {
+    case ASTBinaryExpression:
+    case ASTAssignment: {
       gsParseOutputIndentation( indentation );
       printf( "op: %s\n", gsTokenToString( root->data.binaryExpression.op.type ) );
 
@@ -907,27 +889,6 @@ void gsDebugPrintAST( ASTNode* root ) {
         gsParseOutputIndentation( indentation );
         printf( "rhs:\n" );
         gsDebugPrintAST( root->data.binaryExpression.rhs );
-      }
-      break;
-    }
-    case ASTAssignment: {
-      gsParseOutputIndentation( indentation );
-      printf( "op: %s new: %d stack: %d\n",
-        gsTokenToString( root->data.assignmentExpression.op.type ),
-        root->data.assignmentExpression.newQualifier,
-        root->data.assignmentExpression.stackQualifier
-      );
-
-      if( root->data.assignmentExpression.lhs ) {
-        gsParseOutputIndentation( indentation );
-        printf( "lhs:\n" );
-        gsDebugPrintAST( root->data.assignmentExpression.lhs );
-      }
-
-      if( root->data.assignmentExpression.rhs ) {
-        gsParseOutputIndentation( indentation );
-        printf( "rhs:\n" );
-        gsDebugPrintAST( root->data.assignmentExpression.rhs );
       }
       break;
     }
