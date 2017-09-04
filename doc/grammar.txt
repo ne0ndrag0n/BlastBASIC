@@ -7,16 +7,17 @@ comparison      → addition ( ( GREATER | GREATER_EQUAL | LESS | LESS_EQUAL ) a
 addition        → multiplication ( ( MINUS | PLUS ) multiplication )*
 multiplication  → unary ( ( SLASH | STAR ) unary )*
 unary           → ( BANG | MINUS | ( NEW STACK? ) ) unary | call
-call            → primary ( ( LEFT_PAREN arguments? RIGHT_PAREN ) | ( DOT IDENTIFIER ) )*
+call            → ( primitive-token | primary ) ( ( LEFT_BRACKET expression? RIGHT_BRACKET ) |
+                  ( LEFT_PAREN expression? RIGHT_PAREN ) | ( DOT IDENTIFIER ) )*
 primary         → BOOL_TRUE | BOOL_FALSE | NULL_TOKEN | THIS | INTEGER | REAL | STRING
                   | IDENTIFIER | LEFT_PAREN expression RIGHT_PAREN
 
 packagestmt     → PACKAGE IDENTIFIER ( DOT IDENTIFIER )* SEMICOLON
 importstmt      → IMPORT IDENTIFIER ( COMMA IDENTIFIER )* FROM IDENTIFIER ( DOT IDENTIFIER )* SEMICOLON
-exprstmt        → expression SEMICOLON
 returnstmt      → RETURN expression? SEMICOLON
+exprstmt        → expression SEMICOLON
 
-statement       → packagestmt | importstmt | exprstmt | returnstmt
+statement       → packagestmt | importstmt | returnstmt | exprstmt
 
 vardecl         → type-specifier IDENTIFIER ( EQUALS expression )? SEMICOLON
 fundecl         → type-specifier IDENTIFIER LEFT_PAREN argument-list? RIGHT_PAREN block
@@ -30,4 +31,4 @@ block           → LEFT_BRACE declaration* RIGHT_BRACE
 type-specifier  → ( primitive-type | IDENTIFIER ( DOT IDENTIFIER )* ) ( LEFT_BRACKET RIGHT_BRACKET )?
 argument-list   → type-specifier IDENTIFIER ( COMMA argument-list )*
 arguments       → expression ( COMMA expression )*
-primitive-type  → UINT_TYPE | INT_TYPE | FLOAT_TYPE | VAR | ADDR
+primitive-type  → UINT_TYPE | INT_TYPE | FLOAT_TYPE | BOOL | VAR | ADDR

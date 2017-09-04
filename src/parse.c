@@ -163,10 +163,27 @@ ASTNode* gsGetExpressionPrimary( Parser* self ) {
 }
 
 ASTNode* gsGetExpressionCall( Parser* self ) {
-  ASTNode* expr = gsGetExpressionPrimary( self );
+  ASTNode* expr = NULL;
   List_Token* match = NULL;
 
-  while( self->current && ( self->current->data.type == LEFT_PAREN || self->current->data.type == DOT ) ) {
+  if(
+    ( match = gsParserExpect( self, UINT_TYPE ) ) ||
+    ( match = gsParserExpect( self, INT_TYPE ) ) ||
+    ( match = gsParserExpect( self, FLOAT_TYPE ) ) ||
+    ( match = gsParserExpect( self, BOOL ) ) ||
+    ( match = gsParserExpect( self, VAR ) ) ||
+    ( match = gsParserExpect( self, ADDR ) )
+  ) {
+    // Primitive token - requires a special kind of ASTNode that doesn't look ahaead to what call should attach
+    expr = calloc( 1, sizeof( ASTNode ) );
+    expr->type = ASTPrimitiveTypeToken;
+    expr->data.token = match->data;
+  } else {
+    // Primary type
+    expr = gsGetExpressionPrimary( self );
+  }
+
+  while( self->current && ( self->current->data.type == LEFT_PAREN || self->current->data.type == LEFT_BRACKET || self->current->data.type == DOT ) ) {
     if( self->current->data.type == LEFT_PAREN ) {
       // Function call
       gsParserIncrement( self );
@@ -182,6 +199,22 @@ ASTNode* gsGetExpressionCall( Parser* self ) {
           gsParserThrow( self, "Expected: ) token" );
         }
       }
+    } else if( self->current->data.type == LEFT_BRACKET ) {
+      // Bracket index
+      gsParserIncrement( self );
+
+      if( gsParserExpect( self, RIGHT_BRACKET ) ) {
+        expr = gsCreateCallNode( expr, NULL );
+      } else {
+        expr = gsCreateCallNode( expr, gsGetExpression( self ) );
+
+        if( !gsParserExpect( self, RIGHT_BRACKET ) ) {
+          gsParserThrow( self, "Expected: ] token" );
+        }
+      }
+
+      // Not a call - an index. However, it can reuse the call object within the ASTNode variant
+      expr->type = ASTIndex;
     } else {
       // Getter
       gsParserIncrement( self );
@@ -531,7 +564,7 @@ ASTNode* gsGetFunDecl( Parser* self ) {
 }
 
 ASTNode* gsGetDeclaration( Parser* self ) {
-  // EZ PZ if the vardecl starts with a primitive type
+  // Still looking for something beginning with a primitive-type. Check for identifier, infinite lookahead past ( DOT IDENTIFIER )*, and then for the token to be stopped at another IDENTIFIER
   if(
     self->current &&
     (
@@ -540,24 +573,10 @@ ASTNode* gsGetDeclaration( Parser* self ) {
       self->current->data.type == FLOAT_TYPE ||
       self->current->data.type == BOOL ||
       self->current->data.type == VAR ||
-      self->current->data.type == ADDR
+      self->current->data.type == ADDR ||
+      self->current->data.type == IDENTIFIER
     )
   ) {
-    // Peek ahead to see if this is a fundecl
-
-    // Should be on the identifier token here
-    List_Token* tokenAfter = self->current->next;
-
-    // The one after the identifier - if it's a (, we got a fundecl!
-    if( tokenAfter && tokenAfter->next && tokenAfter->next->data.type == LEFT_PAREN ) {
-      return gsGetFunDecl( self );
-    }
-
-    return gsGetVarDecl( self, true );
-  }
-
-  // Still looking for something beginning with a primitive-type. Check for identifier, infinite lookahead past ( DOT IDENTIFIER )*, and then for the token to be stopped at another IDENTIFIER
-  if( self->current && self->current->data.type == IDENTIFIER ) {
     List_Token* tokenAfter = self->current->next;
 
     if( tokenAfter && tokenAfter->data.type == DOT ) {
@@ -789,6 +808,12 @@ void gsDebugPrintAST( ASTNode* root ) {
     case ASTProgram:
       description = "Program";
       break;
+    case ASTIndex:
+      description = "Index";
+      break;
+    case ASTPrimitiveTypeToken:
+      description = "PrimitiveTypeToken";
+      break;
     default:
       description = "<unknown>";
   }
@@ -813,6 +838,11 @@ void gsDebugPrintAST( ASTNode* root ) {
       } else if( root->data.token.type == BOOL_FALSE ) {
         printf( "False Literal\n" );
       }
+      break;
+    }
+    case ASTPrimitiveTypeToken: {
+      gsParseOutputIndentation( indentation );
+      printf( "%s\n", gsTokenToString( root->data.token.type ) );
       break;
     }
     case ASTIdentifier: {
@@ -843,7 +873,8 @@ void gsDebugPrintAST( ASTNode* root ) {
       }
       break;
     }
-    case ASTCall: {
+    case ASTCall:
+    case ASTIndex: {
       if( root->data.call.source ) {
         gsParseOutputIndentation( indentation );
         printf( "Callee:\n" );

@@ -24,7 +24,9 @@ typedef enum ASTNodeType {
   ASTTypeSpecifier,
   ASTFunction,
   ASTReturnStatement,
-  ASTProgram
+  ASTProgram,
+  ASTIndex,
+  ASTPrimitiveTypeToken
 } ASTNodeType;
 
 typedef struct ExprGet {
@@ -83,13 +85,13 @@ typedef struct Fundecl {
 typedef struct ASTNode {
   ASTNodeType type;
   union {
-    // ASTLiteral, ASTIdentifier
+    // ASTLiteral, ASTIdentifier, ASTPrimitiveTypeToken
     Token token;
     // ASTGetter
     ExprGet get;
     // ASTArgumentList, ASTBlock, ASTProgram
     List_Node* expressionList;
-    // ASTCall
+    // ASTCall, ASTIndex
     ExprCall call;
     // ASTUnaryExpression
     UnaryExpression unaryExpression;
