@@ -548,6 +548,7 @@ ASTNode* gsGetDeclaration( Parser* self ) {
       self->current->data.type == UINT_TYPE ||
       self->current->data.type == INT_TYPE ||
       self->current->data.type == FLOAT_TYPE ||
+      self->current->data.type == BOOL ||
       self->current->data.type == VAR ||
       self->current->data.type == ADDR
     )
@@ -693,6 +694,7 @@ ASTNode* gsGetTypeSpecifier( Parser* self ) {
     ( match = gsParserExpect( self, UINT_TYPE ) ) ||
     ( match = gsParserExpect( self, INT_TYPE ) ) ||
     ( match = gsParserExpect( self, FLOAT_TYPE ) ) ||
+    ( match = gsParserExpect( self, BOOL ) ) ||
     ( match = gsParserExpect( self, VAR ) ) ||
     ( match = gsParserExpect( self, ADDR ) )
   ) {
