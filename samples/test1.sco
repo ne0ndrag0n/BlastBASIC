@@ -1,1 +1,6 @@
-uint8[] h = new uint8[];
+uint32 pointerTest( addr offset ) {
+  addr original = 0xDEADBEEF;
+
+  uint32 result = *( original * offset );
+  return result;
+}
