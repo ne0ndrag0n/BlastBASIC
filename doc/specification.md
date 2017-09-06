@@ -47,6 +47,71 @@ shared Object o = new Object();
 * `delete` cannot be called on an object that was initially assigned to a `shared` reference. This applies to calling `delete` on both kinds of references; it's the *underlying object* that matters. If the underlying object contains a reference count block, which Scorpion allocates when assigning `new` to a `shared` reference, then it cannot be manually deleted and will throw a `ReferenceOwnershipException`.
 * Cyclical `shared` references will not be garbage-collected! `shared` references use a simple form of reference counting which will leak memory in the case of cyclic `shared` dependencies. To avoid this, use a standard reference in one side of the cycle.
 
+### Scoped References
+
+Scoped references are a special kind of reference and are allocated a certain way. Like `shared` references, they promote ownership of a piece of dynamic memory. Unlike `shared` references, the underlying object is only owned by a single reference. An object assigned to a `scoped` reference is married to the reference; if assigned to another `scoped` reference of the same type, a *copy of the original object* is instead performed. (Needless to say, an assignment from one scoped reference to another requires a copy constructor.)
+
+Like `shared` references, objects that were not initially assigned to `scoped` references cannot be assigned to `scoped` references. Also like `shared` references, you *can* assign a weak reference to a `scoped` reference: like the `shared` reference, all references will be made `null` once the `scoped` reference is deallocated. Because an instance under a `scoped` reference cannot be copied, the instance will be destructed as soon as the reference falls out of scope. This is unlike `shared` references, where destruction occurs once the *last* `shared` reference pointing to the object falls out of scope. The `scoped` keyword is useful for automatically managing the lifecycle of an object that is intended to last only for the life of a particular scope.
+
+Finally, use of `delete` is not permitted on an object referred to by a `scoped` reference. This is because only the reference itself owns the object; you can't assign the `scoped` reference to a standard (weak) reference and then attempt to delete the underlying object through the weak reference. However, you *can* delete the underlying object before it falls out of scope, by simply reassigning the original owning reference to `null`.
+
+`scoped` references have another important benefit: they are allocated either on the *stack* belonging to the current scope, or globally within the program's data segment. They are *not* allocated on the heap. You may find this useful for preventing fragmentation in low-RAM systems. Where a `scoped` object is defined, the memory is pre-allocated by the compiler; assigning a `scoped` reference to `null` does not reclaim the memory but instead marks it as reclaimable for an object of the same type to be used in its position.
+* Be careful with the size of your type! Because the space is preallocated, it must be large enough to fit all possible objects of that base type, including classes derived from the specified type. This means that if you have a parent class `A` that is 16 bytes, and a derivative class `B` that adds a 4 byte field, a `scoped A` will stack (or .data segment) allocate 16 + 4 bytes for the data, plus one byte to indicate the type that has been last assigned. C programmers may recognise this as a *tagged union*.
+
+
+### RAM Placement of Reference Allocations
+Reference types also hint *how* their memory shall be allocated. Standard references may point to data on the stack, on the heap, or in the executable's data segment (globals). `shared` references only point to data on the heap; `scoped` references only point to data on the stack or in the data segment. This may lead to some confusion, so some illustrative examples are provided below to show how memory is allocated, and where:
+
+```
+Object o = new Object(); // Object placed on heap. Pointer is placed on the stack. No automatic deallocation will be performed for this object.
+shared Object o = new Object(); // Object placed on heap. Pointer placed on stack; when last pointer to this object falls off its stack, the object is automatically deleted.
+scoped Object o = new Object(); // Entire object is placed on the stack. Object is immediately deallocated when it falls out of scope.
+```
+
+Arrays of references also allow you to specify the types of reference they contain. This can be done by providing no keyword, the `shared` keyword, or the `scoped` keyword in the array brackets. Because array types are themselves referable, care must be taken to achieve the intended result. Here is an enumeration of all the types of arrays you can create using combinations of no keyword, the `shared` keyword, and the `scoped` keyword.
+
+```
+// Arrays of standard references
+Object[] o = new Object[ 7 ]; // Array is placed on heap. Pointer to array is placed on stack.
+                              // Array contains standard references, which may point to any type of object.
+                              // Array must be manually deleted.
+
+shared Object[] o = new Object[ 7 ]; // Array is placed on heap. Pointer to array is placed on stack.
+                                     // Array contains standard references, which may point to any type of object.
+                                     // Array will be automatically deleted when *last* shared reference to it falls out of scope.
+
+scoped Object[] o = new Object[ 7 ]; // Entire array with all its contents is placed on stack.
+                                     // Array contains standard references, which may point to any type of object.
+                                     // Array will be automatically deleted once it falls out of scope.
+
+// Arrays of shared references
+Object[ shared ] o = new Object[ 7 ]; // Array is placed on heap. Pointer to array is placed on stack.
+                                      // Array contains shared references.
+                                      // Array must be manually deleted.
+
+shared Object[ shared ] o = new Object[ 7 ]; // Array is placed on heap. Pointer to array is placed on stack.
+                                             // Array contains shared references.
+                                             // Array will be automatically deleted when *last* shared reference to it falls out of scope.
+
+scoped Object[ shared ] o = new Object[ 7 ]; // Entire array is placed on stack.
+                                             // Array contains shared references.
+                                             // Array will be automatically deleted once it falls out of scope.
+
+// Arrays of scoped references
+Object[ scoped ] o = new Object[ 7 ]; // Array is placed on heap. Pointer to array is placed on stack.
+                                      // Array contains entire allocations of Objects (not just pointers)
+                                      // Array must be manually deleted. When manually deleted, all objects within will be deleted.
+
+shared Object[ scoped ] o = new Object[ 7 ]; // Array is placed on heap. Pointer to array is placed on stack.
+                                             // Array contains entire allocations of Objects (not just pointers)
+                                             // Array will be automatically deleted when *last* shared reference to it falls out of scope. When deleted, all objects within will also be deleted.
+
+scoped Object[ scoped ] o = new Object[ 7 ]; // Entire array with all its contents is placed on stack.
+                                             // Array contains entire allocations of Objects (not just pointers). This is a large stack allocation; 7 whole Object objects, not just their pointers.
+                                             // Array will be automatically deleted once it falls out of scope. When deleted, all objects within will also be deleted.
+```
+
+
 ## Address Type
 Scorpion eschews pointers for a safer form of memory management. Unfortunately, this also means that certain operations essential to embedded systems are otherwise impossible to do without use of the native interface. For instance, Java makes it impossible to read or write specific addresses in memory, at least without questionable use of `sun.misc.Unsafe`.
 
