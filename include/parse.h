@@ -62,6 +62,8 @@ typedef struct ImportStatement {
 
 typedef struct TypeSpecifier {
   bool udt;
+  TokenType udtQualifier;
+  TokenType arrayQualifier;
   union {
     struct ASTNode* udt;
     Token primitive;

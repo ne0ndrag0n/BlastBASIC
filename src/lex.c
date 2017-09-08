@@ -220,6 +220,12 @@ List_Token* gsGetReservedWordOrIdentifier( char* identifier, size_t strLen ) {
     result = gsCreateToken( FROM );
   } else if( !strcmp( identifier, "new" ) ) {
     result = gsCreateToken( NEW );
+  } else if( !strcmp( identifier, "shared" ) ) {
+    result = gsCreateToken( SHARED );
+  } else if( !strcmp( identifier, "scoped" ) ) {
+    result = gsCreateToken( SCOPED );
+  } else if( !strcmp( identifier, "unsafe" ) ) {
+    result = gsCreateToken( UNSAFE );
   } else {
     // Check for primitive integer types
     int uint = !strncmp( identifier, "uint", 4 );
@@ -535,6 +541,8 @@ List_Token* gsLex( Lexer* self ) {
 
 const char* gsTokenToString( TokenType type ) {
   switch( type ) {
+    case NONE:
+      return "<none>";
     case LEFT_PAREN:
       return "(";
     case RIGHT_PAREN:
@@ -647,6 +655,12 @@ const char* gsTokenToString( TokenType type ) {
       return "from";
     case NEW:
       return "new";
+    case SHARED:
+      return "shared";
+    case SCOPED:
+      return "scoped";
+    case UNSAFE:
+      return "unsafe";
     default:
       return "<unknown>";
   }

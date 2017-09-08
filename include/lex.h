@@ -18,6 +18,8 @@ typedef union Literal {
 } Literal;
 
 typedef enum TokenType {
+  NONE, 
+
   // Single-character tokens
   LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,
   COMMA, DOT, MINUS, PLUS, SEMICOLON, SLASH, STAR,
@@ -38,7 +40,7 @@ typedef enum TokenType {
   // Keywords
   CLASS, ELSE, BOOL_FALSE, BOOL_TRUE, FOR, IF, NULL_TOKEN,
   RETURN, SUPER, THIS, VAR, WHILE, STATIC, BOOL, ADDR,
-  PACKAGE, IMPORT, FROM, NEW
+  PACKAGE, IMPORT, FROM, NEW, SHARED, SCOPED, UNSAFE
 } TokenType;
 
 typedef struct Token {

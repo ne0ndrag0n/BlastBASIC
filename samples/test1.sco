@@ -1,6 +1,1 @@
-uint32 pointerTest( addr offset ) {
-  addr original = 0xDEADBEEF;
-
-  uint32 result = *( original * offset );
-  return result;
-}
+scoped Scorpion.Object[ unsafe ] object = new Scorpion.Object();

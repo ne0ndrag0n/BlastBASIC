@@ -563,33 +563,57 @@ ASTNode* gsGetFunDecl( Parser* self ) {
 }
 
 ASTNode* gsGetDeclaration( Parser* self ) {
-  // Still looking for something beginning with a primitive-type. Check for identifier, infinite lookahead past ( DOT IDENTIFIER )*, and then for the token to be stopped at another IDENTIFIER
-  if(
-    self->current &&
+
+  List_Token* token = self->current;
+
+  if( token &&
     (
-      self->current->data.type == UINT_TYPE ||
-      self->current->data.type == INT_TYPE ||
-      self->current->data.type == FLOAT_TYPE ||
-      self->current->data.type == BOOL ||
-      self->current->data.type == VAR ||
-      self->current->data.type == ADDR ||
-      self->current->data.type == IDENTIFIER
+      token->data.type == SHARED ||
+      token->data.type == SCOPED ||
+      token->data.type == UNSAFE
     )
   ) {
-    List_Token* tokenAfter = self->current->next;
+    // Eat this qualifier and keep moving
+    token = token->next;
+  }
+
+  if(
+    token &&
+    (
+      token->data.type == UINT_TYPE ||
+      token->data.type == INT_TYPE ||
+      token->data.type == FLOAT_TYPE ||
+      token->data.type == BOOL ||
+      token->data.type == VAR ||
+      token->data.type == ADDR ||
+      token->data.type == IDENTIFIER
+    )
+  ) {
+    List_Token* tokenAfter = token->next;
 
     if( tokenAfter && tokenAfter->data.type == DOT ) {
       // Get this shit out of the way
       tokenAfter = gsIndeterminateLookahead( tokenAfter, DOT, IDENTIFIER );
     }
 
+    // TODO: Lookahead will need to be replaced to account for infinite array dimensions (really, up to 255)
     if( tokenAfter && tokenAfter->data.type == LEFT_BRACKET ) {
       // Get this shit out of the way
       tokenAfter = tokenAfter->next;
-      // Now should be on RIGHT_BRACKET but really we don't care when looking ahead
+
       if( tokenAfter ) {
-        tokenAfter = tokenAfter->next;
-        // Now should be on the token after what RIGHT_BRACKET should be
+        if( tokenAfter->data.type != RIGHT_BRACKET ) {
+          // Burn qualifier
+          tokenAfter = tokenAfter->next;
+
+          // Then burn right bracket
+          if( tokenAfter ) {
+            tokenAfter = tokenAfter->next;
+          }
+        } else {
+          // Burn right bracket
+          tokenAfter = tokenAfter->next;
+        }
       }
     }
 
@@ -686,6 +710,16 @@ ASTNode* gsGetTypeSpecifier( Parser* self ) {
   ASTNode* udt = NULL;
   bool array = false;
   Token primitive;
+  TokenType udtQualifier = NONE;
+  TokenType arrayQualifier = NONE;
+
+  if(
+    ( match = gsParserExpect( self, SHARED ) ) ||
+    ( match = gsParserExpect( self, SCOPED ) ) ||
+    ( match = gsParserExpect( self, UNSAFE ) )
+  ) {
+    udtQualifier = match->data.type;
+  }
 
   // Get the type of this vardecl
   if( ( match = gsParserExpect( self, IDENTIFIER ) ) ) {
@@ -713,9 +747,17 @@ ASTNode* gsGetTypeSpecifier( Parser* self ) {
 
   // Is it an array type?
   if( ( match = gsParserExpect( self, LEFT_BRACKET ) ) ) {
-    if( ( match = gsParserExpect( self, RIGHT_BRACKET ) ) ) {
-      array = true;
-    } else {
+    array = true;
+
+    if(
+      ( match = gsParserExpect( self, SHARED ) ) ||
+      ( match = gsParserExpect( self, SCOPED ) ) ||
+      ( match = gsParserExpect( self, UNSAFE ) )
+    ) {
+      arrayQualifier = match->data.type;
+    }
+
+    if( !( match = gsParserExpect( self, RIGHT_BRACKET ) ) ) {
       gsParserThrow( self, "Expected: ']' after '[' token" );
     }
   }
@@ -726,6 +768,9 @@ ASTNode* gsGetTypeSpecifier( Parser* self ) {
   if( udt ) {
     result->data.specifier.udt = true;
     result->data.specifier.type.udt = udt;
+
+    result->data.specifier.udtQualifier = udtQualifier;
+    result->data.specifier.arrayQualifier = arrayQualifier;
   } else {
     result->data.specifier.udt = false;
     result->data.specifier.type.primitive = primitive;
@@ -966,7 +1011,12 @@ void gsDebugPrintAST( ASTNode* root ) {
     }
     case ASTTypeSpecifier: {
       gsParseOutputIndentation( indentation );
-      printf( "udt: %d array: %d\n", root->data.specifier.udt, root->data.specifier.array );
+      printf( "udt: %d array: %d qualifier:%s array-qualifier:%s\n",
+        root->data.specifier.udt,
+        root->data.specifier.array,
+        gsTokenToString( root->data.specifier.udtQualifier ),
+        gsTokenToString( root->data.specifier.arrayQualifier )
+      );
 
       if( root->data.specifier.udt ) {
         gsParseOutputIndentation( indentation );

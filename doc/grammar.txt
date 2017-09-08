@@ -28,7 +28,8 @@ program         → declaration*
 ---
 
 block           → LEFT_BRACE declaration* RIGHT_BRACE
-type-specifier  → ( primitive-type | IDENTIFIER ( DOT IDENTIFIER )* ) ( LEFT_BRACKET RIGHT_BRACKET )?
+type-specifier  → ref-qualifier? ( primitive-type | IDENTIFIER ( DOT IDENTIFIER )* ) ( LEFT_BRACKET ref-qualifier? RIGHT_BRACKET )?
 argument-list   → type-specifier IDENTIFIER ( COMMA argument-list )*
 arguments       → expression ( COMMA expression )*
 primitive-type  → UINT_TYPE | INT_TYPE | FLOAT_TYPE | BOOL | VAR | ADDR
+ref-qualifier   → SHARED | SCOPED | UNSAFE
