@@ -220,8 +220,6 @@ List_Token* gsGetReservedWordOrIdentifier( char* identifier, size_t strLen ) {
     result = gsCreateToken( FROM );
   } else if( !strcmp( identifier, "new" ) ) {
     result = gsCreateToken( NEW );
-  } else if( !strcmp( identifier, "stack" ) ) {
-    result = gsCreateToken( STACK );
   } else {
     // Check for primitive integer types
     int uint = !strncmp( identifier, "uint", 4 );

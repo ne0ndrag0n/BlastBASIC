@@ -38,7 +38,7 @@ typedef enum TokenType {
   // Keywords
   CLASS, ELSE, BOOL_FALSE, BOOL_TRUE, FOR, IF, NULL_TOKEN,
   RETURN, SUPER, THIS, VAR, WHILE, STATIC, BOOL, ADDR,
-  PACKAGE, IMPORT, FROM, NEW, STACK
+  PACKAGE, IMPORT, FROM, NEW
 } TokenType;
 
 typedef struct Token {

@@ -6,7 +6,7 @@ equality        → comparison ( ( BANG_EQUAL | EQUAL_EQUAL ) comparison )*
 comparison      → addition ( ( GREATER | GREATER_EQUAL | LESS | LESS_EQUAL ) addition )*
 addition        → multiplication ( ( MINUS | PLUS ) multiplication )*
 multiplication  → unary ( ( SLASH | STAR ) unary )*
-unary           → ( BANG | MINUS | STAR | ( NEW STACK? ) ) unary | call
+unary           → ( BANG | MINUS | STAR | NEW ) unary | call
 call            → ( primitive-token | primary ) ( ( LEFT_BRACKET expression? RIGHT_BRACKET ) |
                   ( LEFT_PAREN expression? RIGHT_PAREN ) | ( DOT IDENTIFIER ) )*
 primary         → BOOL_TRUE | BOOL_FALSE | NULL_TOKEN | THIS | INTEGER | REAL | STRING

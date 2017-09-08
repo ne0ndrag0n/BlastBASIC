@@ -236,8 +236,7 @@ ASTNode* gsGetExpressionUnary( Parser* self ) {
   if( ( match = gsParserExpect( self, BANG ) ) || ( match = gsParserExpect( self, MINUS ) ) || ( match = gsParserExpect( self, STAR ) ) ) {
     return gsCreateUnaryExpressionNode( match->data, gsGetExpressionUnary( self ) );
   } else if( ( match = gsParserExpect( self, NEW ) ) ) {
-    List_Token* stack = gsParserExpect( self, STACK );
-    return gsCreateUnaryExpressionNode( ( stack ? stack->data : match->data ), gsGetExpressionUnary( self ) );
+    return gsCreateUnaryExpressionNode( match->data, gsGetExpressionUnary( self ) );
   } else {
     return gsGetExpressionCall( self );
   }
