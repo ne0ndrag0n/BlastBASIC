@@ -647,8 +647,6 @@ const char* gsTokenToString( TokenType type ) {
       return "from";
     case NEW:
       return "new";
-    case STACK:
-      return "stack";
     default:
       return "<unknown>";
   }
