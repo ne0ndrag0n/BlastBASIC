@@ -9,9 +9,11 @@ The MIDAS (MIDAS IDAS DAS AS S) virtual machine is what the GoldScorpion languag
 * L - Long (32-bit)
 * LL - Long Long (64-bit)
 
-# Table
+# Endianness
 
-Format: `MOV.B #1, $2200`
+Big
+
+# Table
 
 | Opcode | Mnemonic   | Sizes    | Description                        |
 |--------|------------|----------|------------------------------------|
@@ -55,6 +57,39 @@ Format: `MOV.B #1, $2200`
 | Location pointer           | (1)            | 04       |
 | Immediate value            | #1             | 05       |
 
+# Byte format
+
+The format of an instruction word is variable, depending on the width of the operands. If certain instructions have an implied/inapplicable argument, that part of the instruction word is simply omitted.
+
+## Examples
+
+`NOP`
+
+| Opcode (uint8_t)    |
+|---------------------|
+| <center>00</center> |
+
+
+`MOV.W #1, $2200`
+
+| Opcode (uint8_t)    | Operand Width (uint8_t) | Address Mode Operand #1 (uint8_t) | Address Mode Operand #2 (uint8_t) | Operand #1             | Operand #2               |
+|---------------------|-------------------------|-----------------------------------|-----------------------------------|------------------------|--------------------------|
+| <center>01</center> | <center>01</center>     | <center>05</center>               | <center>02</center>               | <center>00 01</center> | <center>22 00</center>   |
+
+`PLM`
+
+*Note how Operand Width is still required to differentiate this instruction from the following*
+
+| Opcode (uint8_t)    | Operand Width (uint8_t) |
+|---------------------|-------------------------|
+| <center>15</center> | <center>00</center>     |
+
+`PLM.W $2200`
+
+| Opcode (uint8_t)    | Operand Width (uint8_t) | Address Mode Operand #1 (uint8_t) | Operand #1             |
+|---------------------|-------------------------|-----------------------------------|------------------------|
+| <center>15</center> | <center>01</center>     | <center>02</center>               | <center>22 00</center> |
+
 # Stack/Heap Variables and Type Identifiers
 
 ## Stack data format
@@ -83,6 +118,5 @@ These Type IDs are used in both stack and heap allocations. They are used to det
 | u64       | 8  | 8            |
 | f32       | 9  | 4            |
 | f64       | 10 | 8            |
-| string    | 11 | System Word  |
 
-All types above 11 are user-defined types which compose any of the above types into compound types. If a type is seen as 12 or greater in the stack, it is traced as a starting point for garbage collection.
+All types above 10 are user-defined types which compose any of the above types into compound types. If a type is seen as 11 or greater in the stack, it is traced as a starting point for garbage collection.
