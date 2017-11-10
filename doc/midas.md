@@ -3,51 +3,56 @@ MIDAS VM
 
 The MIDAS (MIDAS IDAS DAS AS S) virtual machine is what the GoldScorpion language is built off.
 
-# Operand Sizes
-* B - Byte (8-bit)
-* W - Word (16-bit)
-* L - Long (32-bit)
-* LL - Long Long (64-bit)
-
 # Endianness
 
 Big
 
+# Operand Sizes
+
+| Operand Size Code   | Size       | Dot operator mnemonic    |
+|---------------------|------------|--------------------------|
+| <center>00</center> | No operand | <center>None</center>    |
+| <center>01</center> | 8-bit      | <center>8-bit</center>   |
+| <center>02</center> | 16-bit     | <center>16-bit</center>  |
+| <center>03</center> | 32-bit     | <center>32-bit</center>  |
+| <center>04</center> | 64-bit     | <center>64-bit</center>  |
+
 # Table
 
-| Opcode | Mnemonic   | Sizes    | Description                        |
-|--------|------------|----------|------------------------------------|
-| 00     | NOP        |          | No-op                              |
-| 01     | MOV        | B,W,L,LL | Move                               |
-| 02     | ADD        | B,W,L,LL | Add                                |
-| 03     | SUB        | B,W,L,LL | Subtract                           |
-| 04     | MUL        | B,W,L,LL | Multiply                           |
-| 05     | DIV        | B,W,L,LL | Divide                             |
-| 06     | ADF        | L,LL     | Floating point add                 |
-| 07     | SUF        | L,LL     | Floating point subtract            |
-| 08     | MUF        | L,LL     | Floating point multiply            |
-| 09     | DIF        | L,LL     | Floating point divide              |
-| 0A     | CMP        | B,W,L,LL | Compare Values                     |
-| 0B     | JEQ        | Address  | Jump if equal                      |
-| 0C     | JNE        | Address  | Jump if not equal                  |
-| 0D     | JGE        | Address  | Jump if greater than or equal      |
-| 0E     | JLE        | Address  | Jump if less than or equal         |
-| 0F     | JGT        | Address  | Jump if greater than               |
-| 10     | JLT        | Address  | Jump if less than                  |
-| 11     | JMP        | Address  | Jump unconditional                 |
-| 12     | JSR        | Address  | Jump subroutine                    |
-| 13     | RTS        |          | Return from subroutine             |
-| 14     | PHI        | B,W,L,LL | Push immediate                     |
-| 15     | PLM        | B,W,L,LL | Pull and move to location          |
-| 16     | CLL        |          | Call with *n* stack slots as args  |
-| 17     | ASL        | B,W,L,LL | Shift left                         |
-| 18     | ASR        | B,W,L,LL | Shift right                        |
-| 19     | AND        | B,W,L,LL | Bitwise AND                        |
-| 1A     | OR         | B,W,L,LL | Bitwise OR                         |
-| 1B     | NOT        | B,W,L,LL | Bitwise NOT                        |
-| 1C     | XOR        | B,W,L,LL | Bitwise XOR                        |
+| Opcode | Mnemonic   | Description                        |
+|--------|------------|------------------------------------|
+| 00     | NOP        | No-op                              |
+| 01     | MOV        | Move                               |
+| 02     | ADD        | Add                                |
+| 03     | SUB        | Subtract                           |
+| 04     | MUL        | Multiply                           |
+| 05     | DIV        | Divide                             |
+| 06     | ADF        | Floating point add                 |
+| 07     | SUF        | Floating point subtract            |
+| 08     | MUF        | Floating point multiply            |
+| 09     | DIF        | Floating point divide              |
+| 0A     | CMP        | Compare Values                     |
+| 0B     | JEQ        | Jump if equal                      |
+| 0C     | JNE        | Jump if not equal                  |
+| 0D     | JGE        | Jump if greater than or equal      |
+| 0E     | JLE        | Jump if less than or equal         |
+| 0F     | JGT        | Jump if greater than               |
+| 10     | JLT        | Jump if less than                  |
+| 11     | JMP        | Jump unconditional                 |
+| 12     | JSR        | Jump subroutine                    |
+| 13     | RTS        | Return from subroutine             |
+| 14     | PHI        | Push immediate                     |
+| 15     | PLM        | Pull and move to location          |
+| 16     | CLL        | Call with *n* stack slots as args  |
+| 17     | ASL        | Shift left                         |
+| 18     | ASR        | Shift right                        |
+| 19     | AND        | Bitwise AND                        |
+| 1A     | OR         | Bitwise OR                         |
+| 1B     | NOT        | Bitwise NOT                        |
+| 1C     | XOR        | Bitwise XOR                        |
 
 # Addressing modes
+
 | Mode                       | Symbol/Example | Preamble |
 |----------------------------|----------------|----------|
 | No operand                 |                | 00       |
@@ -57,38 +62,10 @@ Big
 | Location pointer           | (1)            | 04       |
 | Immediate value            | #1             | 05       |
 
-# Byte format
+# Instruction Format with Examples
 
-The format of an instruction word is variable, depending on the width of the operands. If certain instructions have an implied/inapplicable argument, that part of the instruction word is simply omitted.
+24-bit instruction format: opcode, operand 1 addressing mode and size, operand 2 addressing mode and size
 
-## Examples
-
-`NOP`
-
-| Opcode (uint8_t)    |
-|---------------------|
-| <center>00</center> |
-
-
-`MOV.W #1, $2200`
-
-| Opcode (uint8_t)    | Operand Width (uint8_t) | Address Mode Operand #1 (uint8_t) | Address Mode Operand #2 (uint8_t) | Operand #1             | Operand #2               |
-|---------------------|-------------------------|-----------------------------------|-----------------------------------|------------------------|--------------------------|
-| <center>01</center> | <center>01</center>     | <center>05</center>               | <center>02</center>               | <center>00 01</center> | <center>22 00</center>   |
-
-`PLM`
-
-*Note how Operand Width is still required to differentiate this instruction from the following*
-
-| Opcode (uint8_t)    | Operand Width (uint8_t) |
-|---------------------|-------------------------|
-| <center>15</center> | <center>00</center>     |
-
-`PLM.W $2200`
-
-| Opcode (uint8_t)    | Operand Width (uint8_t) | Address Mode Operand #1 (uint8_t) | Operand #1             |
-|---------------------|-------------------------|-----------------------------------|------------------------|
-| <center>15</center> | <center>01</center>     | <center>02</center>               | <center>22 00</center> |
 
 # Stack/Heap Variables and Type Identifiers
 
