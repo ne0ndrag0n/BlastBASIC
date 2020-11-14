@@ -1,6 +1,6 @@
 CC = g++
 DFLAGS =
-CFLAGS = -Wall -Wextra -pthread -std=c11 -g -rdynamic -pipe $(DFLAGS) #-fsanitize=address
+CFLAGS = -Wall -Wextra -pthread -std=c++17 -g -rdynamic -pipe $(DFLAGS) #-fsanitize=address
 INCLUDES = -Iinclude
 LIBPATHS =
 LIBS =
@@ -22,7 +22,7 @@ all:    $(MAIN)
 
 $(MAIN): $(OBJS)
 		$(CC) $(CFLAGS) $(INCLUDES) $(LIBPATHS) -o $(MAIN) $(OBJS) $(LFLAGS) $(LIBS)
-.c.o:
+.cpp.o:
 		$(CC) $(CFLAGS) $(INCLUDES) -c $<  -o $@
 
 clean:
