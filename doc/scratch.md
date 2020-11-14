@@ -77,6 +77,15 @@ print( "Concat: " + "fff" + "aaa" ) // Strings that don't fit will still termina
 
 If a string doesn't fit, it will be cut off.
 
+# Arrays
+Arrays are straightforward enough.
+```
+def x as u8[ 16 ]
+
+x = 6                   // Compiler error, cannot assign number to array type
+x[ 0 ] = 6              // Better!
+```
+
 # Inline Assembly
 Dropping to assembly is as easy as using the `asm` block directive.
 ```
