@@ -1,4 +1,4 @@
-CC = gcc
+CC = g++
 DFLAGS =
 CFLAGS = -Wall -Wextra -pthread -std=c11 -g -rdynamic -pipe $(DFLAGS) #-fsanitize=address
 INCLUDES = -Iinclude
@@ -9,9 +9,9 @@ LFLAGS =
 export LD_LIBRARY_PATH := /usr/local/lib64:/usr/lib/gcc4/x64/release/
 export PKG_CONFIG_PATH := /usr/local/lib64/pkgconfig
 
-SRCS = $(wildcard src/*.c)
+SRCS = $(wildcard src/*.cpp)
 
-OBJS = $(SRCS:.c=.o)
+OBJS = $(SRCS:.cpp=.o)
 
 MAIN = gs
 

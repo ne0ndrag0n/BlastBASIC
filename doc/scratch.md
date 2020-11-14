@@ -1,10 +1,12 @@
 GoldScorpion Scratch Samples
 ============================
 
+Version 0.0.1
+
 # Expressions
 ```
 // Expressions
-def a as integer
+def a as u16
 
 a = ( 5 + 2 )
 a = ( 5 + \
@@ -55,10 +57,44 @@ customType.add( Vec2_u8( 2, 2 ) )
 customType.log()
 ```
 
+# Strings
+Strings, for simplicity, are set to a fixed static length using an angle bracket annotation.
+```
+def fullyDynamicString as string        // Compiler error!
+                                        // Strings are always static and fixed-length
+```
+
+```
+def staticString as string<16>
+
+function concat( x as string<16> byref, y as string<16> byref ) as string<32>
+    return x + y
+end
+
+print( "Concat: " + "fff" + "aaa" ) // Strings that don't fit will still terminate
+                                    // But the memory will always be used
+```
+
+If a string doesn't fit, it will be cut off.
+
+# Inline Assembly
+Dropping to assembly is as easy as using the `asm` block directive.
+```
+function add_inline( x as u8, y as u8 ) as u16
+    def result as u16
+    result = 42
+
+    asm
+        move.w  6(sp), d0
+        add.w   8(sp), d0
+        move.w  d0, (sp)
+    end
+
+    return result
+end
+```
 
 Base-level types:
 `u8`, `u16`, `u32`
 `i8`, `i16`, `i32`
-`real`
-`bool`
 `string`
