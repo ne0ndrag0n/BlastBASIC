@@ -45,7 +45,7 @@ namespace GoldScorpion {
 		{ "\"", TokenType::TOKEN_DOUBLE_QUOTE }
 	};
 
-	static Result< Token > interpretToken( std::string& segment, bool& numericComponent ) {
+	static Token interpretToken( std::string& segment, bool& numericComponent ) {
 		if( numericComponent ) {
 			// Numeric component state can be parsed straight
 			Token result = Token{ TokenType::TOKEN_LITERAL_INTEGER, std::stol( segment ) };
@@ -60,7 +60,15 @@ namespace GoldScorpion {
 		Token result;
 
 		// Otherwise we must verify token is one of the following multipart tokens
-
+		auto it = TOKEN_MAP.find( segment );
+		if( it != TOKEN_MAP.end() ) {
+			// Constructed segment is one of a reserved set of keywords or symbols
+			result.type = it->second;
+		} else {
+			// Constructed segment is an identifier
+			result.type = TokenType::TOKEN_IDENTIFIER;
+			result.value = segment;
+		}
 
 		// Reset lexer state
 		segment = "";
@@ -88,7 +96,30 @@ namespace GoldScorpion {
 		std::string component;
 		bool lineContinuation = false;
 		bool numericComponent = false;
+		bool stringState = false;
 		for( const char& letter : body ) {
+
+			if( stringState ) {
+				// Newlines are invalid in string state
+				if( letter == '\n' ) {
+					return "Unexpected newline encountered";
+				}
+
+				if( letter == '"' ) {
+					// Exit string state and append string literal token
+					tokens.push( Token{ TokenType::TOKEN_LITERAL_STRING, component } );
+
+					// Reset state
+					component = "";
+					stringState = false;
+				} else {
+					// If in string state, unconditionally append character to current component
+					component += letter;
+				}
+
+				continue;
+			}
+
 			switch( letter ) {
 				case '\n': {
 					if( lineContinuation ) {
@@ -107,14 +138,7 @@ namespace GoldScorpion {
 				case '\f': {
 					// Interpret + push the current token
 					if( component != "" ) {
-						Result< Token > result = interpretToken( component, numericComponent );
-
-						if( auto token = std::get_if< Token >( &result ) ) {
-							tokens.push( *token );
-						} else {
-							// Error
-							return std::get< std::string >( result );
-						}
+						tokens.push( interpretToken( component, numericComponent ) );
 					}
 
 					// Mark a newline if newline encountered
@@ -126,6 +150,19 @@ namespace GoldScorpion {
 				case '\\': {
 					// When encountering the line-continuation operator, set the lineContinuation flag for when the next \n is encountered
 					lineContinuation = true;
+					continue;
+				}
+				case '"': {
+					// Enter string state, which will stop ordinary parsing and simply append items to component
+
+					// If component is non-null, throw compiler error
+					if( component != "" ) {
+						return "Unexpected \" encountered";
+					}
+
+					component = "";
+					stringState = true;
+					numericComponent = false;
 					continue;
 				}
 				default: {
