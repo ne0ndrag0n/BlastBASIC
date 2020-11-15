@@ -29,9 +29,9 @@ namespace GoldScorpion {
 			case TokenType::TOKEN_STRING:
 				return result + "TOKEN_STRING)";
 			case TokenType::TOKEN_LITERAL_STRING:
-				return result + "TOKEN_LITERAL_STRING)";
+				return result + "TOKEN_LITERAL_STRING " + std::get< std::string >( *value ) + ")";
 			case TokenType::TOKEN_LITERAL_INTEGER:
-				return result + "TOKEN_LITERAL_INTEGER)";
+				return result + "TOKEN_LITERAL_INTEGER " + std::to_string( std::get< long >( *value ) ) + ")";
 			case TokenType::TOKEN_PLUS:
 				return result + "TOKEN_PLUS)";
 			case TokenType::TOKEN_MINUS:
