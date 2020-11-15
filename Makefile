@@ -1,7 +1,7 @@
 CC = g++
 DFLAGS =
 CFLAGS = -Wall -Wextra -pthread -std=c++17 -g -rdynamic -pipe $(DFLAGS) #-fsanitize=address
-INCLUDES = -Iinclude
+INCLUDES = -Iinclude -Ilib
 LIBPATHS =
 LIBS =
 LFLAGS =
