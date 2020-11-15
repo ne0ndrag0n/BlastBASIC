@@ -5,6 +5,6 @@
 
 namespace GoldScorpion {
 
-	Result< std::queue< Token > > getTokens( const std::string& body );
+	Result< std::queue< Token > > getTokens( std::string body );
 
 }

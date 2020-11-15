@@ -46,18 +46,7 @@ namespace GoldScorpion {
 		{ "if", TokenType::TOKEN_IF }
 	};
 
-	static Token interpretToken( std::string& segment, bool& numericComponent ) {
-		if( numericComponent ) {
-			// Numeric component state can be parsed straight
-			Token result = Token{ TokenType::TOKEN_LITERAL_INTEGER, std::stol( segment ) };
-
-			// Reset lexer state
-			segment = "";
-			numericComponent = false;
-
-			return result;
-		}
-
+	static Token interpretToken( std::string& segment ) {
 		Token result;
 
 		// Otherwise we must verify token is one of the following multipart tokens
@@ -70,10 +59,6 @@ namespace GoldScorpion {
 			result.type = TokenType::TOKEN_IDENTIFIER;
 			result.value = segment;
 		}
-
-		// Reset lexer state
-		segment = "";
-		numericComponent = false;
 
 		return result;
 	}
@@ -107,7 +92,10 @@ namespace GoldScorpion {
 		}
 	}
 
-	Result< std::queue< Token > > getTokens( const std::string& body ) {
+	Result< std::queue< Token > > getTokens( std::string body ) {
+		// Append an extra character to force-flush the buffer
+		body += '\t';
+
 		struct Line {
 			unsigned int line = 1;
 			unsigned int column = 1;
@@ -117,18 +105,32 @@ namespace GoldScorpion {
 
 		std::string component;
 		bool lineContinuation = false;
-		bool numericComponent = false;
+
+		// Three flags describing types of valid contiguous sequences.
+		// A state is entered by its beginning state, and ends when either
+		// whitespace, or a non-criteria character is encountered.
+		// Then, when a state ends, snip and add the token.
+
+		// - Begins with a number and consists entirely of numbers
+		bool numericState = false;
+		// - Begins with a symbol and consists entirely of symbols
+		bool symbolicState = false;
+		// - Begins with a letter and consists entirely letters and/or numbers
+		bool alphanumericState = false;
+
+		// These two states are special "run-on" states that process their contents
+		// in a lexical-agnostic fashion.
 		bool stringState = false;
 		bool commentState = false;
-		for( const char& letter : body ) {
+		for( const char& character : body ) {
 
 			if( stringState ) {
 				// Newlines are invalid in string state
-				if( letter == '\n' ) {
+				if( character == '\n' ) {
 					return "Unexpected newline encountered";
 				}
 
-				if( letter == '"' ) {
+				if( character == '"' ) {
 					// Exit string state and append string literal token
 					tokens.push( Token{ TokenType::TOKEN_LITERAL_STRING, component } );
 
@@ -137,22 +139,54 @@ namespace GoldScorpion {
 					stringState = false;
 				} else {
 					// If in string state, unconditionally append character to current component
-					component += letter;
+					component += character;
 				}
 
 				continue;
-			}
-
-			if( commentState ) {
+			} else if( commentState ) {
 				// Do nothing unless a newline is seen, in which case, unset comment state
-				if( letter == '\n' ) {
+				if( character == '\n' ) {
 					commentState = false;
 				}
 
 				continue;
+			} else if( numericState ) {
+
+				if( isNumeric( character ) ) {
+					component += character;
+					continue;
+				} else {
+					tokens.push( Token{ TokenType::TOKEN_LITERAL_INTEGER, std::stol( component ) } );
+					numericState = false;
+					component = "";
+				}
+
+			} else if( symbolicState ) {
+
+				if( isValidSymbol( character ) ) {
+					component += character;
+					continue;
+				} else {
+					tokens.push( interpretToken( component ) );
+					symbolicState = false;
+					component = "";
+				}
+
+			} else if( alphanumericState ) {
+
+				if( isAlpha( character ) || isNumeric( character ) ) {
+					component += character;
+					continue;
+				} else {
+					tokens.push( interpretToken( component ) );
+					alphanumericState = false;
+					component = "";
+				}
+
 			}
 
-			switch( letter ) {
+			// Else, we need to enter a new state
+			switch( character ) {
 				case '#': {
 					// Enter comment state, which will skip parsing until the next newline is seen
 					commentState = true;
@@ -163,25 +197,18 @@ namespace GoldScorpion {
 						// If line continuation operator is present
 						// Then eat the newline instead of adding it to the token stream
 						lineContinuation = false;
-						continue;
+					} else {
+						tokens.push( Token{ TokenType::TOKEN_NEWLINE, {} } );
 					}
 
-					[[fallthrough]];
+					continue;
 				}
 				case ' ':
 				case '\t':
 				case '\r':
 				case '\v':
 				case '\f': {
-					// Interpret + push the current token
-					if( component != "" ) {
-						tokens.push( interpretToken( component, numericComponent ) );
-					}
-
-					// Mark a newline if newline encountered
-					if( letter == '\n' ) {
-						tokens.push( Token{ TokenType::TOKEN_NEWLINE, {} } );
-					}
+					// Continue directly
 					continue;
 				}
 				case '\\': {
@@ -191,30 +218,22 @@ namespace GoldScorpion {
 				}
 				case '"': {
 					// Enter string state, which will stop ordinary parsing and simply append items to component
-
-					// If component is non-null, throw compiler error
-					if( component != "" ) {
-						return "Unexpected \" encountered";
-					}
-
-					component = "";
 					stringState = true;
-					numericComponent = false;
 					continue;
 				}
 				default: {
-					// Token that begins with number will ultimately be interpreted as a number if it is the first part of a new component
-					if( isNumeric( letter ) ) {
-						if( component == "" ) {
-							numericComponent = true;
-						}
-
-						component += letter;
-					} else if( isAlpha( letter ) || isValidSymbol( letter ) ) {
-						component += letter;
+					// Set state depending on token encountered
+					if( isNumeric( character ) ) {
+						numericState = true;
+						component += character;
+					} else if( isAlpha( character ) ) {
+						alphanumericState = true;
+						component += character;
+					} else if( isValidSymbol( character ) ){
+						symbolicState = true;
+						component += character;
 					} else {
-						// Error
-						return std::string( "Invalid character: " ) + letter;
+						return std::string( "Unexpected character: " ) + character;
 					}
 				}
 			}
