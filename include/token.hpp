@@ -1,8 +1,11 @@
 #pragma once
+#include <optional>
+#include <variant>
+#include <string>
 
 namespace GoldScorpion {
 
-	enum class Token {
+	enum class TokenType {
 		TOKEN_NONE,
 		TOKEN_DEF,
 		TOKEN_IDENTIFIER,
@@ -38,7 +41,21 @@ namespace GoldScorpion {
 		TOKEN_RIGHT_BRACKET,
 		TOKEN_ASM,
 		TOKEN_DOUBLE_FORWARD_SLASH,
-		TOKEN_THIS
+		TOKEN_THIS,
+		TOKEN_NEWLINE,
+		TOKEN_GREATER_THAN,
+		TOKEN_LESS_THAN,
+		TOKEN_GREATER_THAN_EQUAL,
+		TOKEN_LESS_THAN_EQUAL,
+		TOKEN_SHIFT_RIGHT,
+		TOKEN_SHIFT_LEFT,
+		TOKEN_BYREF,
+		TOKEN_DOUBLE_QUOTE
+	};
+
+	struct Token {
+		TokenType type;
+		std::optional< std::variant< long, std::string > > value;
 	};
 
 }
