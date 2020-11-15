@@ -42,7 +42,8 @@ namespace GoldScorpion {
 		{ ">>", TokenType::TOKEN_SHIFT_RIGHT },
 		{ "<<", TokenType::TOKEN_SHIFT_LEFT },
 		{ "byref", TokenType::TOKEN_BYREF },
-		{ "\"", TokenType::TOKEN_DOUBLE_QUOTE }
+		{ "\"", TokenType::TOKEN_DOUBLE_QUOTE },
+		{ "if", TokenType::TOKEN_IF }
 	};
 
 	static Token interpretToken( std::string& segment, bool& numericComponent ) {
@@ -85,6 +86,27 @@ namespace GoldScorpion {
 		return ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' );
 	}
 
+	static bool isValidSymbol( char c ) {
+		switch( c ) {
+			case '+':
+			case '-':
+			case '*':
+			case '/':
+			case '.':
+			case '(':
+			case ')':
+			case '[':
+			case ']':
+			case '=':
+			case '>':
+			case '<':
+			case ',':
+				return true;
+			default:
+				return false;
+		}
+	}
+
 	Result< std::queue< Token > > getTokens( const std::string& body ) {
 		struct Line {
 			unsigned int line = 1;
@@ -97,6 +119,7 @@ namespace GoldScorpion {
 		bool lineContinuation = false;
 		bool numericComponent = false;
 		bool stringState = false;
+		bool commentState = false;
 		for( const char& letter : body ) {
 
 			if( stringState ) {
@@ -120,7 +143,21 @@ namespace GoldScorpion {
 				continue;
 			}
 
+			if( commentState ) {
+				// Do nothing unless a newline is seen, in which case, unset comment state
+				if( letter == '\n' ) {
+					commentState = false;
+				}
+
+				continue;
+			}
+
 			switch( letter ) {
+				case '#': {
+					// Enter comment state, which will skip parsing until the next newline is seen
+					commentState = true;
+					continue;
+				}
 				case '\n': {
 					if( lineContinuation ) {
 						// If line continuation operator is present
@@ -173,16 +210,16 @@ namespace GoldScorpion {
 						}
 
 						component += letter;
-					} else if( isAlpha( letter ) ) {
+					} else if( isAlpha( letter ) || isValidSymbol( letter ) ) {
 						component += letter;
 					} else {
 						// Error
-						return "Invalid character";
+						return std::string( "Invalid character: " ) + letter;
 					}
 				}
 			}
 		}
 
-		return "Not implemented";
+		return tokens;
 	}
 }

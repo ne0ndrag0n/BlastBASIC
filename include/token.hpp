@@ -50,12 +50,15 @@ namespace GoldScorpion {
 		TOKEN_SHIFT_RIGHT,
 		TOKEN_SHIFT_LEFT,
 		TOKEN_BYREF,
-		TOKEN_DOUBLE_QUOTE
+		TOKEN_DOUBLE_QUOTE,
+		TOKEN_IF
 	};
 
 	struct Token {
 		TokenType type;
 		std::optional< std::variant< long, std::string > > value;
+
+		std::string toString() const;
 	};
 
 }
