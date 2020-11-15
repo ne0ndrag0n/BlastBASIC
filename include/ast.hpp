@@ -25,6 +25,8 @@ namespace GoldScorpion {
 		std::unique_ptr< struct UnaryExpression >,
 		std::unique_ptr< struct BinaryExpression >,
 		std::unique_ptr< struct AssignmentExpression >,
+		std::unique_ptr< struct FunctionCallExpression >,
+		std::unique_ptr< struct ArrayExpression >,
 		NumericLiteral,
 		StringLiteral
 	>;
@@ -41,14 +43,24 @@ namespace GoldScorpion {
 	};
 
 	struct AssignmentExpression {
-		Identifier identifier;
+		Identifier name;
 		Expression expression;
+	};
+
+	struct FunctionCallExpression {
+		Identifier name;
+		std::vector< Expression > arguments;
+	};
+
+	struct ArrayExpression {
+		Identifier name;
+		long index;
 	};
 
 	struct DefineDeclaration {
 		Identifier identifier;
 		DataType type;
-		std::optional< std::vector< Expression > > initializers;
+		std::vector< Expression > initializers;
 	};
 
 	using Statement = std::variant<
