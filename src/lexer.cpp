@@ -1,6 +1,7 @@
 #include "lexer.hpp"
 #include "variant_visitor.hpp"
 #include <unordered_map>
+#include <vector>
 
 namespace GoldScorpion {
 
@@ -92,7 +93,7 @@ namespace GoldScorpion {
 		}
 	}
 
-	Result< std::queue< Token > > getTokens( std::string body ) {
+	Result< std::vector< Token > > getTokens( std::string body ) {
 		// Append an extra character to force-flush the buffer
 		body += '\t';
 
@@ -101,7 +102,7 @@ namespace GoldScorpion {
 			unsigned int column = 1;
 		};
 
-		std::queue< Token > tokens;
+		std::vector< Token > tokens;
 
 		std::string component;
 		bool lineContinuation = false;
@@ -132,7 +133,7 @@ namespace GoldScorpion {
 
 				if( character == '"' ) {
 					// Exit string state and append string literal token
-					tokens.push( Token{ TokenType::TOKEN_LITERAL_STRING, component } );
+					tokens.push_back( Token{ TokenType::TOKEN_LITERAL_STRING, component } );
 
 					// Reset state
 					component = "";
@@ -156,7 +157,7 @@ namespace GoldScorpion {
 					component += character;
 					continue;
 				} else {
-					tokens.push( Token{ TokenType::TOKEN_LITERAL_INTEGER, std::stol( component ) } );
+					tokens.push_back( Token{ TokenType::TOKEN_LITERAL_INTEGER, std::stol( component ) } );
 					numericState = false;
 					component = "";
 				}
@@ -167,7 +168,7 @@ namespace GoldScorpion {
 					component += character;
 					continue;
 				} else {
-					tokens.push( interpretToken( component ) );
+					tokens.push_back( interpretToken( component ) );
 					symbolicState = false;
 					component = "";
 				}
@@ -178,7 +179,7 @@ namespace GoldScorpion {
 					component += character;
 					continue;
 				} else {
-					tokens.push( interpretToken( component ) );
+					tokens.push_back( interpretToken( component ) );
 					alphanumericState = false;
 					component = "";
 				}
@@ -198,7 +199,7 @@ namespace GoldScorpion {
 						// Then eat the newline instead of adding it to the token stream
 						lineContinuation = false;
 					} else {
-						tokens.push( Token{ TokenType::TOKEN_NEWLINE, {} } );
+						tokens.push_back( Token{ TokenType::TOKEN_NEWLINE, {} } );
 					}
 
 					continue;

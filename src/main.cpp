@@ -49,13 +49,12 @@ int main( int argc, char** argv ) {
 		if( auto file = std::get_if< GoldScorpion::Utility::File >( &fileResult ) ) {
 			auto tokenResult = GoldScorpion::getTokens( file->contents );
 
-			if( auto tokens = std::get_if< std::queue< GoldScorpion::Token > >( &tokenResult ) ) {
+			if( auto tokens = std::get_if< std::vector< GoldScorpion::Token > >( &tokenResult ) ) {
 				std::cout << rang::fgB::green << "success: " << rang::style::reset
 					<< "Parsed file " << parseFilename << std::endl;
 
-				while( !tokens->empty() ) {
-					std::cout << tokens->front().toString() << std::endl;
-					tokens->pop();
+				for( const GoldScorpion::Token& token : *tokens ) {
+					std::cout << token.toString() << std::endl;
 				}
 
 				return 0;

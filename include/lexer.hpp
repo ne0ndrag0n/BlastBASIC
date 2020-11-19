@@ -1,10 +1,10 @@
 #pragma once
 #include "token.hpp"
 #include "result_type.hpp"
-#include <queue>
+#include <vector>
 
 namespace GoldScorpion {
 
-	Result< std::queue< Token > > getTokens( std::string body );
+	Result< std::vector< Token > > getTokens( std::string body );
 
 }
