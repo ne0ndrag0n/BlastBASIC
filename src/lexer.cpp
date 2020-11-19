@@ -44,7 +44,14 @@ namespace GoldScorpion {
 		{ "<<", TokenType::TOKEN_SHIFT_LEFT },
 		{ "byref", TokenType::TOKEN_BYREF },
 		{ "\"", TokenType::TOKEN_DOUBLE_QUOTE },
-		{ "if", TokenType::TOKEN_IF }
+		{ "if", TokenType::TOKEN_IF },
+		{ "for", TokenType::TOKEN_FOR },
+		{ "while", TokenType::TOKEN_WHILE },
+		{ "to", TokenType::TOKEN_TO },
+		{ "every", TokenType::TOKEN_EVERY },
+		{ "else", TokenType::TOKEN_ELSE },
+		{ "break", TokenType::TOKEN_BREAK },
+		{ "continue", TokenType::TOKEN_CONTINUE }
 	};
 
 	static Token interpretToken( std::string& segment ) {

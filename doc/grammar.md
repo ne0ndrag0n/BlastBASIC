@@ -10,15 +10,36 @@ declaration -> typeDecl |
 				statement;
 
 
-typeDecl -> "type" IDENTIFIER
-			varDecl*
-			funDecl*
+typeDecl -> "type" IDENTIFIER \n
+			(parameter \n)*
+			(funDecl \n)*
 			"end"
 
-funDecl -> "function" function "end"
+funDecl -> "function" IDENTIFIER "(" parameter ( "," parameter )* ")" \n declaration* \n "end"
 
-function	-> IDENTIFIER "(" parameters? ")" \n declaration* \n
-parameters	-> IDENTIFIER "as" type ( "," IDENTIFIER "as" type )*
+varDecl -> "def" parameter ( "=" expression )?
+
+statement -> exprStatement |
+			 forStatement |
+			 ifStatement |
+			 returnStatement |
+			 whileStatement
+
+exprStatement -> expression \n
+
+forStatement -> "for" IDENTIFIER "=" IDENTIFIER "to" IDENTIFIER ( "every" IDENTIFIER )?
+				\n? declaration* \n? "end"
+
+ifStatement -> "if" expression "then" \n? declaration* \n?
+				( "else" "if" expression "then" \n? declaration* \n? )*
+				( "else" \n? declaration* \n? )?
+				"end"
+
+returnStatement -> "return" expression? \n
+
+whileStatement -> "while" expression \n? statement* \n? "end"
+
+parameter -> IDENTIFIER "as" type
 arguments	-> expression ( "," expression )*
 
 type -> "u8" |

@@ -98,6 +98,20 @@ namespace GoldScorpion {
 				return result + "TOKEN_DOUBLE_QUOTE)";
 			case TokenType::TOKEN_IF:
 				return result + "TOKEN_IF)";
+			case TokenType::TOKEN_FOR:
+				return result + "TOKEN_FOR)";
+			case TokenType::TOKEN_WHILE:
+				return result + "TOKEN_WHILE)";
+			case TokenType::TOKEN_TO:
+				return result + "TOKEN_TO)";
+			case TokenType::TOKEN_EVERY:
+				return result + "TOKEN_EVERY)";
+			case TokenType::TOKEN_ELSE:
+				return result + "TOKEN_ELSE)";
+			case TokenType::TOKEN_BREAK:
+				return result + "TOKEN_BREAK)";
+			case TokenType::TOKEN_CONTINUE:
+				return result + "TOKEN_CONTINUE)";
 			default:
 				return result + "<unknown>)";
 		}

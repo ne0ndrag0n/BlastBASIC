@@ -2,7 +2,7 @@
 
 namespace GoldScorpion {
 
-	Result< Program > getProgram( std::queue< Token > filename ) {
+	Result< Program > getProgram( std::vector< Token > filename ) {
 		return "Not implemented";
 	}
 }

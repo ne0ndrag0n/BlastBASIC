@@ -2,10 +2,10 @@
 #include "ast.hpp"
 #include "token.hpp"
 #include "result_type.hpp"
-#include <queue>
+#include <vector>
 
 namespace GoldScorpion {
 
-	Result< Program > getProgram( std::queue< Token > filename );
+	Result< Program > getProgram( std::vector< Token > filename );
 
 }
