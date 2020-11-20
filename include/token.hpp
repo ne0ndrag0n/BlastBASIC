@@ -28,6 +28,7 @@ namespace GoldScorpion {
 		TOKEN_LEFT_PAREN,
 		TOKEN_RIGHT_PAREN,
 		TOKEN_EQUALS,
+		TOKEN_NOT_EQUALS,
 		TOKEN_DOUBLE_EQUALS,
 		TOKEN_NOT,
 		TOKEN_THEN,
@@ -58,7 +59,10 @@ namespace GoldScorpion {
 		TOKEN_EVERY,
 		TOKEN_ELSE,
 		TOKEN_BREAK,
-		TOKEN_CONTINUE
+		TOKEN_CONTINUE,
+		TOKEN_AND,
+		TOKEN_OR,
+		TOKEN_XOR
 	};
 
 	struct Token {

@@ -24,6 +24,7 @@ namespace GoldScorpion {
 		{ ")", TokenType::TOKEN_RIGHT_PAREN },
 		{ "=", TokenType::TOKEN_EQUALS },
 		{ "==", TokenType::TOKEN_DOUBLE_EQUALS },
+		{ "!=", TokenType::TOKEN_NOT_EQUALS },
 		{ "not", TokenType::TOKEN_NOT },
 		{ "then", TokenType::TOKEN_THEN },
 		{ "function", TokenType::TOKEN_FUNCTION },
@@ -51,7 +52,10 @@ namespace GoldScorpion {
 		{ "every", TokenType::TOKEN_EVERY },
 		{ "else", TokenType::TOKEN_ELSE },
 		{ "break", TokenType::TOKEN_BREAK },
-		{ "continue", TokenType::TOKEN_CONTINUE }
+		{ "continue", TokenType::TOKEN_CONTINUE },
+		{ "and", TokenType::TOKEN_AND },
+		{ "or", TokenType::TOKEN_OR },
+		{ "xor", TokenType::TOKEN_XOR }
 	};
 
 	static Token interpretToken( std::string& segment ) {

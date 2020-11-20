@@ -50,6 +50,8 @@ namespace GoldScorpion {
 				return result + "TOKEN_RIGHT_PAREN)";
 			case TokenType::TOKEN_EQUALS:
 				return result + "TOKEN_EQUALS)";
+			case TokenType::TOKEN_NOT_EQUALS:
+				return result + "TOKEN_NOT_EQUALS)";
 			case TokenType::TOKEN_DOUBLE_EQUALS:
 				return result + "TOKEN_DOUBLE_EQUALS)";
 			case TokenType::TOKEN_NOT:
@@ -112,6 +114,12 @@ namespace GoldScorpion {
 				return result + "TOKEN_BREAK)";
 			case TokenType::TOKEN_CONTINUE:
 				return result + "TOKEN_CONTINUE)";
+			case TokenType::TOKEN_AND:
+				return result + "TOKEN_AND)";
+			case TokenType::TOKEN_OR:
+				return result + "TOKEN_OR)";
+			case TokenType::TOKEN_XOR:
+				return result + "TOKEN_XOR)";
 			default:
 				return result + "<unknown>)";
 		}
