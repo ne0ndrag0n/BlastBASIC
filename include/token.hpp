@@ -62,7 +62,8 @@ namespace GoldScorpion {
 		TOKEN_CONTINUE,
 		TOKEN_AND,
 		TOKEN_OR,
-		TOKEN_XOR
+		TOKEN_XOR,
+		TOKEN_SUPER
 	};
 
 	struct Token {

@@ -55,7 +55,8 @@ namespace GoldScorpion {
 		{ "continue", TokenType::TOKEN_CONTINUE },
 		{ "and", TokenType::TOKEN_AND },
 		{ "or", TokenType::TOKEN_OR },
-		{ "xor", TokenType::TOKEN_XOR }
+		{ "xor", TokenType::TOKEN_XOR },
+		{ "super", TokenType::TOKEN_SUPER }
 	};
 
 	static Token interpretToken( std::string& segment ) {
