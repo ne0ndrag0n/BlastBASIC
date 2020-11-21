@@ -12,8 +12,11 @@ namespace GoldScorpion {
 	template< typename ReturnType >
 	struct GeneratedAstNode {
 		std::vector< Token >::iterator nextIterator;
-		ReturnType node;
+		std::unique_ptr< ReturnType > node;
 	};
+
+	template< typename ReturnType >
+	using AstResult = std::optional< GeneratedAstNode< ReturnType > >;
 
 	struct Primary {
 		std::variant< Token, std::unique_ptr< struct Expression > > value;
