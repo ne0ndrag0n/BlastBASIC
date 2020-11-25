@@ -23,7 +23,7 @@ namespace GoldScorpion {
 	};
 
 	struct CallExpression {
-		std::unique_ptr< Primary > identifier;
+		std::unique_ptr< Expression > identifier;
 		std::vector< std::unique_ptr< struct Expression > > arguments;
 	};
 

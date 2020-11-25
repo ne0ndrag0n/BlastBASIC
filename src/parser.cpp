@@ -98,7 +98,6 @@ namespace GoldScorpion {
 
 			// Zero or more of either argument list or dot-identifier
 			std::queue< std::unique_ptr< Expression > > queue;
-			queue.emplace( std::move( primary->node ) );
 			while( true ) {
 				if( current->type == TokenType::TOKEN_LEFT_PAREN ) {
 					// Need to parse an argument list
@@ -131,57 +130,74 @@ namespace GoldScorpion {
 						// Eat current
 						current++;
 
-						// Move onto next argument-or-identifier
-						continue;
+						// Assemble CallExpression from current list of arguments 
+						queue.emplace( std::make_unique< Expression >( Expression{
+							std::make_unique< CallExpression >( CallExpression{
+								nullptr,
+								std::move( arguments )
+							} )
+						} ) );
 					} else {
 						throw new std::runtime_error( "Expected: closing \")\"" );
 					}
 
 				} else if( current->type == TokenType::TOKEN_DOT ) {
+					if( AstResult< Expression > nextExpression = getPrimary( current ) ) {
+						current = nextExpression->nextIterator;
 
+						// Primary must be primary and identifier type
+						if( auto primaryPtr = std::get_if< std::unique_ptr< Primary > >( &nextExpression->node->value ) ) {
+							// Now the primary must be both a token and identifier token
+							if( auto tokenResult = std::get_if< Token >( &( *primaryPtr )->value ) ) {
+								if( tokenResult->type == TokenType::TOKEN_IDENTIFIER ) {
+									// Move nextExpression onto the queue
+									queue.emplace( std::move( nextExpression->node ) );
+								} else {
+									throw new std::runtime_error( "Expected: token of IDENTIFIER type" );
+								}
+							} else {
+								throw new std::runtime_error( "Expected: primary of token type" );
+							}
+						} else {
+							throw new std::runtime_error( "Expected: primary" );
+						}
+					}
 				} else {
 					break;
 				}
 			}
 
 			// Begin building the tree from treeStack
-			if ( queue.size() == 1 ) {
+			while( !queue.empty() ) {
+				// Queue will contain either null function calls or identifiers
+				// When encountering a call: primary = call with current primary as identifier
+				// When encounering an identifier: primary = dot with lhs primary and rhs identifier
+				if( auto result = std::get_if< std::unique_ptr< CallExpression > >( &queue.front()->value ) ) {
+					(*result)->identifier = std::move( primary->node ); 
+					primary->node = std::make_unique< Expression >( Expression {
+						std::move( *result )
+					} );
+				} else if( auto result = std::get_if< std::unique_ptr< Primary > >( &queue.front()->value ) ) {
+					std::unique_ptr< BinaryExpression > binary = std::make_unique< BinaryExpression >( BinaryExpression {
+						std::move( primary->node ),
 
-			} else {
-				while( !queue.empty() ) {
-					// Example: a.b
-					// [ a, b ]
-					// Desired result:
-					/*
-							[ BinaryExpression operator dot ]
-							/								\
-					[ Expression "a" ]   		[ Expression "b" ]
-					*/
+						std::make_unique< Primary >( Primary {
+							Token{ TokenType::TOKEN_DOT, {} }
+						} ),
 
-					// Example: a.b.c
-					// [ a, b, c ]
-					// Desired result:
-					/*
-												[ BinaryExpression operator dot ]
-												/                               \
-							[ BinaryExpression operator dot ] 				[ Expression "c" ]
-							/								\
-					[ Expression "a" ]   		[ Expression "b" ]
-					*/
+						std::make_unique< Expression >( Expression {
+							std::move( *result )
+						} )
+					} );
 
-					// Example: a.b.c.d
-					// [ a, b, c, d ]
-					// Desired result:
-					/*
-																[ BinaryExpression operator dot ]
-																/								\
-												[ BinaryExpression operator dot ]				[ Expression "d" ]
-												/                               \
-							[ BinaryExpression operator dot ] 				[ Expression "c" ]
-							/								\
-					[ Expression "a" ]   		[ Expression "b" ]
-					*/
+					primary->node = std::make_unique< Expression >( Expression {
+						std::move( binary )
+					} );
+				} else {
+					throw new std::runtime_error( "Internal compiler error (unexpected item in call-expression queue)" );
 				}
+
+				queue.pop();
 			}
 
 			return primary;
