@@ -120,7 +120,7 @@ namespace GoldScorpion {
 								arguments.emplace_back( std::move( expression->node ) );
 							} else {
 								// Error if an expression doesn't follow a comma
-								throw new std::runtime_error( "Expected: expression following a \",\"" );
+								throw new std::runtime_error( "Expected: Expression following a \",\"" );
 							}
 						}
 					}
@@ -153,16 +153,16 @@ namespace GoldScorpion {
 									// Move nextExpression onto the queue
 									queue.emplace( std::move( nextExpression->node ) );
 								} else {
-									throw new std::runtime_error( "Expected: token of IDENTIFIER type" );
+									throw new std::runtime_error( "Expected: Token of IDENTIFIER type" );
 								}
 							} else {
-								throw new std::runtime_error( "Expected: primary of token type" );
+								throw new std::runtime_error( "Expected: Primary of Token type" );
 							}
 						} else {
-							throw new std::runtime_error( "Expected: expression of primary type" );
+							throw new std::runtime_error( "Expected: Expression of Primary type" );
 						}
 					} else {
-						throw new std::runtime_error( "Expected: primary following \".\"" );
+						throw new std::runtime_error( "Expected: Primary following \".\"" );
 					}
 				} else {
 					break;
@@ -202,10 +202,105 @@ namespace GoldScorpion {
 				queue.pop();
 			}
 
+			primary->nextIterator = current;
 			return primary;
 		}
 
 		return {};
+	}
+
+	static AstResult< Expression > getUnary( std::vector< Token >::iterator current ) {
+		// If current is not a "not" token or a "-" token, then it is not a unary, go right to call
+		if( current->type == TokenType::TOKEN_NOT || current->type == TokenType::TOKEN_MINUS ) {
+			// Save token
+			Token operatorToken = *current;
+
+			// A terminal unary must follow
+			AstResult< Expression > unary = getUnary( current );
+			if( unary ) {
+				return GeneratedAstNode< Expression >{
+					unary->nextIterator,
+					std::make_unique< Expression >( Expression{
+						std::make_unique< UnaryExpression >( UnaryExpression {
+							std::make_unique< Primary >( Primary{ operatorToken } ),
+
+							std::move( unary->node )
+						} )
+					} )
+				};
+			} else {
+				throw new std::runtime_error( "Expected: terminal Expression following unary operator" );
+			}
+		} else {
+			return getCall( current );
+		}
+	}
+
+	static AstResult< Expression > getFactor( std::vector< Token >::iterator current ) {
+		AstResult< Expression > result = getUnary( current );
+		if( result ) {
+			// Keep taking unary expressions as long as the next token is a "/" or "*"
+			current = result->nextIterator;
+			while( current->type == TokenType::TOKEN_ASTERISK || current->type == TokenType::TOKEN_FORWARD_SLASH ) {
+				Token op = *current;
+
+				AstResult< Expression > next = getUnary( ++current );
+				if( next ) {
+					current = next->nextIterator;
+
+					// Form BinaryExpression
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+						std::make_unique< BinaryExpression >( BinaryExpression {
+							std::move( result->node ),
+
+							std::make_unique< Primary >( Primary{ op } ),
+
+							std::move( next->node )
+						} )
+					} );
+
+					result->node = std::move( binaryExpression );
+				} else {
+					throw new std::runtime_error( "Expected: terminal Unary following operator \"*\" or \"/\"" );
+				}
+			}
+
+			result->nextIterator = current;
+		}
+
+		return result;
+	}
+
+	static AstResult< Expression > getTerm( std::vector< Token >::iterator current ) {
+		AstResult< Expression > result = getFactor( current );
+		if( result ) {
+			current = result->nextIterator;
+			while( current->type == TokenType::TOKEN_MINUS || current->type == TokenType::TOKEN_PLUS ) {
+				Token op = *current;
+
+				AstResult< Expression > next = getFactor( ++current );
+				if( next ) {
+					current = next->nextIterator;
+
+					// Form BinaryExpression
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+						std::make_unique< BinaryExpression >( BinaryExpression {
+							std::move( result->node ),
+
+							std::make_unique< Primary >( Primary{ op } ),
+
+							std::move( next->node )
+						} )
+					} );
+
+					result->node = std::move( binaryExpression );
+				} else {
+					throw new std::runtime_error( "Expected: terminal Factor following operator \"-\" or \"+\"" );
+				}
+			}
+		}
+
+		return result;
 	}
 
 	Result< Program > getProgram( std::vector< Token > filename ) {
