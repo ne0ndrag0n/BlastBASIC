@@ -130,7 +130,7 @@ namespace GoldScorpion {
 						// Eat current
 						current++;
 
-						// Assemble CallExpression from current list of arguments 
+						// Assemble CallExpression from current list of arguments
 						queue.emplace( std::make_unique< Expression >( Expression{
 							std::make_unique< CallExpression >( CallExpression{
 								nullptr,
@@ -159,8 +159,10 @@ namespace GoldScorpion {
 								throw new std::runtime_error( "Expected: primary of token type" );
 							}
 						} else {
-							throw new std::runtime_error( "Expected: primary" );
+							throw new std::runtime_error( "Expected: expression of primary type" );
 						}
+					} else {
+						throw new std::runtime_error( "Expected: primary following \".\"" );
 					}
 				} else {
 					break;
@@ -173,7 +175,7 @@ namespace GoldScorpion {
 				// When encountering a call: primary = call with current primary as identifier
 				// When encounering an identifier: primary = dot with lhs primary and rhs identifier
 				if( auto result = std::get_if< std::unique_ptr< CallExpression > >( &queue.front()->value ) ) {
-					(*result)->identifier = std::move( primary->node ); 
+					(*result)->identifier = std::move( primary->node );
 					primary->node = std::make_unique< Expression >( Expression {
 						std::move( *result )
 					} );
