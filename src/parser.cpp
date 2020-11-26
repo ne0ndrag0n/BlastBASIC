@@ -298,6 +298,181 @@ namespace GoldScorpion {
 					throw new std::runtime_error( "Expected: terminal Factor following operator \"-\" or \"+\"" );
 				}
 			}
+
+			result->nextIterator = current;
+		}
+
+		return result;
+	}
+
+	static AstResult< Expression > getComparison( std::vector< Token >::iterator current ) {
+		AstResult< Expression > result = getTerm( current );
+		if( result ) {
+			current = result->nextIterator;
+			while( current->type == TokenType::TOKEN_GREATER_THAN ||
+				   current->type == TokenType::TOKEN_GREATER_THAN_EQUAL ||
+				   current->type == TokenType::TOKEN_LESS_THAN ||
+				   current->type == TokenType::TOKEN_LESS_THAN_EQUAL ) {
+				Token op = *current;
+
+				AstResult< Expression > next = getTerm( ++current );
+				if( next ) {
+					current = next->nextIterator;
+
+					// Form BinaryExpression
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+						std::make_unique< BinaryExpression >( BinaryExpression {
+							std::move( result->node ),
+
+							std::make_unique< Primary >( Primary{ op } ),
+
+							std::move( next->node )
+						} )
+					} );
+
+					result->node = std::move( binaryExpression );
+				} else {
+					throw new std::runtime_error( "Expected: terminal Term following operator \">\", \">=\", \"<\", or \"<=\"" );
+				}
+			}
+
+			result->nextIterator = current;
+		}
+
+		return result;
+	}
+
+	static AstResult< Expression > getEquality( std::vector< Token >::iterator current ) {
+		AstResult< Expression > result = getComparison( current );
+		if( result ) {
+			current = result->nextIterator;
+			while( current->type == TokenType::TOKEN_NOT_EQUALS || current->type == TokenType::TOKEN_DOUBLE_EQUALS ) {
+				Token op = *current;
+
+				AstResult< Expression > next = getComparison( ++current );
+				if( next ) {
+					current = next->nextIterator;
+
+					// Form BinaryExpression
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+						std::make_unique< BinaryExpression >( BinaryExpression {
+							std::move( result->node ),
+
+							std::make_unique< Primary >( Primary{ op } ),
+
+							std::move( next->node )
+						} )
+					} );
+
+					result->node = std::move( binaryExpression );
+				} else {
+					throw new std::runtime_error( "Expected: terminal Comparison following operator \"!=\" or \"==\"" );
+				}
+			}
+
+			result->nextIterator = current;
+		}
+
+		return result;
+	}
+
+	static AstResult< Expression > getLogicAnd( std::vector< Token >::iterator current ) {
+		AstResult< Expression > result = getEquality( current );
+		if( result ) {
+			current = result->nextIterator;
+			while( current->type == TokenType::TOKEN_AND ) {
+				Token op = *current;
+
+				AstResult< Expression > next = getEquality( ++current );
+				if( next ) {
+					current = next->nextIterator;
+
+					// Form BinaryExpression
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+						std::make_unique< BinaryExpression >( BinaryExpression {
+							std::move( result->node ),
+
+							std::make_unique< Primary >( Primary{ op } ),
+
+							std::move( next->node )
+						} )
+					} );
+
+					result->node = std::move( binaryExpression );
+				} else {
+					throw new std::runtime_error( "Expected: terminal Equality following operator \"and\"" );
+				}
+			}
+
+			result->nextIterator = current;
+		}
+
+		return result;
+	}
+
+	static AstResult< Expression > getLogicXor( std::vector< Token >::iterator current ) {
+		AstResult< Expression > result = getLogicAnd( current );
+		if( result ) {
+			current = result->nextIterator;
+			while( current->type == TokenType::TOKEN_XOR ) {
+				Token op = *current;
+
+				AstResult< Expression > next = getLogicAnd( ++current );
+				if( next ) {
+					current = next->nextIterator;
+
+					// Form BinaryExpression
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+						std::make_unique< BinaryExpression >( BinaryExpression {
+							std::move( result->node ),
+
+							std::make_unique< Primary >( Primary{ op } ),
+
+							std::move( next->node )
+						} )
+					} );
+
+					result->node = std::move( binaryExpression );
+				} else {
+					throw new std::runtime_error( "Expected: terminal LogicAnd following operator \"xor\"" );
+				}
+			}
+
+			result->nextIterator = current;
+		}
+
+		return result;
+	}
+
+	static AstResult< Expression > getLogicOr( std::vector< Token >::iterator current ) {
+		AstResult< Expression > result = getLogicXor( current );
+		if( result ) {
+			current = result->nextIterator;
+			while( current->type == TokenType::TOKEN_OR ) {
+				Token op = *current;
+
+				AstResult< Expression > next = getLogicXor( ++current );
+				if( next ) {
+					current = next->nextIterator;
+
+					// Form BinaryExpression
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+						std::make_unique< BinaryExpression >( BinaryExpression {
+							std::move( result->node ),
+
+							std::make_unique< Primary >( Primary{ op } ),
+
+							std::move( next->node )
+						} )
+					} );
+
+					result->node = std::move( binaryExpression );
+				} else {
+					throw new std::runtime_error( "Expected: terminal LogicXor following operator \"or\"" );
+				}
+			}
+
+			result->nextIterator = current;
 		}
 
 		return result;
