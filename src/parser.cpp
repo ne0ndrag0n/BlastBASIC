@@ -478,7 +478,90 @@ namespace GoldScorpion {
 		return result;
 	}
 
-	Result< Program > getProgram( std::vector< Token > filename ) {
+	static AstResult< Expression > getAssignment( std::vector< Token >::iterator current ) {
+		std::unique_ptr< Expression > prefix = nullptr;
+
+		// Begin with zero or one call
+		AstResult< Expression > call = getCall( current );
+		if( call ) {
+			current = call->nextIterator;
+
+			// Next token better be a dot
+			if( current->type == TokenType::TOKEN_DOT ) {
+				current++;
+
+				// Set result
+				prefix = std::move( call->node );
+			} else {
+				throw new std::runtime_error( "Expected: dot following Call expression" );
+			}
+		}
+
+		// Next two tokens are IDENTIFIER "=", or something else.
+		if( AstResult< Expression > identifier = getPrimary( current ) ) {
+			if( auto result = std::get_if< std::unique_ptr< Primary > >( &identifier->node->value ) ) {
+				if( auto tokenResult = std::get_if< Token >( &( *result )->value ) ) {
+					if( tokenResult->type == TokenType::TOKEN_IDENTIFIER ) {
+						// Equals now must follow an identifier to be an AssignmentExpression
+
+						if( AstResult< Expression > potentialEquals = getPrimary( identifier->nextIterator ) ) {
+							if( auto potentialEqualsResult = std::get_if< std::unique_ptr< Primary > >( &potentialEquals->node->value ) ) {
+								if( auto equalsResult = std::get_if< Token >( &( *potentialEqualsResult )->value ) ) {
+									if( equalsResult->type == TokenType::TOKEN_EQUALS ) {
+										// An assignment expression now must follow
+
+										if( AstResult< Expression > assignmentResult = getAssignment( potentialEquals->nextIterator ) ) {
+											// This is an assignment expression
+
+											// If a prefix is present, the left hand side will be a BinaryExpression, dot, with
+											// prefix on the LHS and IDENTIFIER on the RHS
+											// Otherwise, the left hand side will be IDENTIFIER
+											if( prefix ) {
+												return GeneratedAstNode< Expression >{
+													assignmentResult->nextIterator,
+													std::make_unique< Expression >( Expression{
+														std::make_unique< AssignmentExpression >( AssignmentExpression {
+															std::make_unique< Expression >( Expression {
+																std::make_unique< BinaryExpression >( BinaryExpression{
+																	std::move( prefix ),
+
+																	std::make_unique< Primary >( Primary {
+																		Token{ TokenType::TOKEN_DOT, {} }
+																	} ),
+
+																	std::move( identifier->node )
+																} )
+															} ),
+															std::move( assignmentResult->node )
+														} )
+													} )
+												};
+											} else {
+												return GeneratedAstNode< Expression >{
+													assignmentResult->nextIterator,
+													std::make_unique< Expression >( Expression{
+														std::make_unique< AssignmentExpression >( AssignmentExpression{
+															std::move( identifier->node ),
+															std::move( assignmentResult->node )
+														} )
+													} )
+												};
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// If we get here then we want to fall through to a LogicOr expression
+		return getLogicOr( current );
+	}
+
+	Result< Program > getProgram( std::vector< Token > tokens ) {
 		return "Not implemented";
 	}
 }

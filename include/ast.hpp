@@ -39,7 +39,7 @@ namespace GoldScorpion {
 	};
 
 	struct AssignmentExpression {
-		std::unique_ptr< Primary > identifier;
+		std::unique_ptr< struct Expression > identifier;
 		std::unique_ptr< struct Expression > expression;
 	};
 
