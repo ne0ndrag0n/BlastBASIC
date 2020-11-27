@@ -53,8 +53,12 @@ namespace GoldScorpion {
 		> value;
 	};
 
-	struct Statement {
+	struct ExpressionStatement {
 		std::unique_ptr< Expression > value;
+	};
+
+	struct Statement {
+		std::unique_ptr< ExpressionStatement > value;
 	};
 
 	struct Program {

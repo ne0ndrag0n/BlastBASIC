@@ -7,9 +7,7 @@
 
 namespace GoldScorpion {
 
-	static AstResult< Expression > getExpression( std::vector< Token >::iterator current ) {
-		return {};
-	}
+	static AstResult< Expression > getExpression( std::vector< Token >::iterator current );
 
 	static AstResult< Expression > getPrimary( std::vector< Token >::iterator current ) {
 		Token currentToken = *current;
@@ -559,6 +557,10 @@ namespace GoldScorpion {
 
 		// If we get here then we want to fall through to a LogicOr expression
 		return getLogicOr( current );
+	}
+
+	static AstResult< Expression > getExpression( std::vector< Token >::iterator current ) {
+		return getAssignment( current );
 	}
 
 	Result< Program > getProgram( std::vector< Token > tokens ) {
