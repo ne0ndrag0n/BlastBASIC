@@ -61,7 +61,7 @@ equality   -> comparison ( ( "!=" | "==" ) comparison )*
 comparison -> bitwise ( ( ">" | ">=" | "<" | "<=" ) bitwise )*
 bitwise    -> term ( ( ">>" | "<<" ) term )*
 term       -> factor ( ( "-" | "+" ) factor )*
-factor     -> unary ( ( "/" | "*" ) unary )*
+factor     -> unary ( ( "/" | "*" | "%" ) unary )*
 unary      -> ( "not" | "-" ) unary | call
 call       -> primary ( "(" arguments? ")" | "." IDENTIFIER )*
 primary    -> "this" | NUMBER | STRING | IDENTIFIER | "(" expression ")"

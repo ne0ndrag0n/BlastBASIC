@@ -122,6 +122,8 @@ namespace GoldScorpion {
 				return result + "TOKEN_XOR)";
 			case TokenType::TOKEN_SUPER:
 				return result + "TOKEN_SUPER)";
+			case TokenType::TOKEN_MODULO:
+				return result + "TOKEN_MODULO)";
 			default:
 				return result + "<unknown>)";
 		}

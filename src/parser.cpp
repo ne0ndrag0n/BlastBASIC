@@ -261,7 +261,11 @@ namespace GoldScorpion {
 		if( result ) {
 			// Keep taking unary expressions as long as the next token is a "/" or "*"
 			current = result->nextIterator;
-			while( readToken( current ) && ( current->type == TokenType::TOKEN_ASTERISK || current->type == TokenType::TOKEN_FORWARD_SLASH ) ) {
+			while( readToken( current ) &&
+				( current->type == TokenType::TOKEN_ASTERISK ||
+				  current->type == TokenType::TOKEN_FORWARD_SLASH ||
+				  current->type == TokenType::TOKEN_MODULO
+				) ) {
 				Token op = *current;
 
 				AstResult< Expression > next = getUnary( ++current );

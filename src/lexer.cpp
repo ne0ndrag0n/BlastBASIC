@@ -56,7 +56,8 @@ namespace GoldScorpion {
 		{ "and", TokenType::TOKEN_AND },
 		{ "or", TokenType::TOKEN_OR },
 		{ "xor", TokenType::TOKEN_XOR },
-		{ "super", TokenType::TOKEN_SUPER }
+		{ "super", TokenType::TOKEN_SUPER },
+		{ "%", TokenType::TOKEN_MODULO }
 	};
 
 	static Token interpretToken( std::string segment ) {
@@ -99,6 +100,7 @@ namespace GoldScorpion {
 			case '>':
 			case '<':
 			case ',':
+			case '%':
 				return true;
 			default:
 				return false;
@@ -122,6 +124,7 @@ namespace GoldScorpion {
 			case '[':
 			case ']':
 			case ',':
+			case '%':
 				return true;
 			default:
 				return false;
