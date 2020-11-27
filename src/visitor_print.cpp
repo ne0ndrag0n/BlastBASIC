@@ -14,7 +14,7 @@ namespace GoldScorpion {
 		std::string result;
 
 		for( int i = 0; i != indent; i++ ) {
-			result += "\t";
+			result += "   ";
 		}
 
 		result += str;
@@ -88,11 +88,11 @@ namespace GoldScorpion {
 		std::cout << indentText( indent, "Expression" ) << std::endl;
 
 		std::visit( overloaded {
-			[ indent ]( const std::unique_ptr< AssignmentExpression >& expression ) { visit( *expression, indent + 1 ); },
-			[ indent ]( const std::unique_ptr< BinaryExpression >& expression ) { visit( *expression, indent + 1 ); },
-			[ indent ]( const std::unique_ptr< UnaryExpression >& expression ) { visit( *expression, indent + 1 ); },
-			[ indent ]( const std::unique_ptr< CallExpression >& expression ) { visit( *expression, indent + 1 ); },
-			[ indent ]( const std::unique_ptr< Primary >& expression ) { visit( *expression, indent + 1 ); }
+			[ indent ]( const std::unique_ptr< AssignmentExpression >& expression ) { visit( *expression, indent ); },
+			[ indent ]( const std::unique_ptr< BinaryExpression >& expression ) { visit( *expression, indent ); },
+			[ indent ]( const std::unique_ptr< UnaryExpression >& expression ) { visit( *expression, indent ); },
+			[ indent ]( const std::unique_ptr< CallExpression >& expression ) { visit( *expression, indent ); },
+			[ indent ]( const std::unique_ptr< Primary >& expression ) { visit( *expression, indent ); }
 		}, node.value );
 	}
 
@@ -105,7 +105,7 @@ namespace GoldScorpion {
 	static void visit( const Statement& node, int indent ) {
 		std::cout << indentText( indent, "Statement" ) << std::endl;
 
-		visit( *( node.value ), indent + 1 );
+		visit( *( node.value ), indent );
 	}
 
 	static void visit( const Program& node, int indent ) {

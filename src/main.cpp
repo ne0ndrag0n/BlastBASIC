@@ -3,6 +3,7 @@
 #include "lexer.hpp"
 #include "utility.hpp"
 #include "variant_visitor.hpp"
+#include "visitor_print.hpp"
 #include <rang.hpp>
 #include <CLI11.hpp>
 
@@ -43,6 +44,16 @@ int main( int argc, char** argv ) {
 
 				for( const GoldScorpion::Token& token : *tokens ) {
 					std::cout << token.toString() << std::endl;
+				}
+
+				// Try this and see if anything crashes
+				auto parserResult = GoldScorpion::getProgram( *tokens );
+				if( auto error = std::get_if< std::string >( &parserResult ) ) {
+					std::cout << rang::fgB::red << "error: " << rang::style::reset
+						<< *error << std::endl;
+				} else {
+					auto program = std::get< GoldScorpion::Program >( std::move( parserResult ) );
+					GoldScorpion::printAst( program );
 				}
 
 				return 0;

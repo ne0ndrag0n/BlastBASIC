@@ -137,7 +137,7 @@ namespace GoldScorpion {
 								arguments.emplace_back( std::move( expression->node ) );
 							} else {
 								// Error if an expression doesn't follow a comma
-								throw new std::runtime_error( "Expected: Expression following a \",\"" );
+								throw std::runtime_error( "Expected: Expression following a \",\"" );
 							}
 						}
 					}
@@ -155,10 +155,13 @@ namespace GoldScorpion {
 							} )
 						} ) );
 					} else {
-						throw new std::runtime_error( "Expected: closing \")\"" );
+						throw std::runtime_error( "Expected: closing \")\"" );
 					}
 
 				} else if( readToken( current ) && current->type == TokenType::TOKEN_DOT ) {
+					// Eat current
+					current++;
+
 					if( AstResult< Expression > nextExpression = getPrimary( current ) ) {
 						current = nextExpression->nextIterator;
 
@@ -170,16 +173,16 @@ namespace GoldScorpion {
 									// Move nextExpression onto the queue
 									queue.emplace( std::move( nextExpression->node ) );
 								} else {
-									throw new std::runtime_error( "Expected: Token of IDENTIFIER type" );
+									throw std::runtime_error( "Expected: Token of IDENTIFIER type" );
 								}
 							} else {
-								throw new std::runtime_error( "Expected: Primary of Token type" );
+								throw std::runtime_error( "Expected: Primary of Token type" );
 							}
 						} else {
-							throw new std::runtime_error( "Expected: Expression of Primary type" );
+							throw std::runtime_error( "Expected: Expression of Primary type" );
 						}
 					} else {
-						throw new std::runtime_error( "Expected: Primary following \".\"" );
+						throw std::runtime_error( "Expected: Primary following \".\"" );
 					}
 				} else {
 					break;
@@ -213,7 +216,7 @@ namespace GoldScorpion {
 						std::move( binary )
 					} );
 				} else {
-					throw new std::runtime_error( "Internal compiler error (unexpected item in call-expression queue)" );
+					throw std::runtime_error( "Internal compiler error (unexpected item in call-expression queue)" );
 				}
 
 				queue.pop();
@@ -246,7 +249,7 @@ namespace GoldScorpion {
 					} )
 				};
 			} else {
-				throw new std::runtime_error( "Expected: terminal Expression following unary operator" );
+				throw std::runtime_error( "Expected: terminal Expression following unary operator" );
 			}
 		} else {
 			return getCall( current );
@@ -278,7 +281,7 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw new std::runtime_error( "Expected: terminal Unary following operator \"*\" or \"/\"" );
+					throw std::runtime_error( "Expected: terminal Unary following operator \"*\" or \"/\"" );
 				}
 			}
 
@@ -312,7 +315,7 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw new std::runtime_error( "Expected: terminal Factor following operator \"-\" or \"+\"" );
+					throw std::runtime_error( "Expected: terminal Factor following operator \"-\" or \"+\"" );
 				}
 			}
 
@@ -350,7 +353,7 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw new std::runtime_error( "Expected: terminal Term following operator \">\", \">=\", \"<\", or \"<=\"" );
+					throw std::runtime_error( "Expected: terminal Term following operator \">\", \">=\", \"<\", or \"<=\"" );
 				}
 			}
 
@@ -384,7 +387,7 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw new std::runtime_error( "Expected: terminal Comparison following operator \"!=\" or \"==\"" );
+					throw std::runtime_error( "Expected: terminal Comparison following operator \"!=\" or \"==\"" );
 				}
 			}
 
@@ -418,7 +421,7 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw new std::runtime_error( "Expected: terminal Equality following operator \"and\"" );
+					throw std::runtime_error( "Expected: terminal Equality following operator \"and\"" );
 				}
 			}
 
@@ -452,7 +455,7 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw new std::runtime_error( "Expected: terminal LogicAnd following operator \"xor\"" );
+					throw std::runtime_error( "Expected: terminal LogicAnd following operator \"xor\"" );
 				}
 			}
 
@@ -486,7 +489,7 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw new std::runtime_error( "Expected: terminal LogicXor following operator \"or\"" );
+					throw std::runtime_error( "Expected: terminal LogicXor following operator \"or\"" );
 				}
 			}
 
@@ -502,16 +505,12 @@ namespace GoldScorpion {
 		// Begin with zero or one call
 		AstResult< Expression > call = getCall( current );
 		if( call ) {
-			current = call->nextIterator;
-
-			// Next token better be a dot
-			if( readToken( current ) && current->type == TokenType::TOKEN_DOT ) {
-				current++;
+			// If next token is a dot, we fulfill rule ( call "." )?
+			if( readToken( call->nextIterator ) && call->nextIterator->type == TokenType::TOKEN_DOT ) {
+				current = ++call->nextIterator;
 
 				// Set result
 				prefix = std::move( call->node );
-			} else {
-				throw new std::runtime_error( "Expected: dot following Call expression" );
 			}
 		}
 
