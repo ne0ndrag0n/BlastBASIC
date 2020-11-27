@@ -59,7 +59,7 @@ namespace GoldScorpion {
 		{ "super", TokenType::TOKEN_SUPER }
 	};
 
-	static Token interpretToken( std::string& segment ) {
+	static Token interpretToken( std::string segment ) {
 		Token result;
 
 		// Otherwise we must verify token is one of the following multipart tokens
@@ -98,6 +98,29 @@ namespace GoldScorpion {
 			case '=':
 			case '>':
 			case '<':
+			case ',':
+				return true;
+			default:
+				return false;
+		}
+	}
+
+	static bool isSingleSymbol( char c ) {
+		// Must be valid symbol
+		if( !isValidSymbol( c ) ){
+			return false;
+		}
+
+		switch( c ) {
+			case '+':
+			case '-':
+			case '*':
+			case '/':
+			case '.':
+			case '(':
+			case ')':
+			case '[':
+			case ']':
 			case ',':
 				return true;
 			default:
@@ -242,6 +265,10 @@ namespace GoldScorpion {
 					} else if( isAlpha( character ) ) {
 						alphanumericState = true;
 						component += character;
+					} else if( isSingleSymbol( character ) ) {
+						// Skip symbolic state and flush immediately
+						tokens.push_back( interpretToken( std::string( 1, character ) ) );
+						component = "";
 					} else if( isValidSymbol( character ) ){
 						symbolicState = true;
 						component += character;

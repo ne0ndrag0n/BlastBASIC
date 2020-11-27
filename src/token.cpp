@@ -39,7 +39,7 @@ namespace GoldScorpion {
 			case TokenType::TOKEN_ASTERISK:
 				return result + "TOKEN_ASTERISK)";
 			case TokenType::TOKEN_FORWARD_SLASH:
-				return result + "TOKEN_BYREF)";
+				return result + "TOKEN_FORWARD_SLASH)";
 			case TokenType::TOKEN_BACK_SLASH:
 				return result + "TOKEN_BACK_SLASH)";
 			case TokenType::TOKEN_DOT:

@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/gs",
-            "args": [],
+            "args": [ "-f ${workspaceFolder}/examples/expressions.gs" ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
