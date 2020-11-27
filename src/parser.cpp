@@ -583,9 +583,54 @@ namespace GoldScorpion {
 		return getAssignment( current );
 	}
 
+	static AstResult< ExpressionStatement > getExpressionStatement( std::vector< Token >::iterator current ) {
+		AstResult< Expression > expressionResult = getExpression( current );
+		if( expressionResult ) {
+			current = expressionResult->nextIterator;
+
+			// Validate return with a newline
+			if( auto result = readToken( current ) ) {
+				if( result->type == TokenType::TOKEN_NEWLINE ) {
+					return GeneratedAstNode< ExpressionStatement >{
+						++current,
+						std::make_unique< ExpressionStatement >( ExpressionStatement{
+							std::move( expressionResult->node )
+						} )
+					};
+				}
+			}
+		}
+
+		return {};
+	}
+
+	static AstResult< Statement > getStatement( std::vector< Token >::iterator current ) {
+		if( AstResult< ExpressionStatement > expressionStatementResult = getExpressionStatement( current ) ) {
+			return GeneratedAstNode< Statement >{
+				expressionStatementResult->nextIterator,
+				std::make_unique< Statement >( Statement{
+					std::move( expressionStatementResult->node )
+				} )
+			};
+		}
+
+		return {};
+	}
+
 	Result< Program > getProgram( std::vector< Token > tokens ) {
 		end = tokens.end();
 
-		return "Not implemented";
+		// Just a test for now
+		try {
+			Program program;
+
+			if( AstResult< Statement > statementResult = getStatement( tokens.begin() ) ) {
+				program.statements.emplace_back( std::move( statementResult->node ) );
+			}
+
+			return std::move( program );
+		} catch( std::runtime_error e ) {
+			return e.what();
+		}
 	}
 }
