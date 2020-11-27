@@ -252,6 +252,8 @@ namespace GoldScorpion {
 			}
 		}
 
+		// Last token is always eof
+		tokens.push_back( Token{ TokenType::TOKEN_NONE, {} } );
 		return tokens;
 	}
 }

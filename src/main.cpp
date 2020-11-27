@@ -18,7 +18,7 @@ void info() {
 int main( int argc, char** argv ) {
 	std::string parseFilename;
 
-	CLI::App application{ "GoldScorpion v0.0.1 - Ferociously Easy Embedded Systems Programming" };
+	CLI::App application{ "GoldScorpion Embedded SDK v0.0.1 [m68k-md]" };
 
 	application.add_flag_callback( "-i,--info", info, "Print info about this build" );
 	application.add_option( "-f,--file", parseFilename, "Specify input file" );
@@ -29,18 +29,6 @@ int main( int argc, char** argv ) {
 		std::cout << rang::fgB::red << "error: " << rang::style::reset << "no input files." << std::endl;
 		return 1;
 	}
-
-	/*
-	auto result = GoldScorpion::getProgram( parseFilename );
-	std::visit( overloaded {
-		[]( const GoldScorpion::Program& program ) {
-			std::cout << "Successfully parsed" << std::endl;
-		},
-		[]( const std::string& error ) {
-			std::cout << rang::fgB::red << "error: " << rang::style::reset << error << std::endl;
-		}
-	}, result );
-	*/
 
 	// Example code to test lexer
 	else {

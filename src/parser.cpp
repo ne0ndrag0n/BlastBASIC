@@ -3,11 +3,26 @@
 #include "variant_visitor.hpp"
 #include "ast.hpp"
 #include <exception>
+#include <optional>
 #include <queue>
 
 namespace GoldScorpion {
 
+	// File-scope vars
+	static std::vector< Token >::iterator end;
+
+	// Forward declarations
 	static AstResult< Expression > getExpression( std::vector< Token >::iterator current );
+	// End forward declarations
+
+	// Increment only if we can
+	static std::optional< std::vector< Token >::iterator > increment( std::vector< Token >::iterator iterator ) {
+		if( iterator != end ) {
+			return ++iterator;
+		}
+
+		return {};
+	}
 
 	static AstResult< Expression > getPrimary( std::vector< Token >::iterator current ) {
 		Token currentToken = *current;
@@ -564,6 +579,8 @@ namespace GoldScorpion {
 	}
 
 	Result< Program > getProgram( std::vector< Token > tokens ) {
+		end = tokens.end();
+
 		return "Not implemented";
 	}
 }
