@@ -143,7 +143,7 @@ namespace GoldScorpion {
 					}
 
 					// There better be a right paren to close
-					if( readToken( current ) && current->type == TokenType::TOKEN_RIGHT_BRACKET ) {
+					if( readToken( current ) && current->type == TokenType::TOKEN_RIGHT_PAREN ) {
 						// Eat current
 						current++;
 
