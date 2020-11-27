@@ -56,13 +56,14 @@ assignment -> ( call "." )? IDENTIFIER "=" assignment
 			| logic_or
 logic_or   -> logic_xor ( "or" logic_xor )*
 logic_xor  -> logic_and ( "xor" logic_and )*
-logic_and  -> equality ( "and" equality )* 
-equality   -> comparison ( ( "!=" | "==" ) comparison )* 
-comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* 
-term       -> factor ( ( "-" | "+" ) factor )* 
-factor     -> unary ( ( "/" | "*" ) unary )* 
-unary      -> ( "not" | "-" ) unary | call 
-call       -> primary ( "(" arguments? ")" | "." IDENTIFIER )* 
+logic_and  -> equality ( "and" equality )*
+equality   -> comparison ( ( "!=" | "==" ) comparison )*
+comparison -> bitwise ( ( ">" | ">=" | "<" | "<=" ) bitwise )*
+bitwise    -> term ( ( ">>" | "<<" ) term )*
+term       -> factor ( ( "-" | "+" ) factor )*
+factor     -> unary ( ( "/" | "*" ) unary )*
+unary      -> ( "not" | "-" ) unary | call
+call       -> primary ( "(" arguments? ")" | "." IDENTIFIER )*
 primary    -> "this" | NUMBER | STRING | IDENTIFIER | "(" expression ")"
-               | "super" "." IDENTIFIER 
+               | "super" "." IDENTIFIER
 ```

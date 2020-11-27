@@ -325,15 +325,13 @@ namespace GoldScorpion {
 		return result;
 	}
 
-	static AstResult< Expression > getComparison( std::vector< Token >::iterator current ) {
+	static AstResult< Expression > getBitwise( std::vector< Token >::iterator current ) {
 		AstResult< Expression > result = getTerm( current );
 		if( result ) {
 			current = result->nextIterator;
 			while( readToken( current ) &&
-				 ( current->type == TokenType::TOKEN_GREATER_THAN ||
-				   current->type == TokenType::TOKEN_GREATER_THAN_EQUAL ||
-				   current->type == TokenType::TOKEN_LESS_THAN ||
-				   current->type == TokenType::TOKEN_LESS_THAN_EQUAL ) ) {
+				 ( current->type == TokenType::TOKEN_SHIFT_LEFT ||
+				   current->type == TokenType::TOKEN_SHIFT_RIGHT ) ) {
 				Token op = *current;
 
 				AstResult< Expression > next = getTerm( ++current );
@@ -353,7 +351,45 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw std::runtime_error( "Expected: terminal Term following operator \">\", \">=\", \"<\", or \"<=\"" );
+					throw std::runtime_error( "Expected: terminal Term following operator \">>\" or \"<<\"" );
+				}
+			}
+
+			result->nextIterator = current;
+		}
+
+		return result;
+	}
+
+	static AstResult< Expression > getComparison( std::vector< Token >::iterator current ) {
+		AstResult< Expression > result = getBitwise( current );
+		if( result ) {
+			current = result->nextIterator;
+			while( readToken( current ) &&
+				 ( current->type == TokenType::TOKEN_GREATER_THAN ||
+				   current->type == TokenType::TOKEN_GREATER_THAN_EQUAL ||
+				   current->type == TokenType::TOKEN_LESS_THAN ||
+				   current->type == TokenType::TOKEN_LESS_THAN_EQUAL ) ) {
+				Token op = *current;
+
+				AstResult< Expression > next = getBitwise( ++current );
+				if( next ) {
+					current = next->nextIterator;
+
+					// Form BinaryExpression
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+						std::make_unique< BinaryExpression >( BinaryExpression {
+							std::move( result->node ),
+
+							std::make_unique< Primary >( Primary{ op } ),
+
+							std::move( next->node )
+						} )
+					} );
+
+					result->node = std::move( binaryExpression );
+				} else {
+					throw std::runtime_error( "Expected: terminal Bitwise following operator \">\", \">=\", \"<\", or \"<=\"" );
 				}
 			}
 
