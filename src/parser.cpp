@@ -15,84 +15,88 @@ namespace GoldScorpion {
 	static AstResult< Expression > getExpression( std::vector< Token >::iterator current );
 	// End forward declarations
 
-	// Increment only if we can
-	static std::optional< std::vector< Token >::iterator > increment( std::vector< Token >::iterator iterator ) {
+	// Do not read iterator if it is past the end
+	static std::optional< Token > readToken( std::vector< Token >::iterator iterator ) {
 		if( iterator != end ) {
-			return ++iterator;
+			return *iterator;
 		}
 
 		return {};
 	}
 
 	static AstResult< Expression > getPrimary( std::vector< Token >::iterator current ) {
-		Token currentToken = *current;
+		if( auto result = readToken( current ) ) {
+			Token currentToken = *result;
 
-		switch( currentToken.type ) {
-			case TokenType::TOKEN_THIS:
-			case TokenType::TOKEN_LITERAL_INTEGER:
-			case TokenType::TOKEN_LITERAL_STRING:
-			case TokenType::TOKEN_IDENTIFIER:
-				return GeneratedAstNode< Expression >{
-					++current,
-					std::make_unique< Expression >( Expression {
-						std::make_unique< Primary >( Primary { currentToken } )
-					} )
-				};
-			case TokenType::TOKEN_LEFT_PAREN: {
-				// Attempt to get expression
-				AstResult< Expression > expression = getExpression( ++current );
-				if( expression ) {
-					// Result valid if there is a closing paren in the next iterator
-					if( expression->nextIterator->type == TokenType::TOKEN_RIGHT_PAREN ) {
-						// Eat the current param and return the expression wrapped in a primary
-						return GeneratedAstNode< Expression >{
-							++expression->nextIterator,
-							std::make_unique< Expression >( Expression{
-								std::make_unique< Primary >( Primary {
-									std::move( expression->node )
-								} )
-							} )
-						};
-					}
-				}
-
-				// If we couldn't get an expression then return empty
-				break;
-			}
-			default: {
-				if( currentToken.type == TokenType::TOKEN_SUPER ) {
-					// Next token must be a dot
-					currentToken = *( ++current );
-
-					if( currentToken.type == TokenType::TOKEN_DOT ) {
-						// Next token must be an identifier
-						currentToken = *( ++current );
-
-						if( currentToken.type == TokenType::TOKEN_IDENTIFIER ) {
-							// This is a BinaryExpression with super at left and IDENTIFIER at right
-							std::unique_ptr< Expression > expression = std::make_unique< Expression >( Expression{
-								std::make_unique< BinaryExpression >( BinaryExpression {
-
-									std::make_unique< Expression >( Expression{
-										std::make_unique< Primary >( Primary{
-											Token{ TokenType::TOKEN_SUPER, {} }
-										} )
-									} ),
-
+			switch( currentToken.type ) {
+				case TokenType::TOKEN_THIS:
+				case TokenType::TOKEN_LITERAL_INTEGER:
+				case TokenType::TOKEN_LITERAL_STRING:
+				case TokenType::TOKEN_IDENTIFIER:
+					return GeneratedAstNode< Expression >{
+						++current,
+						std::make_unique< Expression >( Expression {
+							std::make_unique< Primary >( Primary { currentToken } )
+						} )
+					};
+				case TokenType::TOKEN_LEFT_PAREN: {
+					// Attempt to get expression
+					AstResult< Expression > expression = getExpression( ++current );
+					if( expression ) {
+						// Result valid if there is a closing paren in the next iterator
+						if( expression->nextIterator->type == TokenType::TOKEN_RIGHT_PAREN ) {
+							// Eat the current param and return the expression wrapped in a primary
+							return GeneratedAstNode< Expression >{
+								++expression->nextIterator,
+								std::make_unique< Expression >( Expression{
 									std::make_unique< Primary >( Primary {
-										Token{ TokenType::TOKEN_DOT, {} }
-									} ),
-
-									std::make_unique< Expression >( Expression{
-										std::make_unique< Primary >( Primary{
-											currentToken
-										} )
+										std::move( expression->node )
 									} )
-
 								} )
-							} );
+							};
+						}
+					}
 
-							return GeneratedAstNode< Expression >{ ++current, std::move( expression ) };
+					// If we couldn't get an expression then return empty
+					break;
+				}
+				default: {
+					if( currentToken.type == TokenType::TOKEN_SUPER ) {
+						// Next token must be a dot
+						++current;
+						if( auto result = readToken( current ) ) { currentToken = *result; } else { return {}; }
+
+						if( currentToken.type == TokenType::TOKEN_DOT ) {
+							// Next token must be an identifier
+							++current;
+							if( auto result = readToken( current ) ) { currentToken = *result; } else { return {}; }
+
+							if( currentToken.type == TokenType::TOKEN_IDENTIFIER ) {
+								// This is a BinaryExpression with super at left and IDENTIFIER at right
+								std::unique_ptr< Expression > expression = std::make_unique< Expression >( Expression{
+									std::make_unique< BinaryExpression >( BinaryExpression {
+
+										std::make_unique< Expression >( Expression{
+											std::make_unique< Primary >( Primary{
+												Token{ TokenType::TOKEN_SUPER, {} }
+											} )
+										} ),
+
+										std::make_unique< Primary >( Primary {
+											Token{ TokenType::TOKEN_DOT, {} }
+										} ),
+
+										std::make_unique< Expression >( Expression{
+											std::make_unique< Primary >( Primary{
+												currentToken
+											} )
+										} )
+
+									} )
+								} );
+
+								return GeneratedAstNode< Expression >{ ++current, std::move( expression ) };
+							}
 						}
 					}
 				}
@@ -112,7 +116,7 @@ namespace GoldScorpion {
 			// Zero or more of either argument list or dot-identifier
 			std::queue< std::unique_ptr< Expression > > queue;
 			while( true ) {
-				if( current->type == TokenType::TOKEN_LEFT_PAREN ) {
+				if( readToken( current ) && current->type == TokenType::TOKEN_LEFT_PAREN ) {
 					// Need to parse an argument list
 
 					// Eat the left paren token
@@ -125,7 +129,7 @@ namespace GoldScorpion {
 						arguments.emplace_back( std::move( firstExpression->node ) );
 
 						// Keep eating expressions while a comma is present
-						while( current->type != TokenType::TOKEN_COMMA ) {
+						while( readToken( current ) && current->type != TokenType::TOKEN_COMMA ) {
 							current++;
 
 							if( AstResult< Expression > expression = getExpression( current ) ) {
@@ -139,7 +143,7 @@ namespace GoldScorpion {
 					}
 
 					// There better be a right paren to close
-					if( current->type == TokenType::TOKEN_RIGHT_BRACKET ) {
+					if( readToken( current ) && current->type == TokenType::TOKEN_RIGHT_BRACKET ) {
 						// Eat current
 						current++;
 
@@ -154,7 +158,7 @@ namespace GoldScorpion {
 						throw new std::runtime_error( "Expected: closing \")\"" );
 					}
 
-				} else if( current->type == TokenType::TOKEN_DOT ) {
+				} else if( readToken( current ) && current->type == TokenType::TOKEN_DOT ) {
 					if( AstResult< Expression > nextExpression = getPrimary( current ) ) {
 						current = nextExpression->nextIterator;
 
@@ -224,7 +228,7 @@ namespace GoldScorpion {
 
 	static AstResult< Expression > getUnary( std::vector< Token >::iterator current ) {
 		// If current is not a "not" token or a "-" token, then it is not a unary, go right to call
-		if( current->type == TokenType::TOKEN_NOT || current->type == TokenType::TOKEN_MINUS ) {
+		if( readToken( current ) && ( current->type == TokenType::TOKEN_NOT || current->type == TokenType::TOKEN_MINUS ) ) {
 			// Save token
 			Token operatorToken = *current;
 
@@ -254,7 +258,7 @@ namespace GoldScorpion {
 		if( result ) {
 			// Keep taking unary expressions as long as the next token is a "/" or "*"
 			current = result->nextIterator;
-			while( current->type == TokenType::TOKEN_ASTERISK || current->type == TokenType::TOKEN_FORWARD_SLASH ) {
+			while( readToken( current ) && ( current->type == TokenType::TOKEN_ASTERISK || current->type == TokenType::TOKEN_FORWARD_SLASH ) ) {
 				Token op = *current;
 
 				AstResult< Expression > next = getUnary( ++current );
@@ -288,7 +292,7 @@ namespace GoldScorpion {
 		AstResult< Expression > result = getFactor( current );
 		if( result ) {
 			current = result->nextIterator;
-			while( current->type == TokenType::TOKEN_MINUS || current->type == TokenType::TOKEN_PLUS ) {
+			while( readToken( current ) && ( current->type == TokenType::TOKEN_MINUS || current->type == TokenType::TOKEN_PLUS ) ) {
 				Token op = *current;
 
 				AstResult< Expression > next = getFactor( ++current );
@@ -322,10 +326,11 @@ namespace GoldScorpion {
 		AstResult< Expression > result = getTerm( current );
 		if( result ) {
 			current = result->nextIterator;
-			while( current->type == TokenType::TOKEN_GREATER_THAN ||
+			while( readToken( current ) &&
+				 ( current->type == TokenType::TOKEN_GREATER_THAN ||
 				   current->type == TokenType::TOKEN_GREATER_THAN_EQUAL ||
 				   current->type == TokenType::TOKEN_LESS_THAN ||
-				   current->type == TokenType::TOKEN_LESS_THAN_EQUAL ) {
+				   current->type == TokenType::TOKEN_LESS_THAN_EQUAL ) ) {
 				Token op = *current;
 
 				AstResult< Expression > next = getTerm( ++current );
@@ -359,7 +364,7 @@ namespace GoldScorpion {
 		AstResult< Expression > result = getComparison( current );
 		if( result ) {
 			current = result->nextIterator;
-			while( current->type == TokenType::TOKEN_NOT_EQUALS || current->type == TokenType::TOKEN_DOUBLE_EQUALS ) {
+			while( readToken( current ) && ( current->type == TokenType::TOKEN_NOT_EQUALS || current->type == TokenType::TOKEN_DOUBLE_EQUALS ) ) {
 				Token op = *current;
 
 				AstResult< Expression > next = getComparison( ++current );
@@ -393,7 +398,7 @@ namespace GoldScorpion {
 		AstResult< Expression > result = getEquality( current );
 		if( result ) {
 			current = result->nextIterator;
-			while( current->type == TokenType::TOKEN_AND ) {
+			while( readToken( current ) && current->type == TokenType::TOKEN_AND ) {
 				Token op = *current;
 
 				AstResult< Expression > next = getEquality( ++current );
@@ -427,7 +432,7 @@ namespace GoldScorpion {
 		AstResult< Expression > result = getLogicAnd( current );
 		if( result ) {
 			current = result->nextIterator;
-			while( current->type == TokenType::TOKEN_XOR ) {
+			while( readToken( current ) && current->type == TokenType::TOKEN_XOR ) {
 				Token op = *current;
 
 				AstResult< Expression > next = getLogicAnd( ++current );
@@ -461,7 +466,7 @@ namespace GoldScorpion {
 		AstResult< Expression > result = getLogicXor( current );
 		if( result ) {
 			current = result->nextIterator;
-			while( current->type == TokenType::TOKEN_OR ) {
+			while( readToken( current ) && current->type == TokenType::TOKEN_OR ) {
 				Token op = *current;
 
 				AstResult< Expression > next = getLogicXor( ++current );
@@ -500,7 +505,7 @@ namespace GoldScorpion {
 			current = call->nextIterator;
 
 			// Next token better be a dot
-			if( current->type == TokenType::TOKEN_DOT ) {
+			if( readToken( current ) && current->type == TokenType::TOKEN_DOT ) {
 				current++;
 
 				// Set result
