@@ -720,8 +720,14 @@ namespace GoldScorpion {
 		try {
 			Program program;
 
-			if( AstResult< Statement > statementResult = getStatement( tokens.begin() ) ) {
-				program.statements.emplace_back( std::move( statementResult->node ) );
+			std::vector< Token >::iterator current = tokens.begin();
+			while( current != tokens.end() || current->type != TokenType::TOKEN_NONE ) {
+				if( AstResult< Statement > statementResult = getStatement( current ) ) {
+					program.statements.emplace_back( std::move( statementResult->node ) );
+					current = statementResult->nextIterator;
+				} else {
+					break;
+				}
 			}
 
 			return std::move( program );
