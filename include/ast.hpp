@@ -131,6 +131,6 @@ namespace GoldScorpion {
 	};
 
 	struct Program {
-		std::vector< std::unique_ptr< Statement > > statements;
+		std::vector< std::unique_ptr< Declaration > > statements;
 	};
 }

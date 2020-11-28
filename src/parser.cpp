@@ -713,6 +713,32 @@ namespace GoldScorpion {
 		return {};
 	}
 
+	static AstResult< Declaration > getDeclaration( std::vector< Token >::iterator current ) {
+		// Burn newlines before
+		while( readToken( current ) && current->type == TokenType::TOKEN_NEWLINE ) {
+			current++;
+		}
+
+		AstResult< Declaration > result = {};
+
+		// Must return one of: typeDecl, funDecl, varDecl, importDecl, statement
+		if( auto statement = getStatement( current ) ) {
+			result = GeneratedAstNode< Declaration >{
+				statement->nextIterator,
+				std::make_unique< Declaration >( Declaration {
+					std::move( statement->node )
+				} )
+			};
+		}
+
+		// Burn newlines after
+		while( readToken( current ) && current->type == TokenType::TOKEN_NEWLINE ) {
+			current++;
+		}
+
+		return result;
+	}
+
 	Result< Program > getProgram( std::vector< Token > tokens ) {
 		end = tokens.end();
 
@@ -722,9 +748,9 @@ namespace GoldScorpion {
 
 			std::vector< Token >::iterator current = tokens.begin();
 			while( current != tokens.end() || current->type != TokenType::TOKEN_NONE ) {
-				if( AstResult< Statement > statementResult = getStatement( current ) ) {
-					program.statements.emplace_back( std::move( statementResult->node ) );
-					current = statementResult->nextIterator;
+				if( AstResult< Declaration > declaration = getDeclaration( current ) ) {
+					program.statements.emplace_back( std::move( declaration->node ) );
+					current = declaration->nextIterator;
 				} else {
 					break;
 				}
