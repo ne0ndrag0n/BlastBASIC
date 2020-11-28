@@ -56,7 +56,10 @@ assignment -> ( call "." )? IDENTIFIER "=" assignment
 			| logic_or
 logic_or   -> logic_xor ( "or" logic_xor )*
 logic_xor  -> logic_and ( "xor" logic_and )*
-logic_and  -> equality ( "and" equality )*
+logic_and  -> bw_or ( "and" bw_or )*
+bw_or      -> bw_xor ( "|" bw_xor )*
+bw_xor     -> bw_and ( "^" bw_and )*
+bw_and     -> equality ( "&" equality )*
 equality   -> comparison ( ( "!=" | "==" ) comparison )*
 comparison -> bitwise ( ( ">" | ">=" | "<" | "<=" ) bitwise )*
 bitwise    -> term ( ( ">>" | "<<" ) term )*

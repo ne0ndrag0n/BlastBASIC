@@ -437,11 +437,11 @@ namespace GoldScorpion {
 		return result;
 	}
 
-	static AstResult< Expression > getLogicAnd( std::vector< Token >::iterator current ) {
+	static AstResult< Expression > getBwAnd( std::vector< Token >::iterator current ) {
 		AstResult< Expression > result = getEquality( current );
 		if( result ) {
 			current = result->nextIterator;
-			while( readToken( current ) && current->type == TokenType::TOKEN_AND ) {
+			while( readToken( current ) && current->type == TokenType::TOKEN_AMPERSAND ) {
 				Token op = *current;
 
 				AstResult< Expression > next = getEquality( ++current );
@@ -461,7 +461,109 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw std::runtime_error( "Expected: terminal Equality following operator \"and\"" );
+					throw std::runtime_error( "Expected: terminal Equality following operator \"&\"" );
+				}
+			}
+
+			result->nextIterator = current;
+		}
+
+		return result;
+	}
+
+	static AstResult< Expression > getBwXor( std::vector< Token >::iterator current ) {
+		AstResult< Expression > result = getBwAnd( current );
+		if( result ) {
+			current = result->nextIterator;
+			while( readToken( current ) && current->type == TokenType::TOKEN_CARET ) {
+				Token op = *current;
+
+				AstResult< Expression > next = getBwAnd( ++current );
+				if( next ) {
+					current = next->nextIterator;
+
+					// Form BinaryExpression
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+						std::make_unique< BinaryExpression >( BinaryExpression {
+							std::move( result->node ),
+
+							std::make_unique< Primary >( Primary{ op } ),
+
+							std::move( next->node )
+						} )
+					} );
+
+					result->node = std::move( binaryExpression );
+				} else {
+					throw std::runtime_error( "Expected: terminal BwAnd following operator \"^\"" );
+				}
+			}
+
+			result->nextIterator = current;
+		}
+
+		return result;
+	}
+
+	static AstResult< Expression > getBwOr( std::vector< Token >::iterator current ) {
+		AstResult< Expression > result = getBwXor( current );
+		if( result ) {
+			current = result->nextIterator;
+			while( readToken( current ) && current->type == TokenType::TOKEN_PIPE ) {
+				Token op = *current;
+
+				AstResult< Expression > next = getBwXor( ++current );
+				if( next ) {
+					current = next->nextIterator;
+
+					// Form BinaryExpression
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+						std::make_unique< BinaryExpression >( BinaryExpression {
+							std::move( result->node ),
+
+							std::make_unique< Primary >( Primary{ op } ),
+
+							std::move( next->node )
+						} )
+					} );
+
+					result->node = std::move( binaryExpression );
+				} else {
+					throw std::runtime_error( "Expected: terminal BwXor following operator \"|\"" );
+				}
+			}
+
+			result->nextIterator = current;
+		}
+
+		return result;
+	}
+
+	static AstResult< Expression > getLogicAnd( std::vector< Token >::iterator current ) {
+		AstResult< Expression > result = getBwOr( current );
+		if( result ) {
+			current = result->nextIterator;
+			while( readToken( current ) && current->type == TokenType::TOKEN_AND ) {
+				Token op = *current;
+
+				AstResult< Expression > next = getBwOr( ++current );
+				if( next ) {
+					current = next->nextIterator;
+
+					// Form BinaryExpression
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+						std::make_unique< BinaryExpression >( BinaryExpression {
+							std::move( result->node ),
+
+							std::make_unique< Primary >( Primary{ op } ),
+
+							std::move( next->node )
+						} )
+					} );
+
+					result->node = std::move( binaryExpression );
+				} else {
+					throw std::runtime_error( "Expected: terminal BwOr following operator \"and\"" );
 				}
 			}
 

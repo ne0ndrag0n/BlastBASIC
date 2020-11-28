@@ -124,6 +124,12 @@ namespace GoldScorpion {
 				return result + "TOKEN_SUPER)";
 			case TokenType::TOKEN_MODULO:
 				return result + "TOKEN_MODULO)";
+			case TokenType::TOKEN_AMPERSAND:
+				return result + "TOKEN_AMPERSAND)";
+			case TokenType::TOKEN_CARET:
+				return result + "TOKEN_CARET)";
+			case TokenType::TOKEN_PIPE:
+				return result + "TOKEN_PIPE)";
 			default:
 				return result + "<unknown>)";
 		}
