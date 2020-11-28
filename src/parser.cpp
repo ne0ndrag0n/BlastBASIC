@@ -650,8 +650,7 @@ namespace GoldScorpion {
 		if( lhs ) {
 			if( auto nextToken = readToken( lhs->nextIterator ) ) {
 				if( nextToken->type == TokenType::TOKEN_EQUALS ) {
-					auto nextIt = lhs->nextIterator;
-					AstResult< Expression > rhs = getAssignment( ++nextIt );
+					AstResult< Expression > rhs = getAssignment( ++lhs->nextIterator );
 					if( rhs ) {
 						// Everything we need
 						return GeneratedAstNode< Expression >{
@@ -664,6 +663,9 @@ namespace GoldScorpion {
 								} )
 							} )
 						};
+					} else {
+						// If you specify an equals then there must be a successive expression
+						throw std::runtime_error( "Expected: Expression following \"=\" token" );
 					}
 				}
 			}
