@@ -129,11 +129,11 @@ namespace GoldScorpion {
 						arguments.emplace_back( std::move( firstExpression->node ) );
 
 						// Keep eating expressions while a comma is present
-						while( readToken( current ) && current->type != TokenType::TOKEN_COMMA ) {
+						while( readToken( current ) && current->type == TokenType::TOKEN_COMMA ) {
 							current++;
 
 							if( AstResult< Expression > expression = getExpression( current ) ) {
-								current = firstExpression->nextIterator;
+								current = expression->nextIterator;
 								arguments.emplace_back( std::move( expression->node ) );
 							} else {
 								// Error if an expression doesn't follow a comma
