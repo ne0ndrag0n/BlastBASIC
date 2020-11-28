@@ -4,20 +4,24 @@ GoldScorpion Grammar
 ```
 program -> declaration* EOF
 
-declaration -> typeDecl |
+declaration -> \n* (
+				typeDecl |
 				funDecl |
 				varDecl |
-				statement;
+				importDecl |
+				statement )
+				\n*
 
-
-typeDecl -> "type" IDENTIFIER \n?
-			(parameter \n?)*
-			(funDecl \n?)*
+typeDecl -> "type" IDENTIFIER \n \n*
+			(parameter \n*)+
+			(funDecl \n*)*
 			"end"
 
-funDecl -> "function" IDENTIFIER "(" parameter ( "," parameter )* ")" \n? declaration* \n? "end"
+funDecl -> "function" IDENTIFIER? "(" parameter ( "," parameter )* ")" declaration* "end"
 
-varDecl -> "def" parameter ( "=" expression )?
+varDecl -> "def" parameter ( "=" expression )? \n
+
+importDecl -> "import" PATH \n
 
 statement -> exprStatement |
 			 forStatement |
@@ -27,17 +31,17 @@ statement -> exprStatement |
 
 exprStatement -> expression \n
 
-forStatement -> "for" IDENTIFIER "=" IDENTIFIER "to" IDENTIFIER ( "every" IDENTIFIER )?
-				\n? declaration* \n? "end"
+forStatement -> "for" IDENTIFIER "=" IDENTIFIER "to" IDENTIFIER ( "every" IDENTIFIER )? \n
+				declaration* "end"
 
-ifStatement -> "if" expression "then" \n? declaration* \n?
-				( "else" "if" expression "then" \n? declaration* \n? )*
-				( "else" \n? declaration* \n? )?
+ifStatement -> "if" expression "then" declaration*
+				( "else" "if" expression "then" declaration* )*
+				( "else" declaration* )?
 				"end"
 
 returnStatement -> "return" expression? \n
 
-whileStatement -> "while" expression \n? statement* \n? "end"
+whileStatement -> "while" expression \n declaration* "end"
 
 parameter -> IDENTIFIER "as" type
 arguments	-> expression ( "," expression )*
@@ -49,7 +53,7 @@ type -> "u8" |
 		"s16" |
 		"s32" |
 		"string" |
-		IDENTIFIER;
+		IDENTIFIER
 
 expression -> assignment
 assignment -> ( call "." )? IDENTIFIER "=" assignment
