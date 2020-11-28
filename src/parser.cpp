@@ -663,51 +663,45 @@ namespace GoldScorpion {
 					if( tokenResult->type == TokenType::TOKEN_IDENTIFIER ) {
 						// Equals now must follow an identifier to be an AssignmentExpression
 
-						if( AstResult< Expression > potentialEquals = getPrimary( identifier->nextIterator ) ) {
-							if( auto potentialEqualsResult = std::get_if< std::unique_ptr< Primary > >( &potentialEquals->node->value ) ) {
-								if( auto equalsResult = std::get_if< Token >( &( *potentialEqualsResult )->value ) ) {
-									if( equalsResult->type == TokenType::TOKEN_EQUALS ) {
-										// An assignment expression now must follow
+						if( readToken( identifier->nextIterator ) && identifier->nextIterator->type == TokenType::TOKEN_EQUALS ) {
+							// An assignment expression now must follow
 
-										if( AstResult< Expression > assignmentResult = getAssignment( potentialEquals->nextIterator ) ) {
-											// This is an assignment expression
+							if( AstResult< Expression > assignmentResult = getAssignment( ++identifier->nextIterator ) ) {
+								// This is an assignment expression
 
-											// If a prefix is present, the left hand side will be a BinaryExpression, dot, with
-											// prefix on the LHS and IDENTIFIER on the RHS
-											// Otherwise, the left hand side will be IDENTIFIER
-											if( prefix ) {
-												return GeneratedAstNode< Expression >{
-													assignmentResult->nextIterator,
-													std::make_unique< Expression >( Expression{
-														std::make_unique< AssignmentExpression >( AssignmentExpression {
-															std::make_unique< Expression >( Expression {
-																std::make_unique< BinaryExpression >( BinaryExpression{
-																	std::move( prefix ),
+								// If a prefix is present, the left hand side will be a BinaryExpression, dot, with
+								// prefix on the LHS and IDENTIFIER on the RHS
+								// Otherwise, the left hand side will be IDENTIFIER
+								if( prefix ) {
+									return GeneratedAstNode< Expression >{
+										assignmentResult->nextIterator,
+										std::make_unique< Expression >( Expression{
+											std::make_unique< AssignmentExpression >( AssignmentExpression {
+												std::make_unique< Expression >( Expression {
+													std::make_unique< BinaryExpression >( BinaryExpression{
+														std::move( prefix ),
 
-																	std::make_unique< Primary >( Primary {
-																		Token{ TokenType::TOKEN_DOT, {} }
-																	} ),
+														std::make_unique< Primary >( Primary {
+															Token{ TokenType::TOKEN_DOT, {} }
+														} ),
 
-																	std::move( identifier->node )
-																} )
-															} ),
-															std::move( assignmentResult->node )
-														} )
+														std::move( identifier->node )
 													} )
-												};
-											} else {
-												return GeneratedAstNode< Expression >{
-													assignmentResult->nextIterator,
-													std::make_unique< Expression >( Expression{
-														std::make_unique< AssignmentExpression >( AssignmentExpression{
-															std::move( identifier->node ),
-															std::move( assignmentResult->node )
-														} )
-													} )
-												};
-											}
-										}
-									}
+												} ),
+												std::move( assignmentResult->node )
+											} )
+										} )
+									};
+								} else {
+									return GeneratedAstNode< Expression >{
+										assignmentResult->nextIterator,
+										std::make_unique< Expression >( Expression{
+											std::make_unique< AssignmentExpression >( AssignmentExpression{
+												std::move( identifier->node ),
+												std::move( assignmentResult->node )
+											} )
+										} )
+									};
 								}
 							}
 						}
