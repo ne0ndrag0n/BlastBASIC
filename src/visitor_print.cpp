@@ -8,6 +8,7 @@ namespace GoldScorpion {
 	// Forward declarations
 	static void visit( const Expression& node, int indent );
 	static void visit( const Primary& node, int indent );
+	static void visit( const Declaration& node, int indent );
 	// End forward declarations
 
 	static std::string indentText( int indent, const std::string& str ) {
@@ -96,6 +97,71 @@ namespace GoldScorpion {
 		}, node.value );
 	}
 
+	static void visit( const ForStatement& node, int indent ) {
+		std::cout << indentText( indent, "ForStatement" ) << std::endl;
+
+		std::cout << indentText( indent, "<index>" ) << std::endl;
+		std::cout << indentText( indent + 1, node.index.toString() ) << std::endl;
+
+		std::cout << indentText( indent, "<from>" ) << std::endl;
+		std::cout << indentText( indent + 1, node.from.toString() ) << std::endl;
+
+		std::cout << indentText( indent, "<to>" ) << std::endl;
+		std::cout << indentText( indent + 1, node.to.toString() ) << std::endl;
+
+		std::cout << indentText( indent, "<every>" ) << std::endl;
+		if( node.every ) {
+			std::cout << indentText( indent + 1, node.every->toString() ) << std::endl;
+		} else {
+			std::cout << indentText( indent + 1, "null" ) << std::endl;
+		}
+
+		for( const auto& declaration : node.body ) {
+			visit( *declaration, indent + 1 );
+		}
+	}
+
+	static void visit( const IfStatement& node, int indent ) {
+		std::cout << indentText( indent, "IfStatement" ) << std::endl;
+
+		std::cout << indentText( indent, "<conditions>" ) << std::endl;
+		for( const auto& condition : node.conditions ) {
+			visit( *condition, indent + 1 );
+		}
+
+		std::cout << indentText( indent, "<bodies>" ) << std::endl;
+		for( const auto& body : node.bodies ) {
+			visit( *body, indent + 1 );
+		}
+	}
+
+	static void visit( const ReturnStatement& node, int indent ) {
+		std::cout << indentText( indent, "ReturnStatement" ) << std::endl;
+
+		if( node.expression ) {
+			std::cout << indentText( indent, "<expression>" ) << std::endl;
+			visit( **node.expression, indent + 1 );
+		}
+	}
+
+	static void visit( const AsmStatement& node, int indent ) {
+		std::cout << indentText( indent, "AsmStatement" ) << std::endl;
+		std::cout << indentText( indent, "<length>" ) << std::endl;
+		std::cout << std::to_string( node.body.length() ) << std::endl;
+	}
+
+	static void visit( const WhileStatement& node, int indent ) {
+		std::cout << indentText( indent, "WhileStatement" ) << std::endl;
+
+		std::cout << indentText( indent, "<condition>" ) << std::endl;
+		visit( *node.condition, indent + 1 );
+
+		std::cout << indentText( indent, "<body>" ) << std::endl;
+		for( const auto& declaration : node.body ) {
+			visit( *declaration, indent + 1 );
+		}
+	}
+
 	static void visit( const ExpressionStatement& node, int indent ) {
 		std::cout << indentText( indent, "ExpressionStatement" ) << std::endl;
 
@@ -105,8 +171,91 @@ namespace GoldScorpion {
 	static void visit( const Statement& node, int indent ) {
 		std::cout << indentText( indent, "Statement" ) << std::endl;
 
-		visit( *( node.value ), indent );
+		std::visit( overloaded {
+			[ indent ]( const std::unique_ptr< ExpressionStatement >& expression ) { visit( *expression, indent ); },
+			[ indent ]( const std::unique_ptr< ForStatement >& expression ) { visit( *expression, indent ); },
+			[ indent ]( const std::unique_ptr< IfStatement >& expression ) { visit( *expression, indent ); },
+			[ indent ]( const std::unique_ptr< ReturnStatement >& expression ) { visit( *expression, indent ); },
+			[ indent ]( const std::unique_ptr< AsmStatement >& expression ) { visit( *expression, indent ); },
+			[ indent ]( const std::unique_ptr< WhileStatement >& expression ) { visit( *expression, indent ); }
+		}, node.value );
 	}
+
+	static void visit( const VarDeclaration& node, int indent ) {
+		std::cout << indentText( indent, "VarDeclaration" ) << std::endl;
+
+		std::cout << indentText( indent, "<name>" ) << std::endl;
+		std::cout << indentText( indent + 1, node.variable.name.toString() ) << std::endl;
+
+		std::cout << indentText( indent, "<type>" ) << std::endl;
+		std::cout << indentText( indent + 1, node.variable.type.toString() ) << std::endl;
+
+		std::cout << indentText( indent, "<value>" ) << std::endl;
+		if( node.value ) {
+			visit( **node.value, indent + 1 );
+		} else {
+			std::cout << indentText( indent + 1, "null" ) << std::endl;
+		}
+	}
+
+	static void visit( const FunctionDeclaration& node, int indent ) {
+		std::cout << indentText( indent, "FunctionDeclaration" ) << std::endl;
+
+		std::cout << indentText( indent, "<name>" ) << std::endl;
+		std::cout << indentText( indent + 1, node.name.toString() ) << std::endl;
+
+		std::cout << indentText( indent, "<arguments>" ) << std::endl;
+		for( const auto& parameter : node.arguments ) {
+			std::cout << indentText( indent + 1, parameter.name.toString() ) << std::endl;
+			std::cout << indentText( indent + 1, parameter.type.toString() ) << std::endl;
+		}
+
+		std::cout << indentText( indent, "<return-type>" ) << std::endl;
+		if( node.returnType ) {
+			std::cout << indentText( indent + 1, node.returnType->toString() ) << std::endl;
+		} else {
+			std::cout << indentText( indent + 1, "null" ) << std::endl;
+		}
+
+		std::cout << indentText( indent + 1, "<body>" ) << std::endl;
+		for( const auto& declaration : node.body ) {
+			visit( *declaration, indent + 1 );
+		}
+	}
+
+	static void visit( const TypeDeclaration& node, int indent ) {
+		std::cout << indentText( indent, "TypeDeclaration" ) << std::endl;
+
+		std::cout << indentText( indent, "<fields>" ) << std::endl;
+		for( const auto& parameter : node.fields ) {
+			std::cout << indentText( indent + 1, parameter.name.toString() ) << std::endl;
+			std::cout << indentText( indent + 1, parameter.type.toString() ) << std::endl;
+		}
+
+		std::cout << indentText( indent, "<functions>" ) << std::endl;
+		for( const auto& functionDeclaration : node.functions ) {
+			visit( *functionDeclaration, indent + 1 );
+		}
+	}
+
+	static void visit( const ImportDeclaration& node, int indent ) {
+		std::cout << indentText( indent, "ImportDeclaration" ) << std::endl;
+
+		std::cout << indentText( indent, "<path>" ) << std::endl;
+		std::cout << indentText( indent + 1, node.path ) << std::endl;
+	}
+
+	static void visit( const Declaration& node, int indent ) {
+		std::cout << indentText( indent, "Declaration" ) << std::endl;
+
+		std::visit( overloaded {
+			[ indent ]( const std::unique_ptr< VarDeclaration >& expression ) { visit( *expression, indent + 1 ); },
+			[ indent ]( const std::unique_ptr< FunctionDeclaration >& expression ) { visit( *expression, indent + 1 ); },
+			[ indent ]( const std::unique_ptr< TypeDeclaration >& expression ) { visit( *expression, indent + 1 ); },
+			[ indent ]( const std::unique_ptr< ImportDeclaration >& expression ) { visit( *expression, indent + 1 ); },
+			[ indent ]( const std::unique_ptr< Statement >& expression ) { visit( *expression, indent + 1 ); }
+		}, node.value );
+	};
 
 	static void visit( const Program& node, int indent ) {
 		std::cout << indentText( indent, "Program" ) << std::endl;

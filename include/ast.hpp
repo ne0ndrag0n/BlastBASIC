@@ -57,8 +57,77 @@ namespace GoldScorpion {
 		std::unique_ptr< Expression > value;
 	};
 
+	struct ForStatement {
+		Token index;
+		Token from;
+		Token to;
+		std::optional< Token > every;
+		std::vector< std::unique_ptr< struct Declaration > > body;
+	};
+
+	struct IfStatement {
+		std::vector< std::unique_ptr< Expression > > conditions;
+		std::vector< std::unique_ptr< struct Declaration > > bodies;
+	};
+
+	struct ReturnStatement {
+		std::optional< std::unique_ptr< Expression > > expression;
+	};
+
+	struct AsmStatement {
+		std::string body;
+	};
+
+	struct WhileStatement {
+		std::unique_ptr< Expression > condition;
+		std::vector< std::unique_ptr< struct Declaration > > body;
+	};
+
 	struct Statement {
-		std::unique_ptr< ExpressionStatement > value;
+		std::variant<
+			std::unique_ptr< ExpressionStatement >,
+			std::unique_ptr< ForStatement >,
+			std::unique_ptr< IfStatement >,
+			std::unique_ptr< ReturnStatement >,
+			std::unique_ptr< AsmStatement >,
+			std::unique_ptr< WhileStatement >
+		> value;
+	};
+
+	struct Parameter {
+		Token name;
+		Token type;
+	};
+
+	struct VarDeclaration {
+		Parameter variable;
+		std::optional< std::unique_ptr< Expression > > value;
+	};
+
+	struct FunctionDeclaration {
+		Token name;
+		std::vector< Parameter > arguments;
+		std::optional< Token > returnType;
+		std::vector< std::unique_ptr< struct Declaration > > body;
+	};
+
+	struct TypeDeclaration {
+		std::vector< Parameter > fields;
+		std::vector< std::unique_ptr< FunctionDeclaration > > functions;
+	};
+
+	struct ImportDeclaration {
+		std::string path;
+	};
+
+	struct Declaration {
+		std::variant<
+			std::unique_ptr< VarDeclaration >,
+			std::unique_ptr< FunctionDeclaration >,
+			std::unique_ptr< TypeDeclaration >,
+			std::unique_ptr< ImportDeclaration >,
+			std::unique_ptr< Statement >
+		> value;
 	};
 
 	struct Program {

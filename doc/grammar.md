@@ -17,7 +17,7 @@ typeDecl -> "type" IDENTIFIER \n \n*
 			(funDecl \n*)*
 			"end"
 
-funDecl -> "function" IDENTIFIER? "(" parameter ( "," parameter )* ")" declaration* "end"
+funDecl -> "function" IDENTIFIER "(" parameter ( "," parameter )* ")" ( "as" IDENTIFIER )? declaration* "end"
 
 varDecl -> "def" parameter ( "=" expression )? \n
 
@@ -27,6 +27,7 @@ statement -> exprStatement |
 			 forStatement |
 			 ifStatement |
 			 returnStatement |
+			 asmStatement |
 			 whileStatement
 
 exprStatement -> expression \n
@@ -40,6 +41,8 @@ ifStatement -> "if" expression "then" declaration*
 				"end"
 
 returnStatement -> "return" expression? \n
+
+asmStatement -> "asm" \n TEXT \n "end"
 
 whileStatement -> "while" expression \n declaration* "end"
 
