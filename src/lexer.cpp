@@ -1,5 +1,6 @@
 #include "lexer.hpp"
 #include "variant_visitor.hpp"
+#include <circular_buffer.hpp>
 #include <unordered_map>
 #include <vector>
 
@@ -78,6 +79,20 @@ namespace GoldScorpion {
 		}
 
 		return result;
+	}
+
+	static bool isWhitespace( char c ) {
+		switch( c ) {
+			case ' ':
+			case '\t':
+			case '\r':
+			case '\v':
+			case '\f':
+			case '\n':
+				return true;
+			default:
+				return false;
+		}
 	}
 
 	static bool isNumeric( char c ) {
@@ -170,9 +185,55 @@ namespace GoldScorpion {
 		// in a lexical-agnostic fashion.
 		bool stringState = false;
 		bool commentState = false;
+
+		// These two states generate text-type tokens
+		bool bodyState = false;
+		bool lineState = false;
+
+		jm::circular_buffer< char, 4 > ring;
 		for( const char& character : body ) {
 
-			if( stringState ) {
+			if( bodyState ) {
+				// Body state exits when 4-item ring buffer reads "\nend" - whitespace is never added to ring buffer
+				// String slices off "\nen" before component is submitted as text token
+				if( character == '\n' || !isWhitespace( character ) ) {
+					ring.push_back( character );
+				}
+
+				// Check ring buffer for desired sequence
+				std::string sequence = "";
+				for( const auto& ringChar : ring ) {
+					sequence += ringChar;
+				}
+				if( sequence == "\nend" ) {
+					// Process component without the last three chars and add as text token
+					// Additionally, add the end token
+					tokens.push_back( Token{ TokenType::TOKEN_TEXT, component.substr( 0, component.size() - 3 ) } );
+					tokens.push_back( Token{ TokenType::TOKEN_END, {} } );
+
+					component = "";
+					bodyState = false;
+				} else {
+					component += character;
+				}
+
+				continue;
+			} else if( lineState ) {
+
+				if( character == '\n' ) {
+					// Process text token and exit linestate
+					tokens.push_back( Token{ TokenType::TOKEN_TEXT, component } );
+					tokens.push_back( Token{ TokenType::TOKEN_NEWLINE, {} } );
+
+					component = "";
+					lineState = false;
+				} else {
+					// Continue appending characters
+					component += character;
+				}
+
+				continue;
+			} else if( stringState ) {
 				// Newlines are invalid in string state
 				if( character == '\n' ) {
 					return "Unexpected newline encountered";
@@ -229,6 +290,22 @@ namespace GoldScorpion {
 					tokens.push_back( interpretToken( component ) );
 					alphanumericState = false;
 					component = "";
+
+					// Switch immediately to a plaintext state if the token just added was one of the following:
+					// "asm" - enter bodyState, which will add symbols to component until a "\n end" sequence is seen
+					// "import" - enter lineState, which will add symbols to component until a "\n" is seen
+					// When either of these states terminate, a TokenType::TOKEN_TEXT is added to the stream with "component" as value.
+					if( tokens.back().type == TokenType::TOKEN_ASM ) {
+						bodyState = true;
+						ring.clear();
+						continue;
+					}
+
+					if( tokens.back().type == TokenType::TOKEN_IMPORT ) {
+						lineState = true;
+						ring.clear();
+						continue;
+					}
 				}
 
 			}
