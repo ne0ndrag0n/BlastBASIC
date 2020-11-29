@@ -845,6 +845,76 @@ namespace GoldScorpion {
 		return {};
 	}
 
+	static AstResult< TypeDeclaration > getTypeDeclaration( std::vector< Token >::iterator current ) {
+		auto typeResult = readToken( current );
+		if( typeResult && typeResult->type == TokenType::TOKEN_TYPE ) {
+			++current;
+
+			auto nameResult = readToken( current );
+			if( nameResult && nameResult->type == TokenType::TOKEN_IDENTIFIER ) {
+				++current;
+
+				auto newlineResult = readToken( current );
+				if( newlineResult && newlineResult->type == TokenType::TOKEN_NEWLINE ) {
+					++current;
+
+					// Burn any newlines between here and the first parameter
+					while( readToken( current ) && current->type == TokenType::TOKEN_NEWLINE ) {
+						current++;
+					}
+
+					// Must be at least one parameter
+					std::vector< Parameter > fields;
+					// Keep eating parameters and burning newlines as long as we can
+					while( auto paramResult = getParameter( current ) ) {
+						current = paramResult->nextIterator;
+						fields.push_back( paramResult->parameter );
+
+						while( readToken( current ) && current->type == TokenType::TOKEN_NEWLINE ) {
+							current++;
+						}
+					}
+
+					if( fields.empty() ) {
+						throw std::runtime_error( "Expected: at least one field in TypeDeclaration" );
+					}
+
+					// Zero or more functions
+					std::vector< std::unique_ptr< FunctionDeclaration > > functions;
+					while( AstResult< FunctionDeclaration > function = getFunctionDeclaration( current ) ) {
+						current = function->nextIterator;
+						functions.emplace_back( std::move( function->node ) );
+
+						while( readToken( current ) && current->type == TokenType::TOKEN_NEWLINE ) {
+							current++;
+						}
+					}
+
+					// Must have a closing end
+					auto endResult = readToken( current );
+					if( endResult && endResult->type == TokenType::TOKEN_END ) {
+						return GeneratedAstNode< TypeDeclaration >{
+							++current,
+							std::make_unique< TypeDeclaration >( TypeDeclaration{
+								*nameResult,
+								fields,
+								std::move( functions )
+							} )
+						};
+					} else {
+						throw std::runtime_error( "Expected: \"end\" token following TypeDeclaration" );
+					}
+				} else {
+					throw std::runtime_error( "Expected: newline following identifier" );
+				}
+			} else {
+				throw std::runtime_error( "Expected: identifier following \"type\" token" );
+			}
+		}
+
+		return {};
+	}
+
 	static AstResult< VarDeclaration > getVarDeclaration( std::vector< Token >::iterator current ) {
 		auto defResult = readToken( current );
 		if( defResult && defResult->type == TokenType::TOKEN_DEF ) {
@@ -924,7 +994,16 @@ namespace GoldScorpion {
 		AstResult< Declaration > result = {};
 
 		// Must return one of: typeDecl, funDecl, varDecl, importDecl, statement
-		if( auto funDecl = getFunctionDeclaration( current ) ) {
+		if( auto typeDecl = getTypeDeclaration( current ) ) {
+			current = typeDecl->nextIterator;
+
+			result = GeneratedAstNode< Declaration >{
+				current,
+				std::make_unique< Declaration >( Declaration{
+					std::move( typeDecl->node )
+				} )
+			};
+		} else if( auto funDecl = getFunctionDeclaration( current ) ) {
 			current = funDecl->nextIterator;
 
 			result = GeneratedAstNode< Declaration > {

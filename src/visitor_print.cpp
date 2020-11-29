@@ -230,6 +230,9 @@ namespace GoldScorpion {
 	static void visit( const TypeDeclaration& node, int indent ) {
 		std::cout << indentText( indent, "TypeDeclaration" ) << std::endl;
 
+		std::cout << indentText( indent, "<name>" ) << std::endl;
+		std::cout << indentText( indent + 1, node.name.toString() ) << std::endl;
+
 		std::cout << indentText( indent, "<fields>" ) << std::endl;
 		for( const auto& parameter : node.fields ) {
 			std::cout << indentText( indent + 1, parameter.name.toString() ) << std::endl;

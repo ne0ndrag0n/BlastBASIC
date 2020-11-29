@@ -112,6 +112,7 @@ namespace GoldScorpion {
 	};
 
 	struct TypeDeclaration {
+		Token name;
 		std::vector< Parameter > fields;
 		std::vector< std::unique_ptr< FunctionDeclaration > > functions;
 	};
