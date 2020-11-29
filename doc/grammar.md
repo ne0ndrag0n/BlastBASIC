@@ -49,14 +49,7 @@ whileStatement -> "while" expression \n declaration* "end"
 parameter -> IDENTIFIER "as" type
 arguments	-> expression ( "," expression )*
 
-type -> "u8" |
-		"u16" |
-		"u32" |
-		"s8" |
-		"s16" |
-		"s32" |
-		"string" |
-		IDENTIFIER
+type -> ( "u8" | "u16" | "u32" | "s8" | "s16" | "s32" |	"string" | IDENTIFIER ) ( "[" NUMBER "]" )?
 
 expression -> assignment
 assignment -> ( call "." )? IDENTIFIER "=" assignment

@@ -55,8 +55,31 @@ namespace GoldScorpion {
 				++current;
 				auto typeResult = readToken( current );
 				if( typeResult && isType( *typeResult ) ) {
+					// Check if array type
+					std::optional< Token > arraySize;
+					auto leftBracketResult = readToken( current );
+					if( leftBracketResult && leftBracketResult->type == TokenType::TOKEN_LEFT_BRACKET ) {
+						++current;
+
+						// Must be a number or identifier here
+						auto numericResult = readToken( current );
+						if( numericResult && ( numericResult->type == TokenType::TOKEN_IDENTIFIER || numericResult->type == TokenType::TOKEN_LITERAL_INTEGER ) ) {
+							++current;
+							arraySize = *numericResult;
+
+							// Must be a closing bracket now
+							if( readToken( current ) && current->type == TokenType::TOKEN_RIGHT_BRACKET ) {
+								++current;
+							} else {
+								throw std::runtime_error( "Expected: closing \"]\" following an array size" );
+							}
+						} else {
+							throw std::runtime_error( "Expected: integer or identifier following \"[\"" );
+						}
+					}
+
 					return ParameterReturn{
-						Parameter{ *nameResult, *typeResult },
+						Parameter{ *nameResult, DataType{ *typeResult, arraySize } },
 						++current
 					};
 				}

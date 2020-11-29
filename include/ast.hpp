@@ -18,6 +18,20 @@ namespace GoldScorpion {
 	template< typename ReturnType >
 	using AstResult = std::optional< GeneratedAstNode< ReturnType > >;
 
+	struct DataType {
+		Token type;
+		std::optional< Token > arraySize;
+
+		std::string toString() const {
+			std::string typeString = type.toString();
+			if( arraySize ) {
+				typeString += " Size: " + arraySize->toString();
+			}
+
+			return typeString;
+		}
+	};
+
 	struct Primary {
 		std::variant< Token, std::unique_ptr< struct Expression > > value;
 	};
@@ -96,7 +110,7 @@ namespace GoldScorpion {
 
 	struct Parameter {
 		Token name;
-		Token type;
+		DataType type;
 	};
 
 	struct VarDeclaration {
