@@ -116,6 +116,7 @@ namespace GoldScorpion {
 			std::cout << indentText( indent + 1, "null" ) << std::endl;
 		}
 
+		std::cout << indentText( indent, "<body>" ) << std::endl;
 		for( const auto& declaration : node.body ) {
 			visit( *declaration, indent + 1 );
 		}

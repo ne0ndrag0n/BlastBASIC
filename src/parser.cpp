@@ -768,12 +768,104 @@ namespace GoldScorpion {
 		return {};
 	}
 
+	static AstResult< ForStatement > getForStatement( std::vector< Token >::iterator current ) {
+		if( readToken( current ) && current->type == TokenType::TOKEN_FOR ) {
+			++current;
+
+			auto indexResult = readToken( current );
+			if( indexResult && indexResult->type == TokenType::TOKEN_IDENTIFIER ) {
+				++current;
+
+				if( readToken( current ) && current->type == TokenType::TOKEN_EQUALS ) {
+					++current;
+
+					auto fromResult = readToken( current );
+					if( fromResult && ( fromResult->type == TokenType::TOKEN_IDENTIFIER || fromResult->type == TokenType::TOKEN_LITERAL_INTEGER ) ) {
+						++current;
+
+						if( readToken( current ) && current->type == TokenType::TOKEN_TO ) {
+							++current;
+
+							auto toResult = readToken( current );
+							if( toResult && ( toResult->type == TokenType::TOKEN_IDENTIFIER || toResult->type == TokenType::TOKEN_LITERAL_INTEGER ) ) {
+								++current;
+
+								// optional "every" token
+								std::optional< Token > every;
+								if( readToken( current ) && current->type == TokenType::TOKEN_EVERY ) {
+									++current;
+
+									if( readToken( current ) && ( current->type == TokenType::TOKEN_IDENTIFIER || current->type == TokenType::TOKEN_LITERAL_INTEGER ) ) {
+										every = *current;
+										++current;
+									} else {
+										throw std::runtime_error( "Expected: identifier following \"every\" token" );
+									}
+								}
+
+								if( readToken( current ) && current->type == TokenType::TOKEN_NEWLINE ) {
+									++current;
+
+									std::vector< std::unique_ptr< Declaration > > body;
+									while( AstResult< Declaration > declaration = getDeclaration( current ) ) {
+										current = declaration->nextIterator;
+										body.emplace_back( std::move( declaration->node ) );
+									}
+
+									// Must contain closing end
+									if( readToken( current ) && current->type == TokenType::TOKEN_END ) {
+										return GeneratedAstNode< ForStatement >{
+											++current,
+											std::make_unique< ForStatement >( ForStatement{
+												*indexResult,
+												*fromResult,
+												*toResult,
+												every,
+												std::move( body )
+											} )
+										};
+									} else {
+										throw std::runtime_error( "Expected: \"end\" token following ForStatement" );
+									}
+								} else {
+									throw std::runtime_error( "Expected: newline following ForStatement header" );
+								}
+
+							} else {
+								throw std::runtime_error( "Expected: identifier following \"to\" token" );
+							}
+						} else {
+							throw std::runtime_error( "Expected: \"to\" following identifier" );
+						}
+					} else {
+						throw std::runtime_error( "Expected: identifier following \"=\" token" );
+					}
+				} else {
+					throw std::runtime_error( "Expected: \"=\" following identifier" );
+				}
+			} else {
+				throw std::runtime_error( "Expected: identifier following \"for\" token" );
+			}
+		}
+
+		return {};
+	}
+
 	static AstResult< Statement > getStatement( std::vector< Token >::iterator current ) {
 		if( AstResult< ExpressionStatement > expressionStatementResult = getExpressionStatement( current ) ) {
 			return GeneratedAstNode< Statement >{
 				expressionStatementResult->nextIterator,
 				std::make_unique< Statement >( Statement{
 					std::move( expressionStatementResult->node )
+				} )
+			};
+		}
+
+		if( AstResult< ForStatement > forStatementResult = getForStatement( current ) ) {
+			return GeneratedAstNode< Statement >{
+				forStatementResult->nextIterator,
+				std::make_unique< Statement >( Statement {
+					std::move( forStatementResult->node )
 				} )
 			};
 		}

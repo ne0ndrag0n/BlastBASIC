@@ -17,3 +17,8 @@ end
 a.b = c + 1 * ( 2 * 6 )
 2+2
 5*5
+
+def i as u8
+for i = 0 to 10
+	a.b = i + 2
+end
