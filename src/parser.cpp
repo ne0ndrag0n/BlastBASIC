@@ -967,7 +967,7 @@ namespace GoldScorpion {
 			// Get a literal string + \n or it's a compiler error
 			++current;
 			auto literalStringResult = readToken( current );
-			if( literalStringResult && literalStringResult->type == TokenType::TOKEN_LITERAL_STRING ) {
+			if( literalStringResult && literalStringResult->type == TokenType::TOKEN_TEXT ) {
 				++current;
 
 				auto newlineResult = readToken( current );

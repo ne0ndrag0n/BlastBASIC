@@ -235,8 +235,10 @@ namespace GoldScorpion {
 
 		std::cout << indentText( indent, "<fields>" ) << std::endl;
 		for( const auto& parameter : node.fields ) {
-			std::cout << indentText( indent + 1, parameter.name.toString() ) << std::endl;
-			std::cout << indentText( indent + 1, parameter.type.toString() ) << std::endl;
+			std::cout << indentText( indent + 1, "<name>" ) << std::endl;
+			std::cout << indentText( indent + 2, parameter.name.toString() ) << std::endl;
+			std::cout << indentText( indent + 1, "<type>" ) << std::endl;
+			std::cout << indentText( indent + 2, parameter.type.toString() ) << std::endl;
 		}
 
 		std::cout << indentText( indent, "<functions>" ) << std::endl;
