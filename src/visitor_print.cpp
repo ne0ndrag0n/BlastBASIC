@@ -210,8 +210,11 @@ namespace GoldScorpion {
 
 		std::cout << indentText( indent, "<arguments>" ) << std::endl;
 		for( const auto& parameter : node.arguments ) {
-			std::cout << indentText( indent + 1, parameter.name.toString() ) << std::endl;
-			std::cout << indentText( indent + 1, parameter.type.toString() ) << std::endl;
+			std::cout << indentText( indent + 1, "<name>" ) << std::endl;
+			std::cout << indentText( indent + 2, parameter.name.toString() ) << std::endl;
+			std::cout << indentText( indent + 1, "<type>" ) << std::endl;
+			std::cout << indentText( indent + 2, parameter.type.toString() ) << std::endl;
+			std::cout << std::endl;
 		}
 
 		std::cout << indentText( indent, "<return-type>" ) << std::endl;
@@ -221,7 +224,7 @@ namespace GoldScorpion {
 			std::cout << indentText( indent + 1, "null" ) << std::endl;
 		}
 
-		std::cout << indentText( indent + 1, "<body>" ) << std::endl;
+		std::cout << indentText( indent, "<body>" ) << std::endl;
 		for( const auto& declaration : node.body ) {
 			visit( *declaration, indent + 1 );
 		}
@@ -239,6 +242,7 @@ namespace GoldScorpion {
 			std::cout << indentText( indent + 2, parameter.name.toString() ) << std::endl;
 			std::cout << indentText( indent + 1, "<type>" ) << std::endl;
 			std::cout << indentText( indent + 2, parameter.type.toString() ) << std::endl;
+			std::cout << std::endl;
 		}
 
 		std::cout << indentText( indent, "<functions>" ) << std::endl;
