@@ -55,6 +55,8 @@ namespace GoldScorpion {
 				++current;
 				auto typeResult = readToken( current );
 				if( typeResult && isType( *typeResult ) ) {
+					++current;
+
 					// Check if array type
 					std::optional< Token > arraySize;
 					auto leftBracketResult = readToken( current );
@@ -71,6 +73,7 @@ namespace GoldScorpion {
 							if( readToken( current ) && current->type == TokenType::TOKEN_RIGHT_BRACKET ) {
 								++current;
 							} else {
+								// Current will be incremented in the last step
 								throw std::runtime_error( "Expected: closing \"]\" following an array size" );
 							}
 						} else {
@@ -80,7 +83,7 @@ namespace GoldScorpion {
 
 					return ParameterReturn{
 						Parameter{ *nameResult, DataType{ *typeResult, arraySize } },
-						++current
+						current
 					};
 				}
 			}

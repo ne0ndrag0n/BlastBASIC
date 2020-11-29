@@ -5,7 +5,7 @@ def nonsense as u8
 def moreNonsense as CustomType = 2 + 2
 
 type Vec2
-	x as u16
+	x as u16[ 5 ]
 	y as u16
 end
 
