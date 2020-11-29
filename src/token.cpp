@@ -130,6 +130,8 @@ namespace GoldScorpion {
 				return result + "TOKEN_CARET)";
 			case TokenType::TOKEN_PIPE:
 				return result + "TOKEN_PIPE)";
+			case TokenType::TOKEN_TEXT:
+				return result + "TOKEN_TEXT " + std::get< std::string >( *value ) + ")";
 			default:
 				return result + "<unknown>)";
 		}

@@ -47,6 +47,7 @@ int main( int argc, char** argv ) {
 				}
 
 				// Try this and see if anything crashes
+				/*
 				auto parserResult = GoldScorpion::getProgram( *tokens );
 				if( auto error = std::get_if< std::string >( &parserResult ) ) {
 					std::cout << rang::fgB::red << "error: " << rang::style::reset
@@ -55,6 +56,7 @@ int main( int argc, char** argv ) {
 					auto program = std::get< GoldScorpion::Program >( std::move( parserResult ) );
 					GoldScorpion::printAst( program );
 				}
+				*/
 
 				return 0;
 			} else {
