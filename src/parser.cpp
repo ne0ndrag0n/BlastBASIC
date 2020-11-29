@@ -13,12 +13,54 @@ namespace GoldScorpion {
 
 	// Forward declarations
 	static AstResult< Expression > getExpression( std::vector< Token >::iterator current );
+	static AstResult< Declaration > getDeclaration( std::vector< Token >::iterator current );
 	// End forward declarations
 
 	// Do not read iterator if it is past the end
 	static std::optional< Token > readToken( std::vector< Token >::iterator iterator ) {
 		if( iterator != end ) {
 			return *iterator;
+		}
+
+		return {};
+	}
+
+	static bool isNativeType( const Token& token ) {
+		return (
+			token.type == TokenType::TOKEN_U8 ||
+			token.type == TokenType::TOKEN_U16 ||
+			token.type == TokenType::TOKEN_U32 ||
+			token.type == TokenType::TOKEN_S8 ||
+			token.type == TokenType::TOKEN_S16 ||
+			token.type == TokenType::TOKEN_S32 ||
+			token.type == TokenType::TOKEN_STRING
+		);
+	}
+
+	static bool isType( const Token& token ) {
+		return isNativeType( token ) || token.type == TokenType::TOKEN_IDENTIFIER;
+	}
+
+	struct ParameterReturn {
+		Parameter parameter;
+		std::vector< Token >::iterator nextIterator;
+	};
+	static std::optional< ParameterReturn > getParameter( std::vector< Token >::iterator current ) {
+		// A parameter takes the form IDENTIFIER "as" IDENTIFIER (of type form)
+		auto nameResult = readToken( current );
+		if( nameResult && nameResult->type == TokenType::TOKEN_IDENTIFIER ) {
+			++current;
+			auto asResult = readToken( current );
+			if( asResult && asResult->type == TokenType::TOKEN_AS ) {
+				++current;
+				auto typeResult = readToken( current );
+				if( typeResult && isType( *typeResult ) ) {
+					return ParameterReturn{
+						Parameter{ *nameResult, *typeResult },
+						++current
+					};
+				}
+			}
 		}
 
 		return {};
@@ -713,6 +755,166 @@ namespace GoldScorpion {
 		return {};
 	}
 
+	static AstResult< FunctionDeclaration > getFunctionDeclaration( std::vector< Token >::iterator current ) {
+		auto functionResult = readToken( current );
+		if( functionResult && functionResult->type == TokenType::TOKEN_FUNCTION ) {
+			++current;
+
+			// Optional identifier
+			std::optional< Token > name;
+			auto nameResult = readToken( current );
+			if( nameResult && nameResult->type == TokenType::TOKEN_IDENTIFIER ) {
+				++current;
+				name = *nameResult;
+			}
+
+			// Eat ( token
+			auto leftParenResult = readToken( current );
+			if( leftParenResult && leftParenResult->type == TokenType::TOKEN_LEFT_PAREN ) {
+				++current;
+			} else {
+				throw std::runtime_error( "Expected: \"(\" token following function or function identifier" );
+			}
+
+			// Optional parameters
+			std::vector< Parameter > arguments;
+			if( auto firstArgumentResult = getParameter( current ) ) {
+				current = firstArgumentResult->nextIterator;
+				arguments.push_back( firstArgumentResult->parameter );
+
+				while( readToken( current ) && current->type == TokenType::TOKEN_COMMA ) {
+					++current;
+
+					if( auto nextArgumentResult = getParameter( current ) ) {
+						current = nextArgumentResult->nextIterator;
+						arguments.push_back( nextArgumentResult->parameter );
+					} else {
+						throw std::runtime_error( "Expected: parameter following \",\" token" );
+					}
+				}
+			}
+
+			// Eat ) token
+			auto rightParenResult = readToken( current );
+			if( rightParenResult && rightParenResult->type == TokenType::TOKEN_RIGHT_PAREN ) {
+				++current;
+			} else {
+				throw std::runtime_error( "Expected: \")\" token following function argument list" );
+			}
+
+			// Optional "as" return type
+			std::optional< Token > returnType;
+			auto asResult = readToken( current );
+			if( asResult && asResult->type == TokenType::TOKEN_AS ) {
+				++current;
+
+				// Now expect identifier of type form
+				auto returnTypeResult = readToken( current );
+				if( returnTypeResult && isType( *returnTypeResult ) ) {
+					++current;
+					returnType = *returnTypeResult;
+				} else {
+					throw std::runtime_error( "Expected: identifier following \"as\" token" );
+				}
+			}
+
+			// Now begins a completely optional list of declarations
+			std::vector< std::unique_ptr< Declaration > > body;
+			while( AstResult< Declaration > declaration = getDeclaration( current ) ) {
+				body.emplace_back( std::move( declaration->node ) );
+				current = declaration->nextIterator;
+			}
+
+			// End must close function declaration
+			auto endResult = readToken( current );
+			if( endResult && endResult->type == TokenType::TOKEN_END ) {
+				return GeneratedAstNode< FunctionDeclaration >{
+					++current,
+					std::make_unique< FunctionDeclaration >( FunctionDeclaration{
+						name,
+						arguments,
+						returnType,
+						std::move( body )
+					} )
+				};
+			} else {
+				throw std::runtime_error( "Expected: \"end\" token following function body" );
+			}
+		}
+
+		return {};
+	}
+
+	static AstResult< VarDeclaration > getVarDeclaration( std::vector< Token >::iterator current ) {
+		auto defResult = readToken( current );
+		if( defResult && defResult->type == TokenType::TOKEN_DEF ) {
+			++current;
+
+			// identifier AS type
+			auto parameterResult = getParameter( current );
+			if( parameterResult ) {
+				current = parameterResult->nextIterator;
+
+				// Optional: Equals to define a default value
+				std::optional< std::unique_ptr< Expression > > assignment;
+				auto equalsResult = readToken( current );
+				if( equalsResult && equalsResult->type == TokenType::TOKEN_EQUALS ) {
+					++current;
+
+					if( AstResult< Expression > expression = getExpression( current ) ) {
+						current = expression->nextIterator;
+						assignment = std::move( expression->node );
+					} else {
+						throw std::runtime_error( "Expected: Expression following \"=\" token" );
+					}
+				}
+
+				// Newline at the end!
+				auto newlineResult = readToken( current );
+				if( newlineResult && newlineResult->type == TokenType::TOKEN_NEWLINE ) {
+					// Return result
+					return GeneratedAstNode< VarDeclaration >{
+						++current,
+						std::make_unique< VarDeclaration >( VarDeclaration{
+							parameterResult->parameter,
+							std::move( assignment )
+						} )
+					};
+				} else {
+					throw std::runtime_error( "Expected: newline following VarDeclaration" );
+				}
+			} else {
+				throw std::runtime_error( "Expected: parameter following \"def\" token" );
+			}
+		}
+
+		return {};
+	}
+
+	static AstResult< ImportDeclaration > getImportDeclaration( std::vector< Token >::iterator current ) {
+		auto tokenResult = readToken( current );
+		if( tokenResult && tokenResult->type == TokenType::TOKEN_IMPORT ) {
+			// Get a literal string + \n or it's a compiler error
+			++current;
+			auto literalStringResult = readToken( current );
+			if( literalStringResult && literalStringResult->type == TokenType::TOKEN_LITERAL_STRING ) {
+				++current;
+
+				auto newlineResult = readToken( current );
+				if( newlineResult && newlineResult->type == TokenType::TOKEN_NEWLINE ) {
+					return GeneratedAstNode< ImportDeclaration >{
+						++current,
+						std::make_unique< ImportDeclaration >( ImportDeclaration{
+							std::get< std::string >( *literalStringResult->value )
+						} )
+					};
+				}
+			}
+		}
+
+		return {};
+	}
+
 	static AstResult< Declaration > getDeclaration( std::vector< Token >::iterator current ) {
 		// Burn newlines before
 		while( readToken( current ) && current->type == TokenType::TOKEN_NEWLINE ) {
@@ -722,9 +924,38 @@ namespace GoldScorpion {
 		AstResult< Declaration > result = {};
 
 		// Must return one of: typeDecl, funDecl, varDecl, importDecl, statement
-		if( auto statement = getStatement( current ) ) {
+		if( auto funDecl = getFunctionDeclaration( current ) ) {
+			current = funDecl->nextIterator;
+
+			result = GeneratedAstNode< Declaration > {
+				current,
+				std::make_unique< Declaration >( Declaration {
+					std::move( funDecl->node )
+				} )
+			};
+		} else if( auto varDecl = getVarDeclaration( current ) ) {
+			current = varDecl->nextIterator;
+
+			result = GeneratedAstNode< Declaration > {
+				current,
+				std::make_unique< Declaration >( Declaration {
+					std::move( varDecl->node )
+				} )
+			};
+		} else if( auto importDecl = getImportDeclaration( current ) ) {
+			current = importDecl->nextIterator;
+
+			result = GeneratedAstNode< Declaration > {
+				current,
+				std::make_unique< Declaration >( Declaration {
+					std::move( importDecl->node )
+				} )
+			};
+		} else if( auto statement = getStatement( current ) ) {
+			current = statement->nextIterator;
+
 			result = GeneratedAstNode< Declaration >{
-				statement->nextIterator,
+				current,
 				std::make_unique< Declaration >( Declaration {
 					std::move( statement->node )
 				} )

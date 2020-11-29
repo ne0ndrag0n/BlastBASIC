@@ -105,7 +105,7 @@ namespace GoldScorpion {
 	};
 
 	struct FunctionDeclaration {
-		Token name;
+		std::optional< Token > name;
 		std::vector< Parameter > arguments;
 		std::optional< Token > returnType;
 		std::vector< std::unique_ptr< struct Declaration > > body;

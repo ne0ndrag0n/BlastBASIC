@@ -202,7 +202,11 @@ namespace GoldScorpion {
 		std::cout << indentText( indent, "FunctionDeclaration" ) << std::endl;
 
 		std::cout << indentText( indent, "<name>" ) << std::endl;
-		std::cout << indentText( indent + 1, node.name.toString() ) << std::endl;
+		if( node.name ) {
+			std::cout << indentText( indent + 1, node.name->toString() ) << std::endl;
+		} else {
+			std::cout << indentText( indent + 1, "null" ) << std::endl;
+		}
 
 		std::cout << indentText( indent, "<arguments>" ) << std::endl;
 		for( const auto& parameter : node.arguments ) {

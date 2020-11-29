@@ -17,7 +17,7 @@ typeDecl -> "type" IDENTIFIER \n \n*
 			(funDecl \n*)*
 			"end"
 
-funDecl -> "function" IDENTIFIER "(" parameter ( "," parameter )* ")" ( "as" IDENTIFIER )? declaration* "end"
+funDecl -> "function" IDENTIFIER? "(" parameter ( "," parameter )* ")" ( "as" IDENTIFIER )? declaration* "end"
 
 varDecl -> "def" parameter ( "=" expression )? \n
 
