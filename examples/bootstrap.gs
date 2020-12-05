@@ -36,7 +36,7 @@ const LOCALIZATION as string =      "JUE"
 # The "irq" module lets you set a function to be called when the target encounters an IRQ.
 @[irq=6]
 function vblank()
-	Stat.TICKS = Stat.TICKS + 1
+	statistics.ticks = statistics.ticks + 1
 end
 
 # This code is inserted directly after bootstrap code inserted by the compiler.
