@@ -1,24 +1,14 @@
-import path/to/file.gs
-import path/to/another/file.gs
+import gs/genesis/debug.gs
 
-def nonsense as u8
-def moreNonsense as CustomType = 2 + 2
+def i as u8 = 42
 
-type Vec2
-	x as u16[ 5 ]
-	y as u16
-end
-
-function add( x as u8, y as u8 )
-	x + y
-	# oops we have no return statement yet
-end
-
-a.b = c + 1 * ( 2 * 6 )
-2+2
-5*5
-
-def i as u8
-for i = 0 to 10
-	a.b = i + 2
+if i != 42 then
+	Debug.print( "Fix your code" )
+else if i == 666 then
+	Debug.print( "zomg demon possessed" )
+else if i == 777 then
+	Debug.print( "z?" )
+else
+	Debug.print( "Boop" )
+	Debug.print( "Everything works" )
 end
