@@ -25,6 +25,24 @@ namespace GoldScorpion {
 		return {};
 	}
 
+	static std::vector< Token >::iterator expect( TokenType tokenType, std::vector< Token >::iterator iterator, const std::string& throwMessage ) {
+		auto result = readToken( iterator );
+		if( result && result->type == tokenType ) {
+			return ++iterator;
+		}
+		
+		throw std::runtime_error( throwMessage );
+	}
+
+	static std::optional< std::vector< Token >::iterator > attempt( TokenType tokenType, std::vector< Token >::iterator iterator ) {
+		auto result = readToken( iterator );
+		if( result && result->type == tokenType ) {
+			return ++iterator;
+		}
+
+		return {};
+	}
+
 	static bool isNativeType( const Token& token ) {
 		return (
 			token.type == TokenType::TOKEN_U8 ||
@@ -851,6 +869,80 @@ namespace GoldScorpion {
 		return {};
 	}
 
+	static AstResult< IfStatement > getIfStatement( std::vector< Token >::iterator current ) {
+		if( auto afterIf = attempt( TokenType::TOKEN_IF, current ) ) {
+			current = *afterIf;
+
+			std::vector< std::unique_ptr< Expression > > conditions;
+			std::vector< std::vector< std::unique_ptr< Declaration > > > bodies;
+
+			if( AstResult< Expression > baseCondition = getExpression( current ) ) {
+				current = expect( TokenType::TOKEN_THEN, baseCondition->nextIterator, "Expected: \"then\" following if conditional" );
+				conditions.emplace_back( std::move( baseCondition->node ) );
+
+				// Zero or more declarations following "then"
+				{
+					std::vector< std::unique_ptr< Declaration > > body;
+					while( AstResult< Declaration > declaration = getDeclaration( current ) ) {
+						current = declaration->nextIterator;
+						body.emplace_back( std::move( declaration->node ) );
+					}
+					bodies.emplace_back( std::move( body ) );
+				}
+
+				// After that, there are zero or more elseif statements
+				while( true ) {
+					if( auto afterNextElse = attempt( TokenType::TOKEN_ELSE, current ) ) {
+						if( auto afterNextIf = attempt( TokenType::TOKEN_IF, *afterNextElse ) ) {
+							current = *afterNextIf;
+
+							if( AstResult< Expression > elifCondition = getExpression( current ) ) {
+								current = expect( TokenType::TOKEN_THEN, elifCondition->nextIterator, "Expected: \"then\" following else if expression" );
+								conditions.emplace_back( std::move( elifCondition->node ) );
+
+								// Zero or more declarations following "then"
+								std::vector< std::unique_ptr< Declaration > > body;
+								while( AstResult< Declaration > declaration = getDeclaration( current ) ) {
+									current = declaration->nextIterator;
+									body.emplace_back( std::move( declaration->node ) );
+								}
+								bodies.emplace_back( std::move( body ) );
+
+								continue;
+							} else {
+								throw std::runtime_error( "Expected: Expression following \"else\" \"if\" sequence" );
+							}
+						}
+					}
+
+					break;
+				}
+
+				// One or none "else" statements
+				if( auto afterElse = attempt( TokenType::TOKEN_ELSE, current ) ) {
+					current = *afterElse;
+
+					std::vector< std::unique_ptr< Declaration > > body;
+					while( AstResult< Declaration > declaration = getDeclaration( current ) ) {
+						current = declaration->nextIterator;
+						body.emplace_back( std::move( declaration->node ) );
+					}
+					bodies.emplace_back( std::move( body ) );
+				}
+
+				// Finally a closing end
+				return GeneratedAstNode< IfStatement >{
+					expect( TokenType::TOKEN_END, current, "Expected: \"end\" token following IfStatement" ),
+					std::make_unique< IfStatement >( IfStatement{ std::move( conditions ), std::move( bodies ) } )
+				};
+			} else {
+				throw std::runtime_error( "Expected: Expression following \"if\"" );
+			}
+		}
+
+		return {};
+	}
+
 	static AstResult< Statement > getStatement( std::vector< Token >::iterator current ) {
 		if( AstResult< ExpressionStatement > expressionStatementResult = getExpressionStatement( current ) ) {
 			return GeneratedAstNode< Statement >{
@@ -866,6 +958,15 @@ namespace GoldScorpion {
 				forStatementResult->nextIterator,
 				std::make_unique< Statement >( Statement {
 					std::move( forStatementResult->node )
+				} )
+			};
+		}
+
+		if( AstResult< IfStatement > ifStatementResult = getIfStatement( current ) ) {
+			return GeneratedAstNode< Statement >{
+				ifStatementResult->nextIterator,
+				std::make_unique< Statement >( Statement {
+					std::move( ifStatementResult->node )
 				} )
 			};
 		}

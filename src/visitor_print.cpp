@@ -131,8 +131,15 @@ namespace GoldScorpion {
 		}
 
 		std::cout << indentText( indent, "<bodies>" ) << std::endl;
+		int i = 0;
 		for( const auto& body : node.bodies ) {
-			visit( *body, indent + 1 );
+			std::cout << indentText( indent + 1, "<body " + std::to_string( i ) + ">" ) << std::endl;
+			
+			for( const auto& declaration : body ) {
+				visit( *declaration, indent + 2 );
+			}
+
+			i++;
 		}
 	}
 

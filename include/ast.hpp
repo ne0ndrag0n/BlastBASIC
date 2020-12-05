@@ -81,7 +81,7 @@ namespace GoldScorpion {
 
 	struct IfStatement {
 		std::vector< std::unique_ptr< Expression > > conditions;
-		std::vector< std::unique_ptr< struct Declaration > > bodies;
+		std::vector< std::vector< std::unique_ptr< struct Declaration > > > bodies;
 	};
 
 	struct ReturnStatement {
