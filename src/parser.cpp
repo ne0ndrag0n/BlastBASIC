@@ -986,6 +986,32 @@ namespace GoldScorpion {
 		return {};
 	}
 
+	static AstResult< WhileStatement > getWhileStatement( std::vector< Token >::iterator current ) {
+		auto afterWhile = attempt( TokenType::TOKEN_WHILE, current );
+		if( afterWhile ) {
+			current = *afterWhile;
+
+			if( AstResult< Expression > expression = getExpression( current ) ) {
+				current = expect( TokenType::TOKEN_NEWLINE, expression->nextIterator, "Expected: newline following Expression" );
+
+				std::vector< std::unique_ptr< Declaration > > body;
+				while( AstResult< Declaration > declaration = getDeclaration( current ) ) {
+					current = declaration->nextIterator;
+					body.emplace_back( std::move( declaration->node ) );
+				}
+
+				return GeneratedAstNode< WhileStatement >{
+					expect( TokenType::TOKEN_END, current, "Expected: \"end\" token following WhileStatement body" ),
+					std::make_unique< WhileStatement >( WhileStatement{ std::move( expression->node ), std::move( body ) } )
+				};
+			} else {
+				throw std::runtime_error( "Expected: Expression following \"while\" token" );
+			}
+		}
+
+		return {};
+	}
+
 	static AstResult< Statement > getStatement( std::vector< Token >::iterator current ) {
 		if( AstResult< ExpressionStatement > expressionStatementResult = getExpressionStatement( current ) ) {
 			return GeneratedAstNode< Statement >{
@@ -1028,6 +1054,15 @@ namespace GoldScorpion {
 				asmStatementResult->nextIterator,
 				std::make_unique< Statement >( Statement {
 					std::move( asmStatementResult->node )
+				} )
+			};
+		}
+
+		if( AstResult< WhileStatement > whileStatementResult = getWhileStatement( current ) ) {
+			return GeneratedAstNode< Statement >{
+				whileStatementResult->nextIterator,
+				std::make_unique< Statement >( Statement {
+					std::move( whileStatementResult->node )
 				} )
 			};
 		}

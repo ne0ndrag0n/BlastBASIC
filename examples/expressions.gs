@@ -21,6 +21,10 @@ function x() as u16
 		move.w #0, (sp)
 	end
 
+	while i != 6
+		i = 0
+	end
+
 	# i should return as 0 after the inline asm
 	return i
 end
