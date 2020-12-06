@@ -943,6 +943,28 @@ namespace GoldScorpion {
 		return {};
 	}
 
+	static AstResult< ReturnStatement > getReturnStatement( std::vector< Token >::iterator current ) {
+		auto afterReturn = attempt( TokenType::TOKEN_RETURN, current );
+		if( afterReturn ) {
+			current = *afterReturn;
+
+			std::optional< std::unique_ptr< Expression > > returnExpression;
+			if( AstResult< Expression > expression = getExpression( current ) ) {
+				current = expression->nextIterator;
+				returnExpression = std::move( expression->node );
+			}
+
+			return GeneratedAstNode< ReturnStatement >{
+				expect( TokenType::TOKEN_NEWLINE, current, "Expected: newline after ReturnStatement" ),
+				std::make_unique< ReturnStatement >( ReturnStatement{
+					std::move( returnExpression )
+				} )
+			};
+		}
+
+		return {};
+	}
+
 	static AstResult< Statement > getStatement( std::vector< Token >::iterator current ) {
 		if( AstResult< ExpressionStatement > expressionStatementResult = getExpressionStatement( current ) ) {
 			return GeneratedAstNode< Statement >{
@@ -967,6 +989,15 @@ namespace GoldScorpion {
 				ifStatementResult->nextIterator,
 				std::make_unique< Statement >( Statement {
 					std::move( ifStatementResult->node )
+				} )
+			};
+		}
+
+		if( AstResult< ReturnStatement > returnStatementResult = getReturnStatement( current ) ) {
+			return GeneratedAstNode< Statement >{
+				returnStatementResult->nextIterator,
+				std::make_unique< Statement >( Statement {
+					std::move( returnStatementResult->node )
 				} )
 			};
 		}

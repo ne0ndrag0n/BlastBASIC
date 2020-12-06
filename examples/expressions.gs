@@ -14,6 +14,8 @@ else
 end
 
 @[expr=value]
-function x()
+function x() as u8
 	def i as u8
+
+	return i
 end
