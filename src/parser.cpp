@@ -1276,6 +1276,34 @@ namespace GoldScorpion {
 		return {};
 	}
 
+	static AstResult< ConstDeclaration > getConstDeclaration( std::vector< Token >::iterator current ) {
+		auto afterConst = attempt( TokenType::TOKEN_CONST, current );
+		if( afterConst ) {
+			current = *afterConst;
+
+			auto parameter = getParameter( current );
+			if( parameter ) {
+				current = expect( TokenType::TOKEN_EQUALS, parameter->nextIterator, "Expected: \"=\" token following parameter" );
+
+				if( AstResult< Expression > expression = getExpression( current ) ) {
+					return GeneratedAstNode< ConstDeclaration >{
+						expect( TokenType::TOKEN_NEWLINE, expression->nextIterator, "Expected: newline following ConstDeclaration" ),
+						std::make_unique< ConstDeclaration >( ConstDeclaration {
+							parameter->parameter,
+							std::move( expression->node )
+						} )
+					};
+				} else {
+					throw std::runtime_error( "Expected: Expression following \"=\" statement" ); 
+				}
+			} else {
+				throw std::runtime_error( "Expected: parameter after \"const\" token" );
+			}
+		}
+
+		return {};
+	}
+
 	static AstResult< ImportDeclaration > getImportDeclaration( std::vector< Token >::iterator current ) {
 		auto tokenResult = readToken( current );
 		if( tokenResult && tokenResult->type == TokenType::TOKEN_IMPORT ) {
@@ -1346,7 +1374,7 @@ namespace GoldScorpion {
 
 		AstResult< Declaration > result = {};
 
-		// Must return one of: annotation, typeDecl, funDecl, varDecl, importDecl, statement
+		// Must return one of: annotation, typeDecl, funDecl, varDecl, constDecl, importDecl, statement
 		if( auto annotation = getAnnotation( current ) ) {
 			current = annotation->nextIterator;
 
@@ -1381,6 +1409,15 @@ namespace GoldScorpion {
 				current,
 				std::make_unique< Declaration >( Declaration {
 					std::move( varDecl->node )
+				} )
+			};
+		} else if( auto constDecl = getConstDeclaration( current ) ) {
+			current = constDecl->nextIterator;
+
+			result = GeneratedAstNode< Declaration > {
+				current,
+				std::make_unique< Declaration >( Declaration {
+					std::move( constDecl->node )
 				} )
 			};
 		} else if( auto importDecl = getImportDeclaration( current ) ) {

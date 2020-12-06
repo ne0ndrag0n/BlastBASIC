@@ -62,7 +62,8 @@ namespace GoldScorpion {
 		{ "&", TokenType::TOKEN_AMPERSAND },
 		{ "^", TokenType::TOKEN_CARET },
 		{ "|", TokenType::TOKEN_PIPE },
-		{ "@", TokenType::TOKEN_AT_SYMBOL }
+		{ "@", TokenType::TOKEN_AT_SYMBOL },
+		{ "const", TokenType::TOKEN_CONST }
 	};
 
 	static Token interpretToken( std::string segment ) {

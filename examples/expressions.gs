@@ -1,5 +1,7 @@
 import gs/genesis/debug.gs
 
+const SOMECONST as string = "This is a constant string"
+
 def i as u8 = 42
 
 if i != 42 then

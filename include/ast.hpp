@@ -118,6 +118,11 @@ namespace GoldScorpion {
 		std::optional< std::unique_ptr< Expression > > value;
 	};
 
+	struct ConstDeclaration {
+		Parameter variable;
+		std::unique_ptr< Expression > value;
+	};
+
 	struct FunctionDeclaration {
 		std::optional< Token > name;
 		std::vector< Parameter > arguments;
@@ -143,6 +148,7 @@ namespace GoldScorpion {
 		std::variant<
 			std::unique_ptr< Annotation >,
 			std::unique_ptr< VarDeclaration >,
+			std::unique_ptr< ConstDeclaration >,
 			std::unique_ptr< FunctionDeclaration >,
 			std::unique_ptr< TypeDeclaration >,
 			std::unique_ptr< ImportDeclaration >,

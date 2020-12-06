@@ -9,6 +9,7 @@ declaration -> \n* (
 				typeDecl |
 				funDecl |
 				varDecl |
+				constDecl |
 				importDecl |
 				statement )
 				\n*
@@ -23,6 +24,8 @@ typeDecl -> "type" IDENTIFIER \n \n*
 funDecl -> "function" IDENTIFIER? "(" parameter ( "," parameter )* ")" ( "as" IDENTIFIER )? declaration* "end"
 
 varDecl -> "def" parameter ( "=" expression )? \n
+
+constDecl -> "const" parameter "=" expression \n
 
 importDecl -> "import" PATH \n
 

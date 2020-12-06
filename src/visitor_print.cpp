@@ -206,6 +206,19 @@ namespace GoldScorpion {
 		}
 	}
 
+	static void visit( const ConstDeclaration& node, int indent ) {
+		std::cout << indentText( indent, "ConstDeclaration" ) << std::endl;
+
+		std::cout << indentText( indent, "<name>" ) << std::endl;
+		std::cout << indentText( indent + 1, node.variable.name.toString() ) << std::endl;
+
+		std::cout << indentText( indent, "<type>" ) << std::endl;
+		std::cout << indentText( indent + 1, node.variable.type.toString() ) << std::endl;
+
+		std::cout << indentText( indent, "<value>" ) << std::endl;
+		visit( *node.value, indent + 1 );
+	}
+
 	static void visit( const FunctionDeclaration& node, int indent ) {
 		std::cout << indentText( indent, "FunctionDeclaration" ) << std::endl;
 
@@ -281,6 +294,7 @@ namespace GoldScorpion {
 		std::visit( overloaded {
 			[ indent ]( const std::unique_ptr< Annotation >& expression ) { visit( *expression, indent + 1 ); },
 			[ indent ]( const std::unique_ptr< VarDeclaration >& expression ) { visit( *expression, indent + 1 ); },
+			[ indent ]( const std::unique_ptr< ConstDeclaration >& expression ) { visit( *expression, indent + 1 ); },
 			[ indent ]( const std::unique_ptr< FunctionDeclaration >& expression ) { visit( *expression, indent + 1 ); },
 			[ indent ]( const std::unique_ptr< TypeDeclaration >& expression ) { visit( *expression, indent + 1 ); },
 			[ indent ]( const std::unique_ptr< ImportDeclaration >& expression ) { visit( *expression, indent + 1 ); },

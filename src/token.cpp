@@ -134,6 +134,8 @@ namespace GoldScorpion {
 				return result + "TOKEN_TEXT " + std::get< std::string >( *value ) + ")";
 			case TokenType::TOKEN_AT_SYMBOL:
 				return result + "TOKEN_AT_SYMBOL)";
+			case TokenType::TOKEN_CONST:
+				return result + "TOKEN_CONST)";
 			default:
 				return result + "<unknown>)";
 		}
