@@ -3,6 +3,7 @@
 #include <circular_buffer.hpp>
 #include <unordered_map>
 #include <vector>
+#include <cstdlib>
 
 namespace GoldScorpion {
 
@@ -101,6 +102,10 @@ namespace GoldScorpion {
 		return c >= '0' && c <= '9';
 	}
 
+	static bool isHexaNumeric( char c ) {
+		return isNumeric( c ) || ( c >= 'a' && c <= 'f' ) || ( c >= 'A' && c <= 'F' );
+	}
+
 	static bool isAlpha( char c ) {
 		return ( c == '_' ) || ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' );
 	}
@@ -181,6 +186,7 @@ namespace GoldScorpion {
 
 		// - Begins with a number and consists entirely of numbers
 		bool numericState = false;
+		bool hexaNumericState = false;
 		// - Begins with a symbol and consists entirely of symbols
 		bool symbolicState = false;
 		// - Begins with a letter and consists entirely letters and/or numbers
@@ -275,6 +281,17 @@ namespace GoldScorpion {
 					component = "";
 				}
 
+			} else if( hexaNumericState ) {
+
+				if( isHexaNumeric( character ) ) {
+					component += character;
+					continue;
+				} else {
+					tokens.push_back( Token{ TokenType::TOKEN_LITERAL_INTEGER, std::strtol( component.c_str(), NULL, 16 ) } );
+					hexaNumericState = false;
+					component = "";
+				}
+
 			} else if( symbolicState ) {
 
 				if( isValidSymbol( character ) ) {
@@ -349,6 +366,12 @@ namespace GoldScorpion {
 				case '"': {
 					// Enter string state, which will stop ordinary parsing and simply append items to component
 					stringState = true;
+					continue;
+				}
+				case '$': {
+					// Hexanumeric state 
+					hexaNumericState = true;
+					component = "";
 					continue;
 				}
 				default: {

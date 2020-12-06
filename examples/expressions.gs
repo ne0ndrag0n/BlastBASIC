@@ -23,7 +23,7 @@ function x() as u16
 		move.w #0, (sp)
 	end
 
-	while i != 6
+	while i != $6f
 		i = 0
 	end
 
