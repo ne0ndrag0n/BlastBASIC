@@ -102,7 +102,7 @@ namespace GoldScorpion {
 	}
 
 	static bool isAlpha( char c ) {
-		return ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' );
+		return ( c == '_' ) || ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' );
 	}
 
 	static bool isValidSymbol( char c ) {
