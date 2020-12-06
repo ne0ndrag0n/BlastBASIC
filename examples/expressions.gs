@@ -12,3 +12,8 @@ else
 	Debug.print( "Boop" )
 	Debug.print( "Everything works" )
 end
+
+@[expr=value]
+function x()
+	def i as u8
+end

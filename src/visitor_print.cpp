@@ -266,10 +266,20 @@ namespace GoldScorpion {
 		std::cout << indentText( indent + 1, node.path ) << std::endl;
 	}
 
+	static void visit( const Annotation& node, int indent ) {
+		std::cout << indentText( indent, "Annotation" ) << std::endl;
+
+		std::cout << indentText( indent, "<expressions>" ) << std::endl;
+		for( const auto& expression : node.directives ) {
+			visit( *expression, indent + 1 );
+		}
+	}
+
 	static void visit( const Declaration& node, int indent ) {
 		std::cout << indentText( indent, "Declaration" ) << std::endl;
 
 		std::visit( overloaded {
+			[ indent ]( const std::unique_ptr< Annotation >& expression ) { visit( *expression, indent + 1 ); },
 			[ indent ]( const std::unique_ptr< VarDeclaration >& expression ) { visit( *expression, indent + 1 ); },
 			[ indent ]( const std::unique_ptr< FunctionDeclaration >& expression ) { visit( *expression, indent + 1 ); },
 			[ indent ]( const std::unique_ptr< TypeDeclaration >& expression ) { visit( *expression, indent + 1 ); },

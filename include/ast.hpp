@@ -135,8 +135,13 @@ namespace GoldScorpion {
 		std::string path;
 	};
 
+	struct Annotation {
+		std::vector< std::unique_ptr< Expression > > directives;
+	};
+
 	struct Declaration {
 		std::variant<
+			std::unique_ptr< Annotation >,
 			std::unique_ptr< VarDeclaration >,
 			std::unique_ptr< FunctionDeclaration >,
 			std::unique_ptr< TypeDeclaration >,

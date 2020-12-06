@@ -5,12 +5,15 @@ GoldScorpion Grammar
 program -> declaration* EOF
 
 declaration -> \n* (
+				annotation |
 				typeDecl |
 				funDecl |
 				varDecl |
 				importDecl |
 				statement )
 				\n*
+
+annotation -> "@" "[" expression ( "," expression )* "]" \n
 
 typeDecl -> "type" IDENTIFIER \n \n*
 			(parameter \n*)+

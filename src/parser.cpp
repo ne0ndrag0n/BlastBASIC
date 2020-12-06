@@ -1204,6 +1204,44 @@ namespace GoldScorpion {
 		return {};
 	}
 
+	static AstResult< Annotation > getAnnotation( std::vector< Token >::iterator current ) {
+		auto afterAt = attempt( TokenType::TOKEN_AT_SYMBOL, current );
+		if( afterAt ) {
+			current = expect( TokenType::TOKEN_LEFT_BRACKET, *afterAt, "Expected: \"[\" after annotation symbol" );
+
+			std::vector< std::unique_ptr< Expression > > directives;
+
+			// At least one expression
+			if( AstResult< Expression > expression = getExpression( current ) ) {
+				current = expression->nextIterator;
+				directives.emplace_back( std::move( expression->node ) );
+			} else {
+				throw std::runtime_error( "Expected: expression following annotation declaration" );
+			}
+
+			// Zero or more additional expressions each following a comma
+			while( auto afterComma = attempt( TokenType::TOKEN_COMMA, current ) ) {
+				current = *afterComma;
+
+				if( AstResult< Expression > expression = getExpression( current ) ) {
+					current = expression->nextIterator;
+					directives.emplace_back( std::move( expression->node ) );
+				} else {
+					throw std::runtime_error( "Expected: expression following \",\" token" );
+				}
+			}
+
+			current = expect( TokenType::TOKEN_RIGHT_BRACKET, current, "Expected: \"]\" following expression list" );
+
+			return GeneratedAstNode< Annotation >{
+				expect( TokenType::TOKEN_NEWLINE, current, "Expected: newline following annotation declaration" ),
+				std::make_unique< Annotation >( Annotation { std::move( directives ) } )
+			};
+		}
+
+		return {};
+	}
+
 	static AstResult< Declaration > getDeclaration( std::vector< Token >::iterator current ) {
 		// Burn newlines before
 		while( readToken( current ) && current->type == TokenType::TOKEN_NEWLINE ) {
@@ -1212,8 +1250,17 @@ namespace GoldScorpion {
 
 		AstResult< Declaration > result = {};
 
-		// Must return one of: typeDecl, funDecl, varDecl, importDecl, statement
-		if( auto typeDecl = getTypeDeclaration( current ) ) {
+		// Must return one of: annotation, typeDecl, funDecl, varDecl, importDecl, statement
+		if( auto annotation = getAnnotation( current ) ) {
+			current = annotation->nextIterator;
+
+			result = GeneratedAstNode< Declaration >{
+				current,
+				std::make_unique< Declaration >( Declaration{ 
+					std::move( annotation->node )
+				})
+			};
+		} else if( auto typeDecl = getTypeDeclaration( current ) ) {
 			current = typeDecl->nextIterator;
 
 			result = GeneratedAstNode< Declaration >{

@@ -61,7 +61,8 @@ namespace GoldScorpion {
 		{ "%", TokenType::TOKEN_MODULO },
 		{ "&", TokenType::TOKEN_AMPERSAND },
 		{ "^", TokenType::TOKEN_CARET },
-		{ "|", TokenType::TOKEN_PIPE }
+		{ "|", TokenType::TOKEN_PIPE },
+		{ "@", TokenType::TOKEN_AT_SYMBOL }
 	};
 
 	static Token interpretToken( std::string segment ) {
@@ -123,6 +124,7 @@ namespace GoldScorpion {
 			case '^':
 			case '|':
 			case '!':
+			case '@':
 				return true;
 			default:
 				return false;
@@ -150,6 +152,7 @@ namespace GoldScorpion {
 			case '&':
 			case '^':
 			case '|':
+			case '@':
 				return true;
 			default:
 				return false;
