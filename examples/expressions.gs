@@ -14,8 +14,13 @@ else
 end
 
 @[expr=value]
-function x() as u8
-	def i as u8
+function x() as u16
+	def i as u16 = 6
 
+	asm
+		move.w #0, (sp)
+	end
+
+	# i should return as 0 after the inline asm
 	return i
 end

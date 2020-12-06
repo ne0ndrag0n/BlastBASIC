@@ -89,7 +89,7 @@ namespace GoldScorpion {
 	};
 
 	struct AsmStatement {
-		std::string body;
+		Token body;
 	};
 
 	struct WhileStatement {

@@ -154,8 +154,8 @@ namespace GoldScorpion {
 
 	static void visit( const AsmStatement& node, int indent ) {
 		std::cout << indentText( indent, "AsmStatement" ) << std::endl;
-		std::cout << indentText( indent, "<length>" ) << std::endl;
-		std::cout << std::to_string( node.body.length() ) << std::endl;
+		std::cout << indentText( indent, "<body>" ) << std::endl;
+		std::cout << indentText( indent + 1, node.body.toString() ) << std::endl;
 	}
 
 	static void visit( const WhileStatement& node, int indent ) {

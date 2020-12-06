@@ -965,6 +965,27 @@ namespace GoldScorpion {
 		return {};
 	}
 
+	static AstResult< AsmStatement > getAsmStatement( std::vector< Token >::iterator current ) {
+		auto afterAsm = attempt( TokenType::TOKEN_ASM, current );
+		if( afterAsm ) {
+			current = *afterAsm;
+
+			auto potentialText = readToken( current );
+			if( potentialText && potentialText->type == TokenType::TOKEN_TEXT ) {
+				current = expect( TokenType::TOKEN_END, ++current, "Expected: \"end\" token following AsmStatement body" );
+
+				return GeneratedAstNode< AsmStatement >{
+					expect( TokenType::TOKEN_NEWLINE, current, "Expected: newline following AsmStatement" ),
+					std::make_unique< AsmStatement >( AsmStatement { *potentialText } )
+				};
+			} else {
+				throw std::runtime_error( "Expected: inline asm body following \"asm\" token" );
+			}
+		}
+
+		return {};
+	}
+
 	static AstResult< Statement > getStatement( std::vector< Token >::iterator current ) {
 		if( AstResult< ExpressionStatement > expressionStatementResult = getExpressionStatement( current ) ) {
 			return GeneratedAstNode< Statement >{
@@ -998,6 +1019,15 @@ namespace GoldScorpion {
 				returnStatementResult->nextIterator,
 				std::make_unique< Statement >( Statement {
 					std::move( returnStatementResult->node )
+				} )
+			};
+		}
+
+		if( AstResult< AsmStatement > asmStatementResult = getAsmStatement( current ) ) {
+			return GeneratedAstNode< Statement >{
+				asmStatementResult->nextIterator,
+				std::make_unique< Statement >( Statement {
+					std::move( asmStatementResult->node )
 				} )
 			};
 		}
