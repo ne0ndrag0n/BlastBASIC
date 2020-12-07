@@ -797,27 +797,25 @@ namespace GoldScorpion {
 				if( readToken( current ) && current->type == TokenType::TOKEN_EQUALS ) {
 					++current;
 
-					auto fromResult = readToken( current );
-					if( fromResult && ( fromResult->type == TokenType::TOKEN_IDENTIFIER || fromResult->type == TokenType::TOKEN_LITERAL_INTEGER ) ) {
-						++current;
+					if( AstResult< Expression > fromExpression = getExpression( current ) ) {
+						current = fromExpression->nextIterator;
 
 						if( readToken( current ) && current->type == TokenType::TOKEN_TO ) {
 							++current;
 
-							auto toResult = readToken( current );
-							if( toResult && ( toResult->type == TokenType::TOKEN_IDENTIFIER || toResult->type == TokenType::TOKEN_LITERAL_INTEGER ) ) {
-								++current;
+							if( AstResult< Expression > toExpression = getExpression( current ) ) {
+								current = toExpression->nextIterator;
 
 								// optional "every" token
-								std::optional< Token > every;
+								std::optional< std::unique_ptr< Expression > > every;
 								if( readToken( current ) && current->type == TokenType::TOKEN_EVERY ) {
 									++current;
 
-									if( readToken( current ) && ( current->type == TokenType::TOKEN_IDENTIFIER || current->type == TokenType::TOKEN_LITERAL_INTEGER ) ) {
-										every = *current;
-										++current;
+									if( AstResult< Expression > everyExpression = getExpression( current ) ) {
+										current = everyExpression->nextIterator;
+										every = std::move( everyExpression->node );
 									} else {
-										throw std::runtime_error( "Expected: identifier following \"every\" token" );
+										throw std::runtime_error( "Expected: expression following \"every\" token" );
 									}
 								}
 
@@ -836,9 +834,9 @@ namespace GoldScorpion {
 											++current,
 											std::make_unique< ForStatement >( ForStatement{
 												*indexResult,
-												*fromResult,
-												*toResult,
-												every,
+												std::move( fromExpression->node ),
+												std::move( toExpression->node ),
+												std::move( every ),
 												std::move( body )
 											} )
 										};
@@ -850,13 +848,13 @@ namespace GoldScorpion {
 								}
 
 							} else {
-								throw std::runtime_error( "Expected: identifier following \"to\" token" );
+								throw std::runtime_error( "Expected: expression following \"to\" token" );
 							}
 						} else {
-							throw std::runtime_error( "Expected: \"to\" following identifier" );
+							throw std::runtime_error( "Expected: \"to\" following expression" );
 						}
 					} else {
-						throw std::runtime_error( "Expected: identifier following \"=\" token" );
+						throw std::runtime_error( "Expected: expression following \"=\" token" );
 					}
 				} else {
 					throw std::runtime_error( "Expected: \"=\" following identifier" );

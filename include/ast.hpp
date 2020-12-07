@@ -73,9 +73,9 @@ namespace GoldScorpion {
 
 	struct ForStatement {
 		Token index;
-		Token from;
-		Token to;
-		std::optional< Token > every;
+		std::unique_ptr< Expression > from;
+		std::unique_ptr< Expression > to;
+		std::optional< std::unique_ptr< Expression > > every;
 		std::vector< std::unique_ptr< struct Declaration > > body;
 	};
 

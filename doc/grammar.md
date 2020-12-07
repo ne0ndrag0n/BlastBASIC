@@ -38,7 +38,7 @@ statement -> exprStatement |
 
 exprStatement -> expression \n
 
-forStatement -> "for" IDENTIFIER "=" IDENTIFIER "to" IDENTIFIER ( "every" IDENTIFIER )? \n
+forStatement -> "for" IDENTIFIER "=" expression "to" expression ( "every" expression )? \n
 				declaration* "end"
 
 ifStatement -> "if" expression "then" declaration*

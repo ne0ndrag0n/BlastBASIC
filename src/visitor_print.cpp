@@ -104,14 +104,14 @@ namespace GoldScorpion {
 		std::cout << indentText( indent + 1, node.index.toString() ) << std::endl;
 
 		std::cout << indentText( indent, "<from>" ) << std::endl;
-		std::cout << indentText( indent + 1, node.from.toString() ) << std::endl;
+		visit( *node.from, indent + 1 );
 
 		std::cout << indentText( indent, "<to>" ) << std::endl;
-		std::cout << indentText( indent + 1, node.to.toString() ) << std::endl;
+		visit( *node.to, indent + 1 );
 
 		std::cout << indentText( indent, "<every>" ) << std::endl;
 		if( node.every ) {
-			std::cout << indentText( indent + 1, node.every->toString() ) << std::endl;
+			visit( **node.every, indent + 1 );
 		} else {
 			std::cout << indentText( indent + 1, "null" ) << std::endl;
 		}

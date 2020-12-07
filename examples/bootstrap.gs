@@ -10,7 +10,7 @@ import gs/genesis/vdp.gs
 import gs/genesis/echo.gs
 
 type Statistics
-	def ticks as u32 = 0
+	ticks as u32
 end
 
 # Variables placed outside of functions are defined in the "data" segment as globals.
