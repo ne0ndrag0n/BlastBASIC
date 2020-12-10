@@ -8,6 +8,7 @@ namespace GoldScorpion {
 
 	struct MemoryElement {
 		std::optional< std::string > id;
+		std::string typeId;
 		int size;
 		long value;
 	};
