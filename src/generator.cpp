@@ -10,6 +10,8 @@ namespace GoldScorpion {
 
 	enum class ExpressionDataType { INVALID, U8, U16, U32, S8, S16, S32, STRING };
 
+	static ExpressionDataType getType( const Expression& node );
+
 	static const std::unordered_map< std::string, ExpressionDataType > types = {
 		{ "u8", ExpressionDataType::U8 },
 		{ "u16", ExpressionDataType::U16 },
@@ -21,6 +23,68 @@ namespace GoldScorpion {
 	};
 
 	static MemoryTracker memory;
+
+	static char getTypeComparison( ExpressionDataType type ) {
+		switch( type ) {
+			case ExpressionDataType::INVALID:
+			default:
+				return 0;
+			case ExpressionDataType::U8:
+			case ExpressionDataType::S8:
+				return 1;
+			case ExpressionDataType::U16:
+			case ExpressionDataType::S16:
+				return 2;
+			case ExpressionDataType::U32:
+			case ExpressionDataType::S32:
+			case ExpressionDataType::STRING:
+				return 3;
+		}
+	}
+
+	static bool isSigned( ExpressionDataType type ) {
+		switch( type ) {
+			case ExpressionDataType::S8:
+			case ExpressionDataType::S16:
+			case ExpressionDataType::S32:
+				return true;
+			default:
+				return false;
+		}
+	}
+
+	static bool isOneSigned( ExpressionDataType a, ExpressionDataType b ) {
+		return ( isSigned( a ) && !isSigned( b ) ) ||
+			( !isSigned( a ) && isSigned( b ) );
+	}
+
+	static ExpressionDataType scrubSigned( ExpressionDataType type ) {
+		switch( type ) {
+			case ExpressionDataType::S8:
+				return ExpressionDataType::U8;
+			case ExpressionDataType::S16:
+				return ExpressionDataType::U16;
+			case ExpressionDataType::S32:
+				return ExpressionDataType::U32;
+			default:
+				return type;
+		}
+	}
+
+	static char typeToWordSize( ExpressionDataType type ) {
+		switch( type ) {
+			case ExpressionDataType::U8:
+			case ExpressionDataType::S8:
+				return 'b';
+			case ExpressionDataType::U16:
+			case ExpressionDataType::S16:
+				return 'w';
+			case ExpressionDataType::U32:
+			case ExpressionDataType::S32:
+			default:
+				return 'l';
+		}
+	}
 
 	static ExpressionDataType getLiteralType( long literal ) {
 		// Negative values mean a signed value is required
@@ -79,11 +143,6 @@ namespace GoldScorpion {
 		throw std::runtime_error( error );
 	}
 
-	static ExpressionDataType getType( const Expression& node ) {
-		// Not yet implemented
-		return ExpressionDataType::INVALID;
-	}
-
 	static ExpressionDataType getType( const Primary& node ) {
 		ExpressionDataType result;
 
@@ -130,28 +189,47 @@ namespace GoldScorpion {
 	static ExpressionDataType getType( const BinaryExpression& node ) {
 		// The type of a BinaryExpression is the larger of the two children
 
-		ExpressionDataType lhs;
-		ExpressionDataType rhs;
+		ExpressionDataType lhs = getType( *node.lhsValue );
+		ExpressionDataType rhs = getType( *node.rhsValue );
 
-		if( auto primaryValue = std::get_if< std::unique_ptr< Primary > >( &node.lhsValue->value ) ) {
-			lhs = getType( **primaryValue );
-		} else {
-			// There is a subexpression that needs to be evaluated
-			lhs = getType( *node.lhsValue );
+		// If either lhs or rhs return an invalid comparison
+		if( lhs == ExpressionDataType::INVALID || rhs == ExpressionDataType::INVALID ) {
+			return ExpressionDataType::INVALID;
 		}
 
+		// Otherwise the data type of the BinaryExpression is the larger of lhs, rhs
+		if( getTypeComparison( rhs ) >= getTypeComparison( lhs ) ) {
+			return isOneSigned( lhs, rhs ) ? scrubSigned( rhs ) : rhs;
+		} else {
+			return isOneSigned( lhs, rhs ) ? scrubSigned( lhs ) : lhs;
+		}
+	}
+
+	static ExpressionDataType getType( const Expression& node ) {
+
+		if( auto binaryExpression = std::get_if< std::unique_ptr< BinaryExpression > >( &node.value ) ) {
+ 			return getType( **binaryExpression );
+		}
+
+		if( auto primaryExpression = std::get_if< std::unique_ptr< Primary > >( &node.value ) ) {
+			return getType( **primaryExpression );
+		}
+
+		// Many node types not yet implemented
 		return ExpressionDataType::INVALID;
 	}
 
-	// Child is a literal or a single identifier - use directly
-	// OTherwise, generate that node, and use its value off the stack
-	// BinaryExpressions always evaluated left to right
 	static void generate( const BinaryExpression& node, Assembly& assembly ) {
 		bool stackLeft = false;
 		char buffer[ 50 ] = { 0 };
 
 		// Get type of left and right hand sides
 		// The largest of the two types is used to generate code
+		char wordSize = typeToWordSize( getType( node ) );
+
+		// Expressions are evaluated right to left
+		// All operations work on stack
+		// Elision step will take care of redundant assembly 
 	}
 
 	Result< Assembly > generate( const Program& program ) {
