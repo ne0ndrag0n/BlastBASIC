@@ -1,6 +1,7 @@
 #include "generator.hpp"
 #include "variant_visitor.hpp"
 #include "memory_tracker.hpp"
+#include "arch/m68k/instruction.hpp"
 #include "token.hpp"
 #include <cstdio>
 #include <exception>
@@ -10,7 +11,8 @@ namespace GoldScorpion {
 
 	enum class ExpressionDataType { INVALID, U8, U16, U32, S8, S16, S32, STRING };
 
-	static ExpressionDataType getType( const Expression& node );
+	static ExpressionDataType getType( const Expression& node, Assembly& assembly );
+	static void generate( const Expression& node, Assembly& assembly );
 
 	static const std::unordered_map< std::string, ExpressionDataType > types = {
 		{ "u8", ExpressionDataType::U8 },
@@ -21,8 +23,6 @@ namespace GoldScorpion {
 		{ "s32", ExpressionDataType::S32 },
 		{ "string", ExpressionDataType::STRING }
 	};
-
-	static MemoryTracker memory;
 
 	static char getTypeComparison( ExpressionDataType type ) {
 		switch( type ) {
@@ -71,18 +71,18 @@ namespace GoldScorpion {
 		}
 	}
 
-	static char typeToWordSize( ExpressionDataType type ) {
+	static m68k::OperatorSize typeToWordSize( ExpressionDataType type ) {
 		switch( type ) {
 			case ExpressionDataType::U8:
 			case ExpressionDataType::S8:
-				return 'b';
+				return m68k::OperatorSize::BYTE;
 			case ExpressionDataType::U16:
 			case ExpressionDataType::S16:
-				return 'w';
+				return m68k::OperatorSize::WORD;
 			case ExpressionDataType::U32:
 			case ExpressionDataType::S32:
 			default:
-				return 'l';
+				return m68k::OperatorSize::LONG;
 		}
 	}
 
@@ -143,13 +143,13 @@ namespace GoldScorpion {
 		throw std::runtime_error( error );
 	}
 
-	static ExpressionDataType getType( const Primary& node ) {
+	static ExpressionDataType getType( const Primary& node, Assembly& assembly ) {
 		ExpressionDataType result;
 
 		// We can directly determine the primary value for any Token variant
 		// Otherwise, we need to go deeper
 		std::visit( overloaded {
-			[ &result ]( const Token& token ) {
+			[ &result, &assembly ]( const Token& token ) {
 				// The only two types of token expected here are TOKEN_LITERAL_INTEGER, TOKEN_LITERAL_STRING, and TOKEN_IDENTIFIER
 				// If TOKEN_IDENTIFIER is provided, the underlying type must not be of a custom type
 				switch( token.type ) {
@@ -163,7 +163,7 @@ namespace GoldScorpion {
 					}
 					case TokenType::TOKEN_IDENTIFIER: {
 						std::string id = expectString( token, "Expected: string type for identifier token" );
-						auto memoryQuery = memory.find( id );
+						auto memoryQuery = assembly.memory.find( id );
 						if( !memoryQuery ) {
 							throw std::runtime_error( std::string( "Undefined identifier: " ) + id );
 						}
@@ -178,19 +178,19 @@ namespace GoldScorpion {
 						throw std::runtime_error( "Expected: integer, string, or identifier as expression operand" );
 				}
 			},
-			[ &result ]( const std::unique_ptr< Expression >& expression ) {
-				result = getType( *expression );
+			[ &result, &assembly ]( const std::unique_ptr< Expression >& expression ) {
+				result = getType( *expression, assembly );
 			}
 		}, node.value );
 
 		return result;
 	}
 
-	static ExpressionDataType getType( const BinaryExpression& node ) {
+	static ExpressionDataType getType( const BinaryExpression& node, Assembly& assembly ) {
 		// The type of a BinaryExpression is the larger of the two children
 
-		ExpressionDataType lhs = getType( *node.lhsValue );
-		ExpressionDataType rhs = getType( *node.rhsValue );
+		ExpressionDataType lhs = getType( *node.lhsValue, assembly );
+		ExpressionDataType rhs = getType( *node.rhsValue, assembly );
 
 		// If either lhs or rhs return an invalid comparison
 		if( lhs == ExpressionDataType::INVALID || rhs == ExpressionDataType::INVALID ) {
@@ -205,31 +205,61 @@ namespace GoldScorpion {
 		}
 	}
 
-	static ExpressionDataType getType( const Expression& node ) {
+	static ExpressionDataType getType( const Expression& node, Assembly& assembly ) {
 
 		if( auto binaryExpression = std::get_if< std::unique_ptr< BinaryExpression > >( &node.value ) ) {
- 			return getType( **binaryExpression );
+ 			return getType( **binaryExpression, assembly );
 		}
 
 		if( auto primaryExpression = std::get_if< std::unique_ptr< Primary > >( &node.value ) ) {
-			return getType( **primaryExpression );
+			return getType( **primaryExpression, assembly );
 		}
 
 		// Many node types not yet implemented
 		return ExpressionDataType::INVALID;
 	}
 
-	static void generate( const BinaryExpression& node, Assembly& assembly ) {
-		bool stackLeft = false;
-		char buffer[ 50 ] = { 0 };
+	static void generate( const Primary& node, Assembly& assembly ) {
+		std::visit( overloaded {
+			[ &assembly, &node ]( const Token& token ) {
 
+				if( token.type == TokenType::TOKEN_LITERAL_INTEGER ) {
+					// Generate immediate move instruction onto stack
+					assembly.instructions.push_back(
+						m68k::Instruction {
+							m68k::Operator::MOVE,
+							typeToWordSize( getType( node, assembly ) ),
+							m68k::Operand { m68k::OperandType::IMMEDIATE, 0, 0, expectLong( token, "Internal compiler error" ) },
+							m68k::Operand { m68k::OperandType::REGISTER_sp, -1, 0, 0 }
+						}
+					);
+				} else {
+					throw std::runtime_error( "Expected: TOKEN_LITERAL_INTEGER to generate Primary code" );
+				}
+
+			},
+			[ &assembly ]( const std::unique_ptr< Expression >& expression ) {
+				generate( *expression, assembly );
+			}
+		}, node.value );
+	}
+
+	static void generate( const BinaryExpression& node, Assembly& assembly ) {
 		// Get type of left and right hand sides
 		// The largest of the two types is used to generate code
-		char wordSize = typeToWordSize( getType( node ) );
+		m68k::OperatorSize wordSize = typeToWordSize( getType( node, assembly ) );
 
 		// Expressions are evaluated right to left
 		// All operations work on stack
-		// Elision step will take care of redundant assembly 
+		// Elision step will take care of redundant assembly
+	}
+
+	static void generate( const Expression& node, Assembly& assembly ) {
+
+		if( auto binaryExpression = std::get_if< std::unique_ptr< BinaryExpression > >( &node.value ) ) {
+			generate( **binaryExpression, assembly );
+		}
+
 	}
 
 	Result< Assembly > generate( const Program& program ) {
