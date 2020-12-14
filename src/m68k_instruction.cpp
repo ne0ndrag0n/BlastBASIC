@@ -26,12 +26,20 @@ namespace GoldScorpion::m68k {
 				return "d1";
 			case OperandType::REGISTER_a0:
 				return "a0";
+			case OperandType::REGISTER_a0_INDIRECT:
+				return "(a0)";
 			case OperandType::REGISTER_a1:
 				return "a1";
+			case OperandType::REGISTER_a1_INDIRECT:
+				return "(a1)";
 			case OperandType::REGISTER_sp:
 				return "sp";
+			case OperandType::REGISTER_sp_INDIRECT:
+				return "(sp)";
 			case OperandType::REGISTER_fp:
 				return "fp";
+			case OperandType::REGISTER_fp_INDIRECT:
+				return "(fp)";
 			case OperandType::IMMEDIATE:
 				return "#value";
 			case OperandType::INDIRECT:
@@ -44,11 +52,11 @@ namespace GoldScorpion::m68k {
 
 		if( preIncrement ) {
 			if( preIncrement == 1 ) {
-				result += "+(";
+				result += "+";
 			} else if ( preIncrement == -1 ) {
-				result += "-(";
+				result += "-";
 			} else {
-				result += preIncrement + "(";
+				result += preIncrement;
 			}
 		}
 
@@ -56,11 +64,11 @@ namespace GoldScorpion::m68k {
 
 		if( postIncrement ) {
 			if( postIncrement == 1 ) {
-				result += ")+";
+				result += "+";
 			} else if( postIncrement == -1 ) {
-				result += ")-";
+				result += "-";
 			} else {
-				result += ")" + postIncrement;
+				result += postIncrement;
 			}
 		}
 

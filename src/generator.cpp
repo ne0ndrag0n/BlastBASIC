@@ -143,6 +143,14 @@ namespace GoldScorpion {
 		throw std::runtime_error( error );
 	}
 
+	static Token expectToken( const Primary& primary, const std::string& error ) {
+		if( auto token = std::get_if< Token >( &primary.value ) ) {
+			return *token;
+		}
+
+		throw std::runtime_error( error );
+	}
+
 	static ExpressionDataType getType( const Primary& node, Assembly& assembly ) {
 		ExpressionDataType result;
 
@@ -230,7 +238,7 @@ namespace GoldScorpion {
 							m68k::Operator::MOVE,
 							typeToWordSize( getType( node, assembly ) ),
 							m68k::Operand { 0, m68k::OperandType::IMMEDIATE, 0, expectLong( token, "Internal compiler error" ) },
-							m68k::Operand { -1, m68k::OperandType::REGISTER_sp, 0, 0 }
+							m68k::Operand { -1, m68k::OperandType::REGISTER_sp_INDIRECT, 0, 0 }
 						}
 					);
 				} else {
@@ -247,11 +255,71 @@ namespace GoldScorpion {
 	static void generate( const BinaryExpression& node, Assembly& assembly ) {
 		// Get type of left and right hand sides
 		// The largest of the two types is used to generate code
-		m68k::OperatorSize wordSize = typeToWordSize( getType( node, assembly ) );
+		ExpressionDataType type = getType( node, assembly );
+		m68k::OperatorSize wordSize = typeToWordSize( type );
 
 		// Expressions are evaluated right to left
 		// All operations work on stack
 		// Elision step will take care of redundant assembly
+		generate( *node.rhsValue, assembly );
+		generate( *node.lhsValue, assembly );
+
+		// The values in the stack right now should be literals
+		// Move the LHS into d0 and pop stack
+		assembly.instructions.push_back(
+			m68k::Instruction {
+				m68k::Operator::MOVE,
+				wordSize,
+				m68k::Operand{ 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
+				m68k::Operand{ 0, m68k::OperandType::REGISTER_d0, 0, 0 }
+			}
+		);
+
+		// Now, depending on the operator given, apply the RHS
+		switch( expectToken( *node.op, "Expected: Token as BinaryExpression operator" ).type ) {
+			case TokenType::TOKEN_PLUS:
+				assembly.instructions.push_back(
+					m68k::Instruction {
+						m68k::Operator::ADD,
+						wordSize,
+						m68k::Operand { 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
+						m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 }
+					}
+				);
+				break;
+			case TokenType::TOKEN_MINUS:
+				assembly.instructions.push_back(
+					m68k::Instruction {
+						m68k::Operator::SUBTRACT,
+						wordSize,
+						m68k::Operand { 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
+						m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 }
+					}
+				);
+				break;
+			case TokenType::TOKEN_ASTERISK:				
+				assembly.instructions.push_back(
+					m68k::Instruction {
+						isSigned( type ) ? m68k::Operator::MULTIPLY_SIGNED : m68k::Operator::MULTIPLY_UNSIGNED,
+						wordSize,
+						m68k::Operand { 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
+						m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 }
+					}
+				);
+				break;
+			case TokenType::TOKEN_FORWARD_SLASH:
+				assembly.instructions.push_back(
+					m68k::Instruction {
+						isSigned( type ) ? m68k::Operator::DIVIDE_SIGNED : m68k::Operator::DIVIDE_UNSIGNED,
+						wordSize,
+						m68k::Operand { 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
+						m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 }
+					}
+				);
+				break;
+			default:
+				throw std::runtime_error( "Expected: ., +, -, *, or / operator" );
+		}
 	}
 
 	static void generate( const Expression& node, Assembly& assembly ) {
