@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <optional>
 
 namespace GoldScorpion::m68k {
 	
@@ -31,8 +32,8 @@ namespace GoldScorpion::m68k {
 	};
 
 	struct Operand {
-		OperandType type;
 		int preIncrement;
+		OperandType type;
 		int postIncrement;
 		long value;
 
@@ -43,7 +44,7 @@ namespace GoldScorpion::m68k {
 		Operator op;
 		OperatorSize size = OperatorSize::WORD;
 		Operand argument1;
-		Operand argument2;
+		std::optional< Operand > argument2;
 
 		std::string toString() const;
 	};

@@ -229,8 +229,8 @@ namespace GoldScorpion {
 						m68k::Instruction {
 							m68k::Operator::MOVE,
 							typeToWordSize( getType( node, assembly ) ),
-							m68k::Operand { m68k::OperandType::IMMEDIATE, 0, 0, expectLong( token, "Internal compiler error" ) },
-							m68k::Operand { m68k::OperandType::REGISTER_sp, -1, 0, 0 }
+							m68k::Operand { 0, m68k::OperandType::IMMEDIATE, 0, expectLong( token, "Internal compiler error" ) },
+							m68k::Operand { -1, m68k::OperandType::REGISTER_sp, 0, 0 }
 						}
 					);
 				} else {

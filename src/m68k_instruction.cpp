@@ -101,9 +101,11 @@ namespace GoldScorpion::m68k {
 
 		instruction += argument1.toString();
 
-		instruction += ", ";
+		if( argument2 ) {
+			instruction += ", ";
 
-		instruction += argument2.toString();
+			instruction += argument2->toString();
+		}
 
 		return instruction;
 	}
