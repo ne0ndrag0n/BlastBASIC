@@ -9,9 +9,10 @@
 
 namespace GoldScorpion {
 
-	enum class ExpressionDataType { INVALID, U8, U16, U32, S8, S16, S32, STRING };
+	enum class ExpressionDataType { INVALID, U8, U16, U32, S8, S16, S32, STRING, UDT };
 
 	static ExpressionDataType getType( const Expression& node, Assembly& assembly );
+	static ExpressionDataType getType( const Primary& node, Assembly& assembly );
 	static void generate( const Expression& node, Assembly& assembly );
 
 	static const std::unordered_map< std::string, ExpressionDataType > types = {
@@ -86,6 +87,45 @@ namespace GoldScorpion {
 		}
 	}
 
+	static m68k::InstructionMetadata typeToPointerMetadata( ExpressionDataType type ) {
+		switch( type ) {
+			case ExpressionDataType::U8:
+			case ExpressionDataType::S8:
+				return m68k::InstructionMetadata::POINTER_BYTE;
+			case ExpressionDataType::U16:
+			case ExpressionDataType::S16:
+			default:
+				return m68k::InstructionMetadata::POINTER_WORD;
+			case ExpressionDataType::U32:
+			case ExpressionDataType::S32:
+				return m68k::InstructionMetadata::POINTER_LONG;
+			case ExpressionDataType::STRING:
+				return m68k::InstructionMetadata::POINTER_STRING;
+		}
+	}
+
+	static m68k::OperatorSize getDereferenceSize( const std::set< m68k::InstructionMetadata >& instructionMetadata ) {
+		if( instructionMetadata.count( m68k::InstructionMetadata::POINTER_BYTE ) ) {
+			return m68k::OperatorSize::BYTE;
+		} else if( instructionMetadata.count( m68k::InstructionMetadata::POINTER_WORD ) ) {
+			return m68k::OperatorSize::WORD;
+		} else {
+			return m68k::OperatorSize::LONG;
+		}
+	}
+
+	static long getMaskByType( m68k::OperatorSize size ) {
+		switch( size ) {
+			case m68k::OperatorSize::BYTE:
+				return 0xFF;
+			default:
+			case m68k::OperatorSize::WORD:
+				return 0xFFFF;
+			case m68k::OperatorSize::LONG:
+				return 0xFFFFFFFF;
+		}
+	}
+
 	static ExpressionDataType getLiteralType( long literal ) {
 		// Negative values mean a signed value is required
 		if( literal < 0 ) {
@@ -120,7 +160,7 @@ namespace GoldScorpion {
 			return it->second;
 		}
 
-		return ExpressionDataType::INVALID;
+		return ExpressionDataType::UDT;
 	}
 
 	static long expectLong( const Token& token, const std::string& error ) {
@@ -170,16 +210,13 @@ namespace GoldScorpion {
 						break;
 					}
 					case TokenType::TOKEN_IDENTIFIER: {
-						std::string id = expectString( token, "Expected: string type for identifier token" );
+						std::string id = expectString( token, "Internal compiler error" );
 						auto memoryQuery = assembly.memory.find( id );
 						if( !memoryQuery ) {
 							throw std::runtime_error( std::string( "Undefined identifier: " ) + id );
 						}
 
-						result = getIdentifierType( std::visit( overloaded {
-							[]( const GlobalMemoryElement& element ) { return element.value.typeId; },
-							[]( const StackMemoryElement& element ) { return element.value.typeId; }
-						}, *memoryQuery ) );
+						result = getIdentifierType( MemoryTracker::unwrapValue( *memoryQuery ).typeId );
 						break;
 					}
 					default:
@@ -205,6 +242,11 @@ namespace GoldScorpion {
 			return ExpressionDataType::INVALID;
 		}
 
+		// If lhs is a UDT then the right hand side of the expression is the expression type
+		if( lhs == ExpressionDataType::UDT ) {
+			return rhs;
+		}
+
 		// Otherwise the data type of the BinaryExpression is the larger of lhs, rhs
 		if( getTypeComparison( rhs ) >= getTypeComparison( lhs ) ) {
 			return isOneSigned( lhs, rhs ) ? scrubSigned( rhs ) : rhs;
@@ -228,19 +270,79 @@ namespace GoldScorpion {
 	}
 
 	static void generate( const Primary& node, Assembly& assembly ) {
+		ExpressionDataType primaryType = getType( node, assembly );
+
 		std::visit( overloaded {
-			[ &assembly, &node ]( const Token& token ) {
+			[ primaryType, &assembly, &node ]( const Token& token ) {
 
 				if( token.type == TokenType::TOKEN_LITERAL_INTEGER ) {
 					// Generate immediate move instruction onto stack
 					assembly.instructions.push_back(
 						m68k::Instruction {
 							m68k::Operator::MOVE,
-							typeToWordSize( getType( node, assembly ) ),
+							typeToWordSize( primaryType ),
 							m68k::Operand { 0, m68k::OperandType::IMMEDIATE, 0, expectLong( token, "Internal compiler error" ) },
-							m68k::Operand { -1, m68k::OperandType::REGISTER_sp_INDIRECT, 0, 0 }
+							m68k::Operand { -1, m68k::OperandType::REGISTER_sp_INDIRECT, 0, 0 },
+							{}
 						}
 					);
+				} else if( token.type == TokenType::TOKEN_IDENTIFIER ) {
+					// Push a literal version of the indirect value
+					// Query memory for the value
+					std::string id = expectString( token, "Internal compiler error" );
+					auto memoryQuery = assembly.memory.find( id );
+					if( memoryQuery ) {
+						std::visit( overloaded {
+							[ primaryType, &assembly ]( const GlobalMemoryElement& element ) {
+								assembly.instructions.push_back(
+									m68k::Instruction {
+										m68k::Operator::MOVE,
+										m68k::OperatorSize::LONG,
+										m68k::Operand { 0, m68k::OperandType::IMMEDIATE, 0, element.offset },
+										m68k::Operand { -1, m68k::OperandType::REGISTER_sp_INDIRECT, 0, 0 },
+										{ m68k::InstructionMetadata::POINTER, typeToPointerMetadata( primaryType ) }
+									}
+								);
+							},
+							[ primaryType, &assembly ]( const StackMemoryElement& element ) {
+								// Must push a series of instructions:
+								// 1. Move stack pointer into a0
+								// 2. Add offset to a0
+								// 3. Push a0 back onto the stack
+								assembly.instructions.push_back(
+									m68k::Instruction {
+										m68k::Operator::MOVE,
+										m68k::OperatorSize::LONG,
+										m68k::Operand { 0, m68k::OperandType::REGISTER_sp, 0, 0 },
+										m68k::Operand { 0, m68k::OperandType::REGISTER_a0, 0, 0 },
+										{}
+									}
+								);
+
+								assembly.instructions.push_back(
+									m68k::Instruction {
+										m68k::Operator::ADD,
+										m68k::OperatorSize::LONG,
+										m68k::Operand{ 0, m68k::OperandType::IMMEDIATE, 0, element.offset },
+										m68k::Operand{ 0, m68k::OperandType::REGISTER_a0, 0, 0 },
+										{}
+									}
+								);
+
+								assembly.instructions.push_back(
+									m68k::Instruction {
+										m68k::Operator::MOVE,
+										m68k::OperatorSize::LONG,
+										m68k::Operand{ 0, m68k::OperandType::REGISTER_a0, 0, 0 },
+										m68k::Operand{ -1, m68k::OperandType::REGISTER_sp_INDIRECT, 0, 0 },
+										{ m68k::InstructionMetadata::POINTER, typeToPointerMetadata( primaryType ) }
+									}
+								);
+							}
+						}, *memoryQuery );
+					} else {
+						throw std::runtime_error( std::string( "Undefined identifier: " ) + id );
+					}
 				} else {
 					throw std::runtime_error( "Expected: TOKEN_LITERAL_INTEGER to generate Primary code" );
 				}
@@ -258,67 +360,152 @@ namespace GoldScorpion {
 		ExpressionDataType type = getType( node, assembly );
 		m68k::OperatorSize wordSize = typeToWordSize( type );
 
-		// Expressions are evaluated right to left
-		// All operations work on stack
-		// Elision step will take care of redundant assembly
-		generate( *node.rhsValue, assembly );
-		generate( *node.lhsValue, assembly );
-
-		// The values in the stack right now should be literals
-		// Move the LHS into d0 and pop stack
-		assembly.instructions.push_back(
-			m68k::Instruction {
-				m68k::Operator::MOVE,
-				wordSize,
-				m68k::Operand{ 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
-				m68k::Operand{ 0, m68k::OperandType::REGISTER_d0, 0, 0 }
-			}
-		);
-
 		// Now, depending on the operator given, apply the RHS
-		switch( expectToken( *node.op, "Expected: Token as BinaryExpression operator" ).type ) {
-			case TokenType::TOKEN_PLUS:
+		TokenType tokenOp = expectToken( *node.op, "Expected: Token as BinaryExpression operator" ).type;
+		if( tokenOp == TokenType::TOKEN_DOT ) {
+			// LHS is an address and RHS is a field name
+			// If field type is another UDT, then push another address
+			// Otherwise, push an actual value
+		} else {
+			// Expressions are evaluated right to left
+			// All operations work on stack
+			// Elision step will take care of redundant assembly
+			generate( *node.rhsValue, assembly );
+			generate( *node.lhsValue, assembly );
+
+			ExpressionDataType lhsType = getType( *node.lhsValue, assembly );
+			ExpressionDataType rhsType = getType( *node.rhsValue, assembly );
+
+			// The values in the stack can be literals, or pointers, as denoted by metadata
+			// Begin by moving the LHS into d0
+			const m68k::Instruction& lhsInstruction = assembly.instructions.back();
+			const m68k::Instruction& rhsInstruction = *( ++( assembly.instructions.rbegin() ) );
+
+			if( lhsInstruction.metadata.count( m68k::InstructionMetadata::POINTER ) ) {
+				// LHS is a pointer, use additional data to dereference
 				assembly.instructions.push_back(
 					m68k::Instruction {
-						m68k::Operator::ADD,
-						wordSize,
+						m68k::Operator::MOVE,
+						m68k::OperatorSize::LONG,
 						m68k::Operand { 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
-						m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 }
+						m68k::Operand { 0, m68k::OperandType::REGISTER_a0, 0, 0 },
+						{}
 					}
 				);
-				break;
-			case TokenType::TOKEN_MINUS:
+
 				assembly.instructions.push_back(
 					m68k::Instruction {
-						m68k::Operator::SUBTRACT,
-						wordSize,
-						m68k::Operand { 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
-						m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 }
+						m68k::Operator::MOVE,
+						getDereferenceSize( lhsInstruction.metadata ),
+						m68k::Operand { 0, m68k::OperandType::REGISTER_a0_INDIRECT, 0, 0 },
+						m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 },
+						{}
 					}
 				);
-				break;
-			case TokenType::TOKEN_ASTERISK:				
+
+			} else {
+				// Push literal value
 				assembly.instructions.push_back(
 					m68k::Instruction {
-						isSigned( type ) ? m68k::Operator::MULTIPLY_SIGNED : m68k::Operator::MULTIPLY_UNSIGNED,
-						wordSize,
-						m68k::Operand { 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
-						m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 }
+						m68k::Operator::MOVE,
+						typeToWordSize( lhsType ),
+						m68k::Operand{ 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
+						m68k::Operand{ 0, m68k::OperandType::REGISTER_d0, 0, 0 },
+						{}
 					}
 				);
-				break;
-			case TokenType::TOKEN_FORWARD_SLASH:
+			}
+
+			// If LHS is a smaller type than the RHS, then promote the type by AND'ing the actual data
+			// This will allow us to cleanly apply 
+			if( getTypeComparison( lhsType ) < getTypeComparison( rhsType ) ) {
+				// Promote to RHS type by clearing the upper bits of the register
 				assembly.instructions.push_back(
 					m68k::Instruction {
-						isSigned( type ) ? m68k::Operator::DIVIDE_SIGNED : m68k::Operator::DIVIDE_UNSIGNED,
-						wordSize,
-						m68k::Operand { 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
-						m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 }
+						m68k::Operator::AND,
+						typeToWordSize( lhsType ),
+						m68k::Operand{ 0, m68k::OperandType::IMMEDIATE, 0, getMaskByType( typeToWordSize( lhsType ) ) },
+						m68k::Operand{ 0, m68k::OperandType::REGISTER_d0, 0, 0 },
+						{}
 					}
 				);
-				break;
-			default:
-				throw std::runtime_error( "Expected: ., +, -, *, or / operator" );
+			}
+
+			m68k::Operator op;
+
+			switch( tokenOp ) {
+				case TokenType::TOKEN_PLUS:
+					op = m68k::Operator::ADD;
+					break;
+				case TokenType::TOKEN_MINUS:
+					op = m68k::Operator::SUBTRACT;
+					break;
+				case TokenType::TOKEN_ASTERISK:				
+					op = isSigned( type ) ? m68k::Operator::MULTIPLY_SIGNED : m68k::Operator::MULTIPLY_UNSIGNED;
+					break;
+				case TokenType::TOKEN_FORWARD_SLASH:
+					op = isSigned( type ) ? m68k::Operator::DIVIDE_SIGNED : m68k::Operator::DIVIDE_UNSIGNED;
+					break;
+				default:
+					throw std::runtime_error( "Expected: ., +, -, *, or / operator" );
+			}
+
+			if( rhsInstruction.metadata.count( m68k::InstructionMetadata::POINTER ) ) {
+				// Dereference into d1 
+				assembly.instructions.push_back(
+					m68k::Instruction {
+						m68k::Operator::MOVE,
+						m68k::OperatorSize::LONG,
+						m68k::Operand { 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
+						m68k::Operand { 0, m68k::OperandType::REGISTER_a0, 0, 0 },
+						{}
+					}
+				);
+
+				assembly.instructions.push_back(
+					m68k::Instruction {
+						m68k::Operator::MOVE,
+						getDereferenceSize( rhsInstruction.metadata ),
+						m68k::Operand { 0, m68k::OperandType::REGISTER_a0_INDIRECT, 0, 0 },
+						m68k::Operand { 0, m68k::OperandType::REGISTER_d1, 0, 0 },
+						{}
+					}
+				);
+
+				// Promote RHS in d1 if less than LHS
+				if( getTypeComparison( rhsType ) < getTypeComparison( lhsType ) ) {
+					assembly.instructions.push_back(
+						m68k::Instruction {
+							m68k::Operator::AND,
+							typeToWordSize( rhsType ),
+							m68k::Operand{ 0, m68k::OperandType::IMMEDIATE, 0, getMaskByType( typeToWordSize( rhsType ) ) },
+							m68k::Operand{ 0, m68k::OperandType::REGISTER_d1, 0, 0 },
+							{}
+						}
+					);
+				}
+
+				// Apply operation in d1 to d0
+				assembly.instructions.push_back(
+					m68k::Instruction {
+						op,
+						wordSize,
+						m68k::Operand { 0, m68k::OperandType::REGISTER_d1, 0, 0 },
+						m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 },
+						{}
+					}
+				);
+			} else {
+				assembly.instructions.push_back(
+					m68k::Instruction {
+						op,
+						wordSize,
+						m68k::Operand { 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
+						m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 },
+						{}
+					}
+				);
+			}
 		}
 	}
 

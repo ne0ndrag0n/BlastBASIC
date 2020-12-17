@@ -3,6 +3,7 @@
 #include <sstream>
 #include <exception>
 #include <string>
+#include <cstdio>
 
 namespace GoldScorpion::Utility {
 
@@ -46,6 +47,14 @@ namespace GoldScorpion::Utility {
 		}
 
 		return result;
+	}
+
+	std::string longToHex( long value ) {
+		char buffer[ 25 ] = { 0 };
+
+		std::sprintf( buffer, "%08lX", value );
+
+		return buffer;
 	}
 
 }

@@ -13,4 +13,6 @@ namespace GoldScorpion::Utility {
 
 	Result< File > fileToString( const std::string& filename );
 
+	std::string longToHex( long value );
+
 }

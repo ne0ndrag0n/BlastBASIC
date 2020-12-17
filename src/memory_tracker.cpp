@@ -1,6 +1,21 @@
 #include "memory_tracker.hpp"
+#include "variant_visitor.hpp"
 
 namespace GoldScorpion {
+
+	MemoryElement MemoryTracker::unwrapValue( const MemoryQuery& query ) {
+		return std::visit( overloaded {
+			[]( const GlobalMemoryElement& element ) { return element.value; },
+			[]( const StackMemoryElement& element ) { return element.value; }
+		}, query );
+	}
+
+	long MemoryTracker::unwrapOffset( const MemoryQuery& query ) {
+		return std::visit( overloaded {
+			[]( const GlobalMemoryElement& element ) { return element.offset; },
+			[]( const StackMemoryElement& element ) { return element.offset; }
+		}, query );
+	}
 
 	void MemoryTracker::insert( MemoryElement element ) {
 		dataSegment.push_back( element );
@@ -49,6 +64,20 @@ namespace GoldScorpion {
 		}
 
 		// No result
+		return {};
+	}
+
+	void MemoryTracker::addUdt( const UserDefinedType& udt ) {
+		udts.push_back( udt );
+	}
+
+	std::optional< UserDefinedType > MemoryTracker::findUdt( const std::string& id ) const {
+		for( const auto& udt : udts ) {
+			if( udt.id == id ) {
+				return udt;
+			}
+		}
+
 		return {};
 	}
 

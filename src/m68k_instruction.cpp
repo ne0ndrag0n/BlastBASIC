@@ -1,4 +1,5 @@
 #include "arch/m68k/instruction.hpp"
+#include "utility.hpp"
 #include <cstdio>
 #include <regex>
 
@@ -72,7 +73,7 @@ namespace GoldScorpion::m68k {
 			}
 		}
 
-		result = std::regex_replace( result, std::regex( "value" ), std::to_string( value ) );
+		result = std::regex_replace( result, std::regex( "value" ), Utility::longToHex( value ) );
 
 		return result;
 	}
@@ -82,6 +83,8 @@ namespace GoldScorpion::m68k {
 		std::string instruction = "";
 		switch( op ) {
 			default:
+				instruction = "illegal";
+				break;
 			case Operator::MOVE:
 				instruction = "move." + operatorSizeToDirective( size );
 				break;
@@ -102,6 +105,15 @@ namespace GoldScorpion::m68k {
 				break;
 			case Operator::DIVIDE_UNSIGNED:
 				instruction = "divu." + operatorSizeToDirective( size );
+				break;
+			case Operator::AND:
+				instruction = "and." + operatorSizeToDirective( size );
+				break;
+			case Operator::OR:
+				instruction = "or." + operatorSizeToDirective( size );
+				break;
+			case Operator::NOT:
+				instruction = "not." + operatorSizeToDirective( size );
 				break;
 		}
 
