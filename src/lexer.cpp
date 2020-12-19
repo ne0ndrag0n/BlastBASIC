@@ -174,6 +174,12 @@ namespace GoldScorpion {
 		}
 	}
 
+	// Determine if the given segment is a possible compound symbol
+	static bool isCompoundSymbol( std::string component ) {
+		// A possible compound symbol is formed when it is found in TOKEN_MAP
+		return TOKEN_MAP.find( component ) != TOKEN_MAP.end();
+	}
+
 	static void bookkeep( char character, Line& currentLine ) {
 		// Bookkeep line
 		if( currentLine.nextResets ) {
@@ -319,7 +325,8 @@ namespace GoldScorpion {
 
 			} else if( symbolicState ) {
 
-				if( isValidSymbol( character ) ) {
+				// Do not continue to append if the next character does not form a valid compound symbol
+				if( isValidSymbol( character ) && isCompoundSymbol( component + character ) ) {
 					component += character;
 					continue;
 				} else {
