@@ -416,7 +416,10 @@ namespace GoldScorpion {
 						component += character;
 					} else if( isSingleSymbol( character ) ) {
 						// Skip symbolic state and flush immediately
-						tokens.push_back( interpretToken( std::string( 1, character ), currentLine ) );
+						// Fix the awful bookkeeping with this deplorable hack
+						Line copy = currentLine;
+						copy.column++;
+						tokens.push_back( interpretToken( std::string( 1, character ), copy ) );
 						component = "";
 					} else if( isValidSymbol( character ) ){
 						symbolicState = true;
