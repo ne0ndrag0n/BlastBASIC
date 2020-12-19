@@ -7,6 +7,12 @@
 
 namespace GoldScorpion {
 
+	struct Line {
+		unsigned int line = 1;
+		unsigned int column = 0;
+		bool nextResets = false;
+	};
+
 	static const std::unordered_map< std::string, TokenType > TOKEN_MAP = {
 		{ "def", TokenType::TOKEN_DEF },
 		{ "as", TokenType::TOKEN_AS },
@@ -67,7 +73,7 @@ namespace GoldScorpion {
 		{ "const", TokenType::TOKEN_CONST }
 	};
 
-	static Token interpretToken( std::string segment ) {
+	static Token interpretToken( std::string segment, const Line& line ) {
 		Token result;
 
 		// Otherwise we must verify token is one of the following multipart tokens
@@ -80,6 +86,9 @@ namespace GoldScorpion {
 			result.type = TokenType::TOKEN_IDENTIFIER;
 			result.value = segment;
 		}
+
+		result.line = line.line;
+		result.column = line.column;
 
 		return result;
 	}
@@ -165,14 +174,27 @@ namespace GoldScorpion {
 		}
 	}
 
+	static void bookkeep( char character, Line& currentLine ) {
+		// Bookkeep line
+		if( currentLine.nextResets ) {
+			currentLine.nextResets = false;
+
+			currentLine.line++;
+			currentLine.column = 1;
+		} else {
+			currentLine.column++;
+		}
+
+		if( character == '\n' ) {
+			currentLine.nextResets = true;
+		}
+	}
+
 	Result< std::vector< Token > > getTokens( std::string body ) {
 		// Append an extra character to force-flush the buffer
 		body += '\t';
 
-		struct Line {
-			unsigned int line = 1;
-			unsigned int column = 1;
-		};
+		Line currentLine;
 
 		std::vector< Token > tokens;
 
@@ -204,6 +226,9 @@ namespace GoldScorpion {
 		jm::circular_buffer< char, 4 > ring;
 		for( const char& character : body ) {
 
+			// New character taken, bookkeep
+			bookkeep( character, currentLine );
+
 			if( bodyState ) {
 				// Body state exits when 4-item ring buffer reads "\nend" - whitespace is never added to ring buffer
 				// String slices off "\nen" before component is submitted as text token
@@ -219,8 +244,8 @@ namespace GoldScorpion {
 				if( sequence == "\nend" ) {
 					// Process component without the last three chars and add as text token
 					// Additionally, add the end token
-					tokens.push_back( Token{ TokenType::TOKEN_TEXT, component.substr( 0, component.size() - 3 ) } );
-					tokens.push_back( Token{ TokenType::TOKEN_END, {} } );
+					tokens.push_back( Token{ TokenType::TOKEN_TEXT, component.substr( 0, component.size() - 3 ), currentLine.line, currentLine.column } );
+					tokens.push_back( Token{ TokenType::TOKEN_END, {}, currentLine.line, currentLine.column } );
 
 					component = "";
 					bodyState = false;
@@ -233,8 +258,8 @@ namespace GoldScorpion {
 
 				if( character == '\n' ) {
 					// Process text token and exit linestate
-					tokens.push_back( Token{ TokenType::TOKEN_TEXT, component } );
-					tokens.push_back( Token{ TokenType::TOKEN_NEWLINE, {} } );
+					tokens.push_back( Token{ TokenType::TOKEN_TEXT, component, currentLine.line, currentLine.column } );
+					tokens.push_back( Token{ TokenType::TOKEN_NEWLINE, {}, currentLine.line, currentLine.column } );
 
 					component = "";
 					lineState = false;
@@ -252,7 +277,7 @@ namespace GoldScorpion {
 
 				if( character == '"' ) {
 					// Exit string state and append string literal token
-					tokens.push_back( Token{ TokenType::TOKEN_LITERAL_STRING, component } );
+					tokens.push_back( Token{ TokenType::TOKEN_LITERAL_STRING, component, currentLine.line, currentLine.column } );
 
 					// Reset state
 					component = "";
@@ -276,7 +301,7 @@ namespace GoldScorpion {
 					component += character;
 					continue;
 				} else {
-					tokens.push_back( Token{ TokenType::TOKEN_LITERAL_INTEGER, std::stol( component ) } );
+					tokens.push_back( Token{ TokenType::TOKEN_LITERAL_INTEGER, std::stol( component ), currentLine.line, currentLine.column } );
 					numericState = false;
 					component = "";
 				}
@@ -287,7 +312,7 @@ namespace GoldScorpion {
 					component += character;
 					continue;
 				} else {
-					tokens.push_back( Token{ TokenType::TOKEN_LITERAL_INTEGER, std::strtol( component.c_str(), NULL, 16 ) } );
+					tokens.push_back( Token{ TokenType::TOKEN_LITERAL_INTEGER, std::strtol( component.c_str(), NULL, 16 ), currentLine.line, currentLine.column } );
 					hexaNumericState = false;
 					component = "";
 				}
@@ -298,7 +323,7 @@ namespace GoldScorpion {
 					component += character;
 					continue;
 				} else {
-					tokens.push_back( interpretToken( component ) );
+					tokens.push_back( interpretToken( component, currentLine ) );
 					symbolicState = false;
 					component = "";
 				}
@@ -309,7 +334,7 @@ namespace GoldScorpion {
 					component += character;
 					continue;
 				} else {
-					tokens.push_back( interpretToken( component ) );
+					tokens.push_back( interpretToken( component, currentLine ) );
 					alphanumericState = false;
 					component = "";
 
@@ -345,7 +370,7 @@ namespace GoldScorpion {
 						// Then eat the newline instead of adding it to the token stream
 						lineContinuation = false;
 					} else {
-						tokens.push_back( Token{ TokenType::TOKEN_NEWLINE, {} } );
+						tokens.push_back( Token{ TokenType::TOKEN_NEWLINE, {}, currentLine.line, currentLine.column } );
 					}
 
 					continue;
@@ -369,7 +394,7 @@ namespace GoldScorpion {
 					continue;
 				}
 				case '$': {
-					// Hexanumeric state 
+					// Hexanumeric state
 					hexaNumericState = true;
 					component = "";
 					continue;
@@ -384,7 +409,7 @@ namespace GoldScorpion {
 						component += character;
 					} else if( isSingleSymbol( character ) ) {
 						// Skip symbolic state and flush immediately
-						tokens.push_back( interpretToken( std::string( 1, character ) ) );
+						tokens.push_back( interpretToken( std::string( 1, character ), currentLine ) );
 						component = "";
 					} else if( isValidSymbol( character ) ){
 						symbolicState = true;
@@ -397,7 +422,7 @@ namespace GoldScorpion {
 		}
 
 		// Last token is always eof
-		tokens.push_back( Token{ TokenType::TOKEN_NONE, {} } );
+		tokens.push_back( Token{ TokenType::TOKEN_NONE, {}, currentLine.line, currentLine.column } );
 		return tokens;
 	}
 }

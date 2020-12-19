@@ -76,6 +76,8 @@ namespace GoldScorpion {
 	struct Token {
 		TokenType type;
 		std::optional< std::variant< long, std::string > > value;
+		unsigned int line;
+		unsigned int column;
 
 		std::string toString() const;
 	};

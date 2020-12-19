@@ -30,7 +30,7 @@ namespace GoldScorpion {
 		if( result && result->type == tokenType ) {
 			return ++iterator;
 		}
-		
+
 		throw std::runtime_error( throwMessage );
 	}
 
@@ -164,12 +164,12 @@ namespace GoldScorpion {
 
 										std::make_unique< Expression >( Expression{
 											std::make_unique< Primary >( Primary{
-												Token{ TokenType::TOKEN_SUPER, {} }
+												Token{ TokenType::TOKEN_SUPER, {}, 0, 0 }
 											} )
 										} ),
 
 										std::make_unique< Primary >( Primary {
-											Token{ TokenType::TOKEN_DOT, {} }
+											Token{ TokenType::TOKEN_DOT, {}, 0, 0 }
 										} ),
 
 										std::make_unique< Expression >( Expression{
@@ -290,7 +290,7 @@ namespace GoldScorpion {
 						std::move( primary->node ),
 
 						std::make_unique< Primary >( Primary {
-							Token{ TokenType::TOKEN_DOT, {} }
+							Token{ TokenType::TOKEN_DOT, {}, 0, 0 }
 						} ),
 
 						std::make_unique< Expression >( Expression {
@@ -1292,7 +1292,7 @@ namespace GoldScorpion {
 						} )
 					};
 				} else {
-					throw std::runtime_error( "Expected: Expression following \"=\" statement" ); 
+					throw std::runtime_error( "Expected: Expression following \"=\" statement" );
 				}
 			} else {
 				throw std::runtime_error( "Expected: parameter after \"const\" token" );
@@ -1378,7 +1378,7 @@ namespace GoldScorpion {
 
 			result = GeneratedAstNode< Declaration >{
 				current,
-				std::make_unique< Declaration >( Declaration{ 
+				std::make_unique< Declaration >( Declaration{
 					std::move( annotation->node )
 				})
 			};
