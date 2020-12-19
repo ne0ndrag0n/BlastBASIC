@@ -141,7 +141,7 @@ namespace GoldScorpion {
 			return ExpressionDataType::S32;
 
 		} else {
-			
+
 			if( literal <= 255 ) {
 				return ExpressionDataType::U8;
 			}
@@ -282,7 +282,7 @@ namespace GoldScorpion {
 							m68k::Operator::MOVE,
 							typeToWordSize( primaryType ),
 							m68k::Operand { 0, m68k::OperandType::IMMEDIATE, 0, expectLong( token, "Internal compiler error" ) },
-							m68k::Operand { -1, m68k::OperandType::REGISTER_sp_INDIRECT, 0, 0 },
+							m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 },
 							{}
 						}
 					);
@@ -299,8 +299,8 @@ namespace GoldScorpion {
 										m68k::Operator::MOVE,
 										m68k::OperatorSize::LONG,
 										m68k::Operand { 0, m68k::OperandType::IMMEDIATE, 0, element.offset },
-										m68k::Operand { -1, m68k::OperandType::REGISTER_sp_INDIRECT, 0, 0 },
-										{ m68k::InstructionMetadata::POINTER, typeToPointerMetadata( primaryType ) }
+										m68k::Operand { 0, m68k::OperandType::REGISTER_a0, 0, 0 },
+										{ typeToPointerMetadata( primaryType ) }
 									}
 								);
 							},
@@ -325,17 +325,7 @@ namespace GoldScorpion {
 										m68k::OperatorSize::LONG,
 										m68k::Operand{ 0, m68k::OperandType::IMMEDIATE, 0, element.offset },
 										m68k::Operand{ 0, m68k::OperandType::REGISTER_a0, 0, 0 },
-										{}
-									}
-								);
-
-								assembly.instructions.push_back(
-									m68k::Instruction {
-										m68k::Operator::MOVE,
-										m68k::OperatorSize::LONG,
-										m68k::Operand{ 0, m68k::OperandType::REGISTER_a0, 0, 0 },
-										m68k::Operand{ -1, m68k::OperandType::REGISTER_sp_INDIRECT, 0, 0 },
-										{ m68k::InstructionMetadata::POINTER, typeToPointerMetadata( primaryType ) }
+										{ typeToPointerMetadata( primaryType ) }
 									}
 								);
 							}
@@ -370,54 +360,40 @@ namespace GoldScorpion {
 			// Expressions are evaluated right to left
 			// All operations work on stack
 			// Elision step will take care of redundant assembly
-			generate( *node.rhsValue, assembly );
-			generate( *node.lhsValue, assembly );
-
 			ExpressionDataType lhsType = getType( *node.lhsValue, assembly );
 			ExpressionDataType rhsType = getType( *node.rhsValue, assembly );
 
-			// The values in the stack can be literals, or pointers, as denoted by metadata
-			// Begin by moving the LHS into d0
-			const m68k::Instruction& lhsInstruction = assembly.instructions.back();
-			const m68k::Instruction& rhsInstruction = *( ++( assembly.instructions.rbegin() ) );
+			generate( *node.rhsValue, assembly );
+			// Push RHS for later - RHS may be contained in d0 or a0 depending on last instruction
+			// This is determined by examining the last instruction generated
+			bool rhsIsAddress = assembly.instructions.back().argument2->type == m68k::OperandType::REGISTER_a0;
+			std::set< m68k::InstructionMetadata > rhsMetadata = assembly.instructions.back().metadata;
+			assembly.instructions.push_back(
+				m68k::Instruction {
+					m68k::Operator::MOVE,
+					assembly.instructions.back().size,
+					m68k::Operand{ 0, assembly.instructions.back().argument2->type, 0, 0 },
+					m68k::Operand{ -1, m68k::OperandType::REGISTER_sp_INDIRECT, 0, 0 },
+					{}
+				}
+			);
 
-			if( lhsInstruction.metadata.count( m68k::InstructionMetadata::POINTER ) ) {
-				// LHS is a pointer, use additional data to dereference
+			generate( *node.lhsValue, assembly );
+			// If LHS was an address then dereference the address from a0 into d0
+			if( assembly.instructions.back().argument2->type == m68k::OperandType::REGISTER_a0 ) {
 				assembly.instructions.push_back(
 					m68k::Instruction {
 						m68k::Operator::MOVE,
-						m68k::OperatorSize::LONG,
-						m68k::Operand { 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
-						m68k::Operand { 0, m68k::OperandType::REGISTER_a0, 0, 0 },
-						{}
-					}
-				);
-
-				assembly.instructions.push_back(
-					m68k::Instruction {
-						m68k::Operator::MOVE,
-						getDereferenceSize( lhsInstruction.metadata ),
+						getDereferenceSize( assembly.instructions.back().metadata ),
 						m68k::Operand { 0, m68k::OperandType::REGISTER_a0_INDIRECT, 0, 0 },
 						m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 },
 						{}
 					}
 				);
-
-			} else {
-				// Push literal value
-				assembly.instructions.push_back(
-					m68k::Instruction {
-						m68k::Operator::MOVE,
-						typeToWordSize( lhsType ),
-						m68k::Operand{ 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
-						m68k::Operand{ 0, m68k::OperandType::REGISTER_d0, 0, 0 },
-						{}
-					}
-				);
 			}
 
-			// If LHS is a smaller type than the RHS, then promote the type by AND'ing the actual data
-			// This will allow us to cleanly apply 
+			// LHS is now in d0
+			// Promote type if needed
 			if( getTypeComparison( lhsType ) < getTypeComparison( rhsType ) ) {
 				// Promote to RHS type by clearing the upper bits of the register
 				assembly.instructions.push_back(
@@ -431,8 +407,8 @@ namespace GoldScorpion {
 				);
 			}
 
+			// Prepare operator
 			m68k::Operator op;
-
 			switch( tokenOp ) {
 				case TokenType::TOKEN_PLUS:
 					op = m68k::Operator::ADD;
@@ -440,7 +416,7 @@ namespace GoldScorpion {
 				case TokenType::TOKEN_MINUS:
 					op = m68k::Operator::SUBTRACT;
 					break;
-				case TokenType::TOKEN_ASTERISK:				
+				case TokenType::TOKEN_ASTERISK:
 					op = isSigned( type ) ? m68k::Operator::MULTIPLY_SIGNED : m68k::Operator::MULTIPLY_UNSIGNED;
 					break;
 				case TokenType::TOKEN_FORWARD_SLASH:
@@ -450,61 +426,109 @@ namespace GoldScorpion {
 					throw std::runtime_error( "Expected: ., +, -, *, or / operator" );
 			}
 
-			if( rhsInstruction.metadata.count( m68k::InstructionMetadata::POINTER ) ) {
-				// Dereference into d1 
+			// Apply operation from RHS, which currently sits on the stack
+			if( rhsIsAddress ) {
+				// RHS was a pointer
+				// Pop from stack
 				assembly.instructions.push_back(
 					m68k::Instruction {
 						m68k::Operator::MOVE,
 						m68k::OperatorSize::LONG,
-						m68k::Operand { 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
+						m68k::Operand { 0, m68k::OperandType::REGISTER_sp, 1, 0 },
 						m68k::Operand { 0, m68k::OperandType::REGISTER_a0, 0, 0 },
 						{}
 					}
 				);
 
-				assembly.instructions.push_back(
-					m68k::Instruction {
-						m68k::Operator::MOVE,
-						getDereferenceSize( rhsInstruction.metadata ),
-						m68k::Operand { 0, m68k::OperandType::REGISTER_a0_INDIRECT, 0, 0 },
-						m68k::Operand { 0, m68k::OperandType::REGISTER_d1, 0, 0 },
-						{}
-					}
-				);
-
-				// Promote RHS in d1 if less than LHS
+				// If the type needs to be promoted, move value into d1, promote in d1, and apply d1 as operation.
+				// Otherwise, dereference a0 directly
 				if( getTypeComparison( rhsType ) < getTypeComparison( lhsType ) ) {
 					assembly.instructions.push_back(
 						m68k::Instruction {
-							m68k::Operator::AND,
-							typeToWordSize( rhsType ),
-							m68k::Operand{ 0, m68k::OperandType::IMMEDIATE, 0, getMaskByType( typeToWordSize( rhsType ) ) },
+							m68k::Operator::MOVE,
+							getDereferenceSize( rhsMetadata ),
+							m68k::Operand{ 0, m68k::OperandType::REGISTER_a0_INDIRECT, 0, 0 },
 							m68k::Operand{ 0, m68k::OperandType::REGISTER_d1, 0, 0 },
 							{}
 						}
 					);
-				}
 
-				// Apply operation in d1 to d0
-				assembly.instructions.push_back(
-					m68k::Instruction {
-						op,
-						wordSize,
-						m68k::Operand { 0, m68k::OperandType::REGISTER_d1, 0, 0 },
-						m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 },
-						{}
-					}
-				);
+					assembly.instructions.push_back(
+						m68k::Instruction {
+							m68k::Operator::AND,
+							getDereferenceSize( rhsMetadata ),
+							m68k::Operand{ 0, m68k::OperandType::IMMEDIATE, 0, getMaskByType( getDereferenceSize( rhsMetadata ) ) },
+							m68k::Operand{ 0, m68k::OperandType::REGISTER_d1, 0, 0 },
+							{}
+						}
+					);
+
+					assembly.instructions.push_back(
+						m68k::Instruction {
+							op,
+							wordSize,
+							m68k::Operand { 0, m68k::OperandType::REGISTER_d1, 0, 0 },
+							m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 },
+							{}
+						}
+					);
+				} else {
+					assembly.instructions.push_back(
+						m68k::Instruction {
+							op,
+							wordSize,
+							m68k::Operand { 0, m68k::OperandType::REGISTER_a0_INDIRECT, 0, 0 },
+							m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 },
+							{}
+						}
+					);
+				}
 			} else {
-				assembly.instructions.push_back(
-					m68k::Instruction {
-						op,
-						wordSize,
-						m68k::Operand { 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
-						m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 },
-						{}
-					}
-				);
+				// RHS was a literal
+				// The value can be popped and used directly
+
+				// If the value needs to be promoted, use d1
+				if( getTypeComparison( rhsType ) < getTypeComparison( lhsType ) ) {
+					assembly.instructions.push_back(
+						m68k::Instruction {
+							m68k::Operator::MOVE,
+							typeToWordSize( rhsType ),
+							m68k::Operand { 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
+							m68k::Operand { 0, m68k::OperandType::REGISTER_d1, 0, 0 },
+							{}
+						}
+					);
+
+					assembly.instructions.push_back(
+						m68k::Instruction {
+							m68k::Operator::AND,
+							typeToWordSize( rhsType ),
+							m68k::Operand { 0, m68k::OperandType::IMMEDIATE, 0, getMaskByType( typeToWordSize( rhsType ) ) },
+							m68k::Operand { 0, m68k::OperandType::REGISTER_d1, 0, 0 },
+							{}
+						}
+					);
+
+					assembly.instructions.push_back(
+						m68k::Instruction {
+							op,
+							wordSize,
+							m68k::Operand { 0, m68k::OperandType::REGISTER_d1, 0, 0 },
+							m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 },
+							{}
+						}
+					);
+				} else {
+					assembly.instructions.push_back(
+						m68k::Instruction {
+							op,
+							wordSize,
+							m68k::Operand { 0, m68k::OperandType::REGISTER_sp_INDIRECT, 1, 0 },
+							m68k::Operand { 0, m68k::OperandType::REGISTER_d0, 0, 0 },
+							{}
+						}
+					);
+				}
 			}
 		}
 	}
