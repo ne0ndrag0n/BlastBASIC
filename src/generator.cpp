@@ -3,6 +3,7 @@
 #include "memory_tracker.hpp"
 #include "arch/m68k/instruction.hpp"
 #include "token.hpp"
+#include "error.hpp"
 #include <cstdio>
 #include <exception>
 #include <unordered_map>
@@ -170,7 +171,8 @@ namespace GoldScorpion {
 			}
 		}
 
-		throw std::runtime_error( error );
+		Error{ error, token }.throwException();
+		return 0;
 	}
 
 	static std::string expectString( const Token& token, const std::string& error ) {
@@ -180,7 +182,8 @@ namespace GoldScorpion {
 			}
 		}
 
-		throw std::runtime_error( error );
+		Error{ error, token }.throwException();
+		return "";
 	}
 
 	static Token expectToken( const Primary& primary, const std::string& error ) {
@@ -188,7 +191,8 @@ namespace GoldScorpion {
 			return *token;
 		}
 
-		throw std::runtime_error( error );
+		Error{ error, {} }.throwException();
+		return Token{ TokenType::TOKEN_NONE, {}, 0, 0 };
 	}
 
 	static ExpressionDataType getType( const Primary& node, Assembly& assembly ) {
@@ -213,14 +217,14 @@ namespace GoldScorpion {
 						std::string id = expectString( token, "Internal compiler error" );
 						auto memoryQuery = assembly.memory.find( id );
 						if( !memoryQuery ) {
-							throw std::runtime_error( std::string( "Undefined identifier: " ) + id );
+							Error{ std::string( "Undefined identifier: " ) + id, token }.throwException();
 						}
 
 						result = getIdentifierType( MemoryTracker::unwrapValue( *memoryQuery ).typeId );
 						break;
 					}
 					default:
-						throw std::runtime_error( "Expected: integer, string, or identifier as expression operand" );
+						Error{ "Expected: integer, string, or identifier as expression operand", token }.throwException();
 				}
 			},
 			[ &result, &assembly ]( const std::unique_ptr< Expression >& expression ) {
@@ -331,10 +335,10 @@ namespace GoldScorpion {
 							}
 						}, *memoryQuery );
 					} else {
-						throw std::runtime_error( std::string( "Undefined identifier: " ) + id );
+						Error{ std::string( "Undefined identifier: " ) + id, token }.throwException();
 					}
 				} else {
-					throw std::runtime_error( "Expected: TOKEN_LITERAL_INTEGER to generate Primary code" );
+					Error{ "Expected: TOKEN_LITERAL_INTEGER to generate Primary code", token }.throwException();
 				}
 
 			},
@@ -423,7 +427,7 @@ namespace GoldScorpion {
 					op = isSigned( type ) ? m68k::Operator::DIVIDE_SIGNED : m68k::Operator::DIVIDE_UNSIGNED;
 					break;
 				default:
-					throw std::runtime_error( "Expected: ., +, -, *, or / operator" );
+					Error{ "Expected: ., +, -, *, or / operator", {} }.throwException();
 			}
 
 			// Apply operation from RHS, which currently sits on the stack

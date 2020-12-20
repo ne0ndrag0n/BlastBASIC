@@ -81,4 +81,18 @@ namespace GoldScorpion {
 		return {};
 	}
 
+	std::optional< UdtField > MemoryTracker::findUdtField( const std::string& id, const std::string& fieldId ) const {
+		auto udt = findUdt( id );
+
+		if( udt ) {
+			for( const auto& udtField : udt->fields ) {
+				if( udtField.id == fieldId ) {
+					return udtField;
+				}
+			}
+		}
+
+		return {};
+	}
+
 }

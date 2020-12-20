@@ -51,6 +51,7 @@ namespace GoldScorpion {
 
 		void addUdt( const UserDefinedType& udt );
 		std::optional< UserDefinedType > findUdt( const std::string& id ) const;
+		std::optional< UdtField > findUdtField( const std::string& id, const std::string& fieldId ) const;
 
 		static MemoryElement unwrapValue( const MemoryQuery& query );
 		static long unwrapOffset( const MemoryQuery& query );
