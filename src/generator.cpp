@@ -186,13 +186,36 @@ namespace GoldScorpion {
 		return "";
 	}
 
-	static Token expectToken( const Primary& primary, const std::string& error ) {
+	static std::optional< Token > attemptToken( const Primary& primary ) {
 		if( auto token = std::get_if< Token >( &primary.value ) ) {
 			return *token;
 		}
 
-		Error{ error, {} }.throwException();
+		return {};
+	}
+
+	static Token expectToken( const Primary& primary, std::optional< Token > nearestToken, const std::string& error ) {
+		if( auto token = attemptToken( primary ) ) {
+			return *token;
+		}
+
+		Error{ error, nearestToken }.throwException();
 		return Token{ TokenType::TOKEN_NONE, {}, 0, 0 };
+	}
+
+	// Used primarily for errors
+	static std::optional< Token > getNearestToken( const Expression& expression ) {
+		std::optional< Token > result;
+
+		if( auto primaryResult = std::get_if< std::unique_ptr< Primary > >( &expression.value ) ) {
+			const Primary& primary = **primaryResult;
+
+			if( auto token = std::get_if< Token >( &primary.value ) ) {
+				return *token;
+			}
+		}
+
+		return result;
 	}
 
 	static ExpressionDataType getType( const Primary& node, Assembly& assembly ) {
@@ -355,7 +378,7 @@ namespace GoldScorpion {
 		m68k::OperatorSize wordSize = typeToWordSize( type );
 
 		// Now, depending on the operator given, apply the RHS
-		TokenType tokenOp = expectToken( *node.op, "Expected: Token as BinaryExpression operator" ).type;
+		TokenType tokenOp = expectToken( *node.op, getNearestToken( *node.lhsValue ),  "Expected: Token as BinaryExpression operator" ).type;
 		if( tokenOp == TokenType::TOKEN_DOT ) {
 			// LHS is an address and RHS is a field name
 			// If field type is another UDT, then push another address
@@ -427,7 +450,7 @@ namespace GoldScorpion {
 					op = isSigned( type ) ? m68k::Operator::DIVIDE_SIGNED : m68k::Operator::DIVIDE_UNSIGNED;
 					break;
 				default:
-					Error{ "Expected: ., +, -, *, or / operator", {} }.throwException();
+					Error{ "Expected: ., +, -, *, or / operator", attemptToken( *node.op ) }.throwException();
 			}
 
 			// Apply operation from RHS, which currently sits on the stack
