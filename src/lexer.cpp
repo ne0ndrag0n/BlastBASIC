@@ -1,5 +1,6 @@
 #include "lexer.hpp"
 #include "variant_visitor.hpp"
+#include "error.hpp"
 #include <circular_buffer.hpp>
 #include <unordered_map>
 #include <vector>
@@ -278,7 +279,7 @@ namespace GoldScorpion {
 			} else if( stringState ) {
 				// Newlines are invalid in string state
 				if( character == '\n' ) {
-					return "Unexpected newline encountered";
+					return Error{ "Unexpected newline encountered", Token{ TokenType::TOKEN_NONE, {}, currentLine.line, currentLine.column } }.toString();
 				}
 
 				if( character == '"' ) {
@@ -425,7 +426,7 @@ namespace GoldScorpion {
 						symbolicState = true;
 						component += character;
 					} else {
-						return std::string( "Unexpected character: " ) + character;
+						return Error{ std::string( "Unexpected character: " ) + character, Token{ TokenType::TOKEN_NONE, {}, currentLine.line, currentLine.column } }.toString();
 					}
 				}
 			}

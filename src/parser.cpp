@@ -2,6 +2,7 @@
 #include "token.hpp"
 #include "variant_visitor.hpp"
 #include "ast.hpp"
+#include "error.hpp"
 #include <exception>
 #include <optional>
 #include <queue>
@@ -31,7 +32,9 @@ namespace GoldScorpion {
 			return ++iterator;
 		}
 
-		throw std::runtime_error( throwMessage );
+		Error{ throwMessage, readToken( iterator ) }.throwException();
+		// as good as dead code
+		throw std::runtime_error( "Internal compiler error" );
 	}
 
 	static std::optional< std::vector< Token >::iterator > attempt( TokenType tokenType, std::vector< Token >::iterator iterator ) {
@@ -92,10 +95,10 @@ namespace GoldScorpion {
 								++current;
 							} else {
 								// Current will be incremented in the last step
-								throw std::runtime_error( "Expected: closing \"]\" following an array size" );
+								Error{ "Expected: closing \"]\" following an array size", readToken( current ) }.throwException();
 							}
 						} else {
-							throw std::runtime_error( "Expected: integer or identifier following \"[\"" );
+							Error{ "Expected: integer or identifier following \"[\"", readToken( current ) }.throwException();
 						}
 					}
 
@@ -223,7 +226,7 @@ namespace GoldScorpion {
 								arguments.emplace_back( std::move( expression->node ) );
 							} else {
 								// Error if an expression doesn't follow a comma
-								throw std::runtime_error( "Expected: Expression following a \",\"" );
+								Error{ "Expected: Expression following a \",\"", readToken( current ) }.throwException();
 							}
 						}
 					}
@@ -241,7 +244,7 @@ namespace GoldScorpion {
 							} )
 						} ) );
 					} else {
-						throw std::runtime_error( "Expected: closing \")\"" );
+						Error{ "Expected: closing \")\"", readToken( current ) }.throwException();
 					}
 
 				} else if( readToken( current ) && current->type == TokenType::TOKEN_DOT ) {
@@ -259,16 +262,16 @@ namespace GoldScorpion {
 									// Move nextExpression onto the queue
 									queue.emplace( std::move( nextExpression->node ) );
 								} else {
-									throw std::runtime_error( "Expected: Token of IDENTIFIER type" );
+									Error{ "Expected: Token of IDENTIFIER type", readToken( current ) }.throwException();
 								}
 							} else {
-								throw std::runtime_error( "Expected: Primary of Token type" );
+								Error{ "Expected: Primary of Token type", readToken( current ) }.throwException();
 							}
 						} else {
-							throw std::runtime_error( "Expected: Expression of Primary type" );
+							Error{ "Expected: Expression of Primary type", readToken( current ) }.throwException();
 						}
 					} else {
-						throw std::runtime_error( "Expected: Primary following \".\"" );
+						Error{ "Expected: Primary following \".\"", readToken( current ) }.throwException();
 					}
 				} else {
 					break;
@@ -302,7 +305,7 @@ namespace GoldScorpion {
 						std::move( binary )
 					} );
 				} else {
-					throw std::runtime_error( "Internal compiler error (unexpected item in call-expression queue)" );
+					Error{ "Internal compiler error (unexpected item in call-expression queue)", readToken( current ) }.throwException();
 				}
 
 				queue.pop();
@@ -335,11 +338,13 @@ namespace GoldScorpion {
 					} )
 				};
 			} else {
-				throw std::runtime_error( "Expected: terminal Expression following unary operator" );
+				Error{ "Expected: terminal Expression following unary operator", readToken( current ) }.throwException();
 			}
 		} else {
 			return getCall( current );
 		}
+
+		return {};
 	}
 
 	static AstResult< Expression > getFactor( std::vector< Token >::iterator current ) {
@@ -371,7 +376,7 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw std::runtime_error( "Expected: terminal Unary following operator \"*\" or \"/\"" );
+					Error{ "Expected: terminal Unary following operator \"*\" or \"/\"", readToken( current ) }.throwException();
 				}
 			}
 
@@ -405,7 +410,7 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw std::runtime_error( "Expected: terminal Factor following operator \"-\" or \"+\"" );
+					Error{ "Expected: terminal Factor following operator \"-\" or \"+\"", readToken( current ) }.throwException();
 				}
 			}
 
@@ -441,7 +446,7 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw std::runtime_error( "Expected: terminal Term following operator \">>\" or \"<<\"" );
+					Error{ "Expected: terminal Term following operator \">>\" or \"<<\"", readToken( current ) }.throwException();
 				}
 			}
 
@@ -479,7 +484,7 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw std::runtime_error( "Expected: terminal Bitwise following operator \">\", \">=\", \"<\", or \"<=\"" );
+					Error{ "Expected: terminal Bitwise following operator \">\", \">=\", \"<\", or \"<=\"", readToken( current ) }.throwException();
 				}
 			}
 
@@ -513,7 +518,7 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw std::runtime_error( "Expected: terminal Comparison following operator \"!=\" or \"==\"" );
+					Error{ "Expected: terminal Comparison following operator \"!=\" or \"==\"", readToken( current ) }.throwException();
 				}
 			}
 
@@ -547,7 +552,7 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw std::runtime_error( "Expected: terminal Equality following operator \"&\"" );
+					Error{ "Expected: terminal Equality following operator \"&\"", readToken( current ) }.throwException();
 				}
 			}
 
@@ -581,7 +586,7 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw std::runtime_error( "Expected: terminal BwAnd following operator \"^\"" );
+					Error{ "Expected: terminal BwAnd following operator \"^\"", readToken( current ) }.throwException();
 				}
 			}
 
@@ -615,7 +620,7 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw std::runtime_error( "Expected: terminal BwXor following operator \"|\"" );
+					Error{ "Expected: terminal BwXor following operator \"|\"", readToken( current ) }.throwException();
 				}
 			}
 
@@ -649,7 +654,7 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw std::runtime_error( "Expected: terminal BwOr following operator \"and\"" );
+					Error{ "Expected: terminal BwOr following operator \"and\"", readToken( current ) }.throwException();
 				}
 			}
 
@@ -683,7 +688,7 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw std::runtime_error( "Expected: terminal LogicAnd following operator \"xor\"" );
+					Error{ "Expected: terminal LogicAnd following operator \"xor\"", readToken( current ) }.throwException();
 				}
 			}
 
@@ -717,7 +722,7 @@ namespace GoldScorpion {
 
 					result->node = std::move( binaryExpression );
 				} else {
-					throw std::runtime_error( "Expected: terminal LogicXor following operator \"or\"" );
+					Error{ "Expected: terminal LogicXor following operator \"or\"", readToken( current ) }.throwException();
 				}
 			}
 
@@ -751,7 +756,7 @@ namespace GoldScorpion {
 						};
 					} else {
 						// If you specify an equals then there must be a successive expression
-						throw std::runtime_error( "Expected: Expression following \"=\" token" );
+						Error{ "Expected: Expression following \"=\" token", readToken( current ) }.throwException();
 					}
 				}
 			}
@@ -815,7 +820,7 @@ namespace GoldScorpion {
 										current = everyExpression->nextIterator;
 										every = std::move( everyExpression->node );
 									} else {
-										throw std::runtime_error( "Expected: expression following \"every\" token" );
+										Error{ "Expected: expression following \"every\" token", readToken( current ) }.throwException();
 									}
 								}
 
@@ -841,26 +846,26 @@ namespace GoldScorpion {
 											} )
 										};
 									} else {
-										throw std::runtime_error( "Expected: \"end\" token following ForStatement" );
+										Error{ "Expected: \"end\" token following ForStatement", readToken( current ) }.throwException();
 									}
 								} else {
-									throw std::runtime_error( "Expected: newline following ForStatement header" );
+									Error{ "Expected: newline following ForStatement header", readToken( current ) }.throwException();
 								}
 
 							} else {
-								throw std::runtime_error( "Expected: expression following \"to\" token" );
+								Error{ "Expected: expression following \"to\" token", readToken( current ) }.throwException();
 							}
 						} else {
-							throw std::runtime_error( "Expected: \"to\" following expression" );
+							Error{ "Expected: \"to\" following expression", readToken( current ) }.throwException();
 						}
 					} else {
-						throw std::runtime_error( "Expected: expression following \"=\" token" );
+						Error{ "Expected: expression following \"=\" token", readToken( current ) }.throwException();
 					}
 				} else {
-					throw std::runtime_error( "Expected: \"=\" following identifier" );
+					Error{ "Expected: \"=\" following identifier", readToken( current ) }.throwException();
 				}
 			} else {
-				throw std::runtime_error( "Expected: identifier following \"for\" token" );
+				Error{ "Expected: identifier following \"for\" token", readToken( current ) }.throwException();
 			}
 		}
 
@@ -908,7 +913,7 @@ namespace GoldScorpion {
 
 								continue;
 							} else {
-								throw std::runtime_error( "Expected: Expression following \"else\" \"if\" sequence" );
+								Error{ "Expected: Expression following \"else\" \"if\" sequence", readToken( current ) }.throwException();
 							}
 						}
 					}
@@ -934,7 +939,7 @@ namespace GoldScorpion {
 					std::make_unique< IfStatement >( IfStatement{ std::move( conditions ), std::move( bodies ) } )
 				};
 			} else {
-				throw std::runtime_error( "Expected: Expression following \"if\"" );
+				Error{ "Expected: Expression following \"if\"", readToken( current ) }.throwException();
 			}
 		}
 
@@ -977,7 +982,7 @@ namespace GoldScorpion {
 					std::make_unique< AsmStatement >( AsmStatement { *potentialText } )
 				};
 			} else {
-				throw std::runtime_error( "Expected: inline asm body following \"asm\" token" );
+				Error{ "Expected: inline asm body following \"asm\" token", readToken( current ) }.throwException();
 			}
 		}
 
@@ -1003,7 +1008,7 @@ namespace GoldScorpion {
 					std::make_unique< WhileStatement >( WhileStatement{ std::move( expression->node ), std::move( body ) } )
 				};
 			} else {
-				throw std::runtime_error( "Expected: Expression following \"while\" token" );
+				Error{ "Expected: Expression following \"while\" token", readToken( current ) }.throwException();
 			}
 		}
 
@@ -1086,7 +1091,7 @@ namespace GoldScorpion {
 			if( leftParenResult && leftParenResult->type == TokenType::TOKEN_LEFT_PAREN ) {
 				++current;
 			} else {
-				throw std::runtime_error( "Expected: \"(\" token following function or function identifier" );
+				Error{ "Expected: \"(\" token following function or function identifier", readToken( current ) }.throwException();
 			}
 
 			// Optional parameters
@@ -1102,7 +1107,7 @@ namespace GoldScorpion {
 						current = nextArgumentResult->nextIterator;
 						arguments.push_back( nextArgumentResult->parameter );
 					} else {
-						throw std::runtime_error( "Expected: parameter following \",\" token" );
+						Error{ "Expected: parameter following \",\" token", readToken( current ) }.throwException();
 					}
 				}
 			}
@@ -1112,7 +1117,7 @@ namespace GoldScorpion {
 			if( rightParenResult && rightParenResult->type == TokenType::TOKEN_RIGHT_PAREN ) {
 				++current;
 			} else {
-				throw std::runtime_error( "Expected: \")\" token following function argument list" );
+				Error{ "Expected: \")\" token following function argument list", readToken( current ) }.throwException();
 			}
 
 			// Optional "as" return type
@@ -1127,7 +1132,7 @@ namespace GoldScorpion {
 					++current;
 					returnType = *returnTypeResult;
 				} else {
-					throw std::runtime_error( "Expected: identifier following \"as\" token" );
+					Error{ "Expected: identifier following \"as\" token", readToken( current ) }.throwException();
 				}
 			}
 
@@ -1151,7 +1156,7 @@ namespace GoldScorpion {
 					} )
 				};
 			} else {
-				throw std::runtime_error( "Expected: \"end\" token following function body" );
+				Error{ "Expected: \"end\" token following function body", readToken( current ) }.throwException();
 			}
 		}
 
@@ -1189,7 +1194,7 @@ namespace GoldScorpion {
 					}
 
 					if( fields.empty() ) {
-						throw std::runtime_error( "Expected: at least one field in TypeDeclaration" );
+						Error{ "Expected: at least one field in TypeDeclaration", readToken( current ) }.throwException();
 					}
 
 					// Zero or more functions
@@ -1215,13 +1220,13 @@ namespace GoldScorpion {
 							} )
 						};
 					} else {
-						throw std::runtime_error( "Expected: \"end\" token following TypeDeclaration" );
+						Error{ "Expected: \"end\" token following TypeDeclaration", readToken( current ) }.throwException();
 					}
 				} else {
-					throw std::runtime_error( "Expected: newline following identifier" );
+					Error{ "Expected: newline following identifier", readToken( current ) }.throwException();
 				}
 			} else {
-				throw std::runtime_error( "Expected: identifier following \"type\" token" );
+				Error{ "Expected: identifier following \"type\" token", readToken( current ) }.throwException();
 			}
 		}
 
@@ -1248,7 +1253,7 @@ namespace GoldScorpion {
 						current = expression->nextIterator;
 						assignment = std::move( expression->node );
 					} else {
-						throw std::runtime_error( "Expected: Expression following \"=\" token" );
+						Error{ "Expected: Expression following \"=\" token", readToken( current ) }.throwException();
 					}
 				}
 
@@ -1264,10 +1269,10 @@ namespace GoldScorpion {
 						} )
 					};
 				} else {
-					throw std::runtime_error( "Expected: newline following VarDeclaration" );
+					Error{ "Expected: newline following VarDeclaration", readToken( current ) }.throwException();
 				}
 			} else {
-				throw std::runtime_error( "Expected: parameter following \"def\" token" );
+				Error{ "Expected: parameter following \"def\" token", readToken( current ) }.throwException();
 			}
 		}
 
@@ -1292,10 +1297,10 @@ namespace GoldScorpion {
 						} )
 					};
 				} else {
-					throw std::runtime_error( "Expected: Expression following \"=\" statement" );
+					Error{ "Expected: Expression following \"=\" statement", readToken( current ) }.throwException();
 				}
 			} else {
-				throw std::runtime_error( "Expected: parameter after \"const\" token" );
+				Error{ "Expected: parameter after \"const\" token", readToken( current ) }.throwException();
 			}
 		}
 
@@ -1338,7 +1343,7 @@ namespace GoldScorpion {
 				current = expression->nextIterator;
 				directives.emplace_back( std::move( expression->node ) );
 			} else {
-				throw std::runtime_error( "Expected: expression following annotation declaration" );
+				Error{ "Expected: expression following annotation declaration", readToken( current ) }.throwException();
 			}
 
 			// Zero or more additional expressions each following a comma
@@ -1349,7 +1354,7 @@ namespace GoldScorpion {
 					current = expression->nextIterator;
 					directives.emplace_back( std::move( expression->node ) );
 				} else {
-					throw std::runtime_error( "Expected: expression following \",\" token" );
+					Error{ "Expected: expression following \",\" token", readToken( current ) }.throwException();
 				}
 			}
 
