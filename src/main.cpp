@@ -16,6 +16,14 @@ void info() {
 	std::cout << std::endl;
 }
 
+void printError( const std::string& message ) {
+	std::cout << rang::fgB::red << "error: " << rang::style::reset << message << std::endl;
+}
+
+void printSuccess( const std::string& message ) {
+	std::cout << rang::fgB::green << "success: " << rang::style::reset << message << std::endl;
+}
+
 int main( int argc, char** argv ) {
 	std::string parseFilename;
 	bool printLex = false;
@@ -33,7 +41,7 @@ int main( int argc, char** argv ) {
 	CLI11_PARSE( application, argc, argv );
 
 	if( parseFilename.empty() ) {
-		std::cout << rang::fgB::red << "error: " << rang::style::reset << "no input files." << std::endl;
+		printError( "no input files" );
 		return 1;
 	} else {
 		auto fileResult = GoldScorpion::Utility::fileToString( parseFilename );
@@ -41,8 +49,7 @@ int main( int argc, char** argv ) {
 			auto tokenResult = GoldScorpion::getTokens( file->contents );
 
 			if( auto tokens = std::get_if< std::vector< GoldScorpion::Token > >( &tokenResult ) ) {
-				std::cout << rang::fgB::green << "success: " << rang::style::reset <<
-					"Lexed file " << parseFilename << std::endl;
+				printSuccess( "Lexed file " + parseFilename );
 
 				if( printLex ) {
 					for( const GoldScorpion::Token& token : *tokens ) {
@@ -53,8 +60,7 @@ int main( int argc, char** argv ) {
 				// Try this and see if anything crashes
 				auto parserResult = GoldScorpion::getProgram( *tokens );
 				if( auto program = std::get_if< GoldScorpion::Program >( &parserResult ) ) {
-					std::cout << rang::fgB::green << "success: " << rang::style::reset <<
-						"Parsed file " << parseFilename << std::endl;
+					printSuccess( "Parsed file " + parseFilename );
 
 					if( printAst ) {
 						GoldScorpion::printAst( *program );
@@ -63,25 +69,17 @@ int main( int argc, char** argv ) {
 					return 0;
 				} else {
 					std::string error = std::get< std::string >( std::move( parserResult ) );
-					std::cout << rang::fgB::red << "error: " << rang::style::reset <<
-						"Could not parse file " << parseFilename << ": " <<
-						error << std::endl;
-
+					printError( "Could not parse file " + parseFilename + ": " + error );
 					return 4;
 				}
 
 			} else {
-				std::cout << rang::fgB::red << "error: " << rang::style::reset <<
-					"Could not lex file " << parseFilename << ": " <<
-					std::get< std::string >( tokenResult ) << std::endl;
+				printError( "Could not lex file " + parseFilename + ": " + std::get< std::string >( tokenResult ) );
 				return 3;
 			}
 
 		} else {
-			std::cout << rang::fgB::red << "error: " << rang::style::reset <<
-				"Could not open file " << parseFilename << ": " <<
-				std::get< std::string >( fileResult ) << std::endl;
-
+			printError( "Could not open file " + parseFilename + ": " + std::get< std::string >( fileResult ) );
 			return 2;
 		}
 	}
