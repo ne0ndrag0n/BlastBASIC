@@ -6,49 +6,54 @@
 #include "error.hpp"
 #include <cstdio>
 #include <exception>
+#include <optional>
 #include <unordered_map>
 
 namespace GoldScorpion {
 
-	enum class ExpressionDataType { INVALID, U8, U16, U32, S8, S16, S32, STRING, UDT };
+	enum class ExpressionTypeTag { INVALID, U8, U16, U32, S8, S16, S32, STRING, UDT };
+	struct ExpressionDataType {
+		ExpressionTypeTag type;
+		std::optional< UserDefinedType > udt;
+	};
 
 	static ExpressionDataType getType( const Expression& node, Assembly& assembly );
 	static ExpressionDataType getType( const Primary& node, Assembly& assembly );
 	static void generate( const Expression& node, Assembly& assembly );
 
-	static const std::unordered_map< std::string, ExpressionDataType > types = {
-		{ "u8", ExpressionDataType::U8 },
-		{ "u16", ExpressionDataType::U16 },
-		{ "u32", ExpressionDataType::U32 },
-		{ "s8", ExpressionDataType::S8 },
-		{ "s16", ExpressionDataType::S16 },
-		{ "s32", ExpressionDataType::S32 },
-		{ "string", ExpressionDataType::STRING }
+	static const std::unordered_map< std::string, ExpressionTypeTag > types = {
+		{ "u8", ExpressionTypeTag::U8 },
+		{ "u16", ExpressionTypeTag::U16 },
+		{ "u32", ExpressionTypeTag::U32 },
+		{ "s8", ExpressionTypeTag::S8 },
+		{ "s16", ExpressionTypeTag::S16 },
+		{ "s32", ExpressionTypeTag::S32 },
+		{ "string", ExpressionTypeTag::STRING }
 	};
 
 	static char getTypeComparison( ExpressionDataType type ) {
-		switch( type ) {
-			case ExpressionDataType::INVALID:
+		switch( type.type ) {
+			case ExpressionTypeTag::INVALID:
 			default:
 				return 0;
-			case ExpressionDataType::U8:
-			case ExpressionDataType::S8:
+			case ExpressionTypeTag::U8:
+			case ExpressionTypeTag::S8:
 				return 1;
-			case ExpressionDataType::U16:
-			case ExpressionDataType::S16:
+			case ExpressionTypeTag::U16:
+			case ExpressionTypeTag::S16:
 				return 2;
-			case ExpressionDataType::U32:
-			case ExpressionDataType::S32:
-			case ExpressionDataType::STRING:
+			case ExpressionTypeTag::U32:
+			case ExpressionTypeTag::S32:
+			case ExpressionTypeTag::STRING:
 				return 3;
 		}
 	}
 
 	static bool isSigned( ExpressionDataType type ) {
-		switch( type ) {
-			case ExpressionDataType::S8:
-			case ExpressionDataType::S16:
-			case ExpressionDataType::S32:
+		switch( type.type ) {
+			case ExpressionTypeTag::S8:
+			case ExpressionTypeTag::S16:
+			case ExpressionTypeTag::S32:
 				return true;
 			default:
 				return false;
@@ -61,46 +66,46 @@ namespace GoldScorpion {
 	}
 
 	static ExpressionDataType scrubSigned( ExpressionDataType type ) {
-		switch( type ) {
-			case ExpressionDataType::S8:
-				return ExpressionDataType::U8;
-			case ExpressionDataType::S16:
-				return ExpressionDataType::U16;
-			case ExpressionDataType::S32:
-				return ExpressionDataType::U32;
+		switch( type.type ) {
+			case ExpressionTypeTag::S8:
+				return ExpressionDataType{ ExpressionTypeTag::U8, {} };
+			case ExpressionTypeTag::S16:
+				return ExpressionDataType{ ExpressionTypeTag::U16, {} };
+			case ExpressionTypeTag::S32:
+				return ExpressionDataType{ ExpressionTypeTag::U32, {} };
 			default:
 				return type;
 		}
 	}
 
 	static m68k::OperatorSize typeToWordSize( ExpressionDataType type ) {
-		switch( type ) {
-			case ExpressionDataType::U8:
-			case ExpressionDataType::S8:
+		switch( type.type ) {
+			case ExpressionTypeTag::U8:
+			case ExpressionTypeTag::S8:
 				return m68k::OperatorSize::BYTE;
-			case ExpressionDataType::U16:
-			case ExpressionDataType::S16:
+			case ExpressionTypeTag::U16:
+			case ExpressionTypeTag::S16:
 				return m68k::OperatorSize::WORD;
-			case ExpressionDataType::U32:
-			case ExpressionDataType::S32:
+			case ExpressionTypeTag::U32:
+			case ExpressionTypeTag::S32:
 			default:
 				return m68k::OperatorSize::LONG;
 		}
 	}
 
 	static m68k::InstructionMetadata typeToPointerMetadata( ExpressionDataType type ) {
-		switch( type ) {
-			case ExpressionDataType::U8:
-			case ExpressionDataType::S8:
+		switch( type.type ) {
+			case ExpressionTypeTag::U8:
+			case ExpressionTypeTag::S8:
 				return m68k::InstructionMetadata::POINTER_BYTE;
-			case ExpressionDataType::U16:
-			case ExpressionDataType::S16:
+			case ExpressionTypeTag::U16:
+			case ExpressionTypeTag::S16:
 			default:
 				return m68k::InstructionMetadata::POINTER_WORD;
-			case ExpressionDataType::U32:
-			case ExpressionDataType::S32:
+			case ExpressionTypeTag::U32:
+			case ExpressionTypeTag::S32:
 				return m68k::InstructionMetadata::POINTER_LONG;
-			case ExpressionDataType::STRING:
+			case ExpressionTypeTag::STRING:
 				return m68k::InstructionMetadata::POINTER_STRING;
 		}
 	}
@@ -132,36 +137,36 @@ namespace GoldScorpion {
 		if( literal < 0 ) {
 
 			if( literal >= -127 ) {
-				return ExpressionDataType::S8;
+				return ExpressionDataType{ ExpressionTypeTag::S8, {} };
 			}
 
 			if( literal >= -32767 ) {
-				return ExpressionDataType::S16;
+				return ExpressionDataType{ ExpressionTypeTag::S16, {} };
 			}
 
-			return ExpressionDataType::S32;
+			return ExpressionDataType{ ExpressionTypeTag::S32, {} };
 
 		} else {
 
 			if( literal <= 255 ) {
-				return ExpressionDataType::U8;
+				return ExpressionDataType{ ExpressionTypeTag::U8, {} };
 			}
 
 			if( literal <= 65535 ) {
-				return ExpressionDataType::U16;
+				return ExpressionDataType{ ExpressionTypeTag::U16, {} };
 			}
 
-			return ExpressionDataType::U32;
+			return ExpressionDataType{ ExpressionTypeTag::U32, {} };
 		}
 	}
 
 	static ExpressionDataType getIdentifierType( const std::string& typeId ) {
 		auto it = types.find( typeId );
 		if( it != types.end() ) {
-			return it->second;
+			return ExpressionDataType{ it->second, {} };
 		}
 
-		return ExpressionDataType::UDT;
+		return ExpressionDataType{ ExpressionTypeTag::UDT, {} };
 	}
 
 	static long expectLong( const Token& token, const std::string& error ) {
@@ -233,7 +238,7 @@ namespace GoldScorpion {
 						break;
 					}
 					case TokenType::TOKEN_LITERAL_STRING: {
-						result = ExpressionDataType::STRING;
+						result = ExpressionDataType{ ExpressionTypeTag::STRING, {} };
 						break;
 					}
 					case TokenType::TOKEN_IDENTIFIER: {
@@ -265,12 +270,12 @@ namespace GoldScorpion {
 		ExpressionDataType rhs = getType( *node.rhsValue, assembly );
 
 		// If either lhs or rhs return an invalid comparison
-		if( lhs == ExpressionDataType::INVALID || rhs == ExpressionDataType::INVALID ) {
-			return ExpressionDataType::INVALID;
+		if( lhs.type == ExpressionTypeTag::INVALID || rhs.type == ExpressionTypeTag::INVALID ) {
+			return ExpressionDataType{ ExpressionTypeTag::INVALID, {} };
 		}
 
 		// If lhs is a UDT then the right hand side of the expression is the expression type
-		if( lhs == ExpressionDataType::UDT ) {
+		if( lhs.type == ExpressionTypeTag::UDT ) {
 			return rhs;
 		}
 
@@ -293,7 +298,7 @@ namespace GoldScorpion {
 		}
 
 		// Many node types not yet implemented
-		return ExpressionDataType::INVALID;
+		return ExpressionDataType{ ExpressionTypeTag::INVALID, {} };
 	}
 
 	static void generate( const Primary& node, Assembly& assembly ) {
