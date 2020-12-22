@@ -166,7 +166,7 @@ namespace GoldScorpion {
 			return ExpressionDataType{ it->second, {} };
 		}
 
-		return ExpressionDataType{ ExpressionTypeTag::UDT, {} };
+		return ExpressionDataType{ ExpressionTypeTag::INVALID, {} };
 	}
 
 	static long expectLong( const Token& token, const std::string& error ) {
@@ -248,7 +248,19 @@ namespace GoldScorpion {
 							Error{ std::string( "Undefined identifier: " ) + id, token }.throwException();
 						}
 
-						result = getIdentifierType( MemoryTracker::unwrapValue( *memoryQuery ).typeId );
+						std::string typeId = MemoryTracker::unwrapValue( *memoryQuery ).typeId;
+						result = getIdentifierType( typeId );
+						if( result.type == ExpressionTypeTag::INVALID ) {
+							// Possibly a UDT
+							std::optional< UserDefinedType > udt = assembly.memory.findUdt( typeId );
+							if( udt ) {
+								result.type = ExpressionTypeTag::UDT;
+								result.udt = udt;
+							}
+
+							// Don't throw error here!
+							// Invalid refs may be transformed into other kinds of refs after return
+						}
 						break;
 					}
 					default:
@@ -276,7 +288,34 @@ namespace GoldScorpion {
 
 		// If lhs is a UDT then the right hand side of the expression is the expression type
 		if( lhs.type == ExpressionTypeTag::UDT ) {
-			return rhs;
+			// UDT LHS requires special consideration:
+			// - Operator is dot - Return result is the field type on the UDT.
+			// - Operator is non-dot - Return result is the same UDT (cannot apply operator to unlike UDTs)
+			TokenType tokenOp = expectToken( *node.op, getNearestToken( *node.lhsValue ),  "Internal compiler error" ).type;
+			if( tokenOp == TokenType::TOKEN_DOT ) {
+				// Get UDT in left hand side
+				// UDT assumed to be on LHS
+				std::optional< Token > rhsToken = getNearestToken( *node.rhsValue );
+				if( !rhsToken ) {
+					Error{ "Internal compiler error", {} }.throwException();
+				}
+
+				std::optional< UdtField > udtField = assembly.memory.findUdtField( lhs.udt->id, expectString( *rhsToken, "Internal compiler error" ) );
+				if( !udtField ) {
+					Error{ "Internal compiler error", {} }.throwException();
+				}
+
+				ExpressionDataType rhsType = getIdentifierType( udtField->typeId );
+				if( rhsType.type == ExpressionTypeTag::INVALID ) {
+					std::optional< UserDefinedType > udt = assembly.memory.findUdt( udtField->typeId );
+					if( udt ) {
+						rhsType.type = ExpressionTypeTag::UDT;
+						rhsType.udt = udt;
+					}
+				}
+
+				return rhsType;
+			}
 		}
 
 		// Otherwise the data type of the BinaryExpression is the larger of lhs, rhs

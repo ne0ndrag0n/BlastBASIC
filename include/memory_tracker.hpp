@@ -8,7 +8,7 @@ namespace GoldScorpion {
 
 	struct UdtField {
 		std::string id;
-		int size;
+		std::string typeId;
 	};
 
 	struct UserDefinedType {
