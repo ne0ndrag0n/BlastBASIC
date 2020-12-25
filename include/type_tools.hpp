@@ -3,6 +3,7 @@
 #include "memory_tracker.hpp"
 #include "ast.hpp"
 #include <string>
+#include <optional>
 
 namespace GoldScorpion {
 
@@ -10,10 +11,10 @@ namespace GoldScorpion {
 
     std::string tokenTypeToTypeId( const TokenType type );
 
-    std::string getType( const Primary& node, MemoryTracker& memory );
+    std::optional< std::string > getType( const Primary& node, MemoryTracker& memory );
 
-    std::string getType( const BinaryExpression& node, MemoryTracker& memory );
+    std::optional< std::string > getType( const BinaryExpression& node, MemoryTracker& memory );
 
-    std::string getType( const Expression& expression, MemoryTracker& memory );
+    std::optional< std::string > getType( const Expression& expression, MemoryTracker& memory );
 
 }

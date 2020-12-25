@@ -139,30 +139,38 @@ namespace GoldScorpion {
         return {};
     }
 
-    std::string getType( const Primary& node, MemoryTracker& memory ) {
-        return std::visit(
+    std::optional< std::string > getType( const Primary& node, MemoryTracker& memory ) {
+        std::optional< std::string > result;
+
+        std::visit(
             overloaded {
-                [ &memory ]( const Token& token ){
+                [ &memory, &result ]( const Token& token ){
                     switch( token.type ) {
                         case TokenType::TOKEN_LITERAL_INTEGER: {
-                            return getLiteralType( expectLong( token ) );
+                            result = getLiteralType( expectLong( token ) );
+                            return;
                         }
                         case TokenType::TOKEN_LITERAL_STRING: {
-                            return std::string( "string" );
+                            result = std::string( "string" );
+                            return;
                         }
                         case TokenType::TOKEN_IDENTIFIER: {
+                            // Look up identifier in memory
                             std::string id = expectString( token );
                             auto memoryQuery = memory.find( id );
                             if( !memoryQuery ) {
-                                return std::string( "<undefined>" );
+                                result = {};
+                                return;
                             }
 
+                            // Get its type id, and if it is a udt, attach the udt id
                             std::string typeId = MemoryTracker::unwrapValue( *memoryQuery ).typeId;
                             if( typeIsUdt( typeId ) ) {
                                 // Udt
                                 std::optional< UserDefinedType > udt = memory.findUdt( typeId );
                                 if( udt ) {
-                                    return udt->id;
+                                    result = udt->id;
+                                    return;
                                 }
 
                                 // If we dereference an identifier, but it doesn't have a valid type
@@ -170,26 +178,31 @@ namespace GoldScorpion {
                                 Error{ "Internal compiler error", token }.throwException();
                             }
 
-                            return typeId;
+                            result = typeId;
+                            return;
                         }
                         default: {
                             Error{ "Internal compiler error", token }.throwException();
-                            return std::string( "" );
+                            result = {};
+                            return;
                         }
                     }
                 },
-                [ &memory ]( const std::unique_ptr< Expression >& expression ){
-                    return getType( *expression, memory );
+                [ &memory, &result ]( const std::unique_ptr< Expression >& expression ){
+                    result = getType( *expression, memory );
+                    return;
                 }
             },
             node.value
         );
+
+        return result;
     }
 
-    std::string getType( const BinaryExpression& node, MemoryTracker& memory ) {
+    std::optional< std::string > getType( const BinaryExpression& node, MemoryTracker& memory ) {
 
-        std::string lhs = getType( *node.lhsValue, memory );
-        std::string rhs = getType( *node.rhsValue, memory );
+        std::optional< std::string > lhs = getType( *node.lhsValue, memory );
+        std::optional< std::string > rhs = getType( *node.rhsValue, memory );
 
         // If operator is dot then type of the expression is the field on the left hand side
         TokenType tokenOp;
@@ -204,47 +217,51 @@ namespace GoldScorpion {
                 // The type of a dot operation is the field, specified on the RHS, of the UDT on the LHS.
                 auto rhsIdentifier = getIdentifierName( *node.rhsValue );
                 if( !rhsIdentifier ) {
-                    return "<undefined>";
+                    return {};
                 }
 
-                auto lhsUdt = memory.findUdt( lhs );
+                if( !lhs ) {
+                    return {};
+                }
+
+                auto lhsUdt = memory.findUdt( *lhs );
                 if( !lhsUdt ) {
-                    return "<undefined>";
+                    return {};
                 }
 
                 auto rhsUdtField = memory.findUdtField( lhsUdt->id, *rhsIdentifier );
                 if( !rhsUdtField ) {
-                    return "<undefined>";
+                    return {};
                 }
 
                 return rhsUdtField->typeId;
             }
             default: {
+                // All other operators require both sides to have a well-defined type
+                if( !lhs || !rhs ) {
+                    return {};
+                }
+
                 // For all other operators, if left hand side is a UDT, then RHS must be as well.
-                if( typeIsUdt( lhs ) ) {
-                    if( lhs == rhs ) {
+                if( typeIsUdt( *lhs ) ) {
+                    if( *lhs == *rhs ) {
                         return lhs;
                     } else {
-                        return "<undefined>";
+                        return {};
                     }
                 }
 
-                // If either side is undefined then we must return undefined
-                if( lhs == "<undefined>" || rhs == "<undefined>" ) {
-                    return "<undefined>";
-                }
-
                 // Otherwise the data type of the BinaryExpression is the larger of lhs, rhs
-                if( getTypeComparison( rhs ) >= getTypeComparison( lhs ) ) {
-                    return isOneSigned( lhs, rhs ) ? scrubSigned( rhs ) : rhs;
+                if( getTypeComparison( *rhs ) >= getTypeComparison( *lhs ) ) {
+                    return isOneSigned( *lhs, *rhs ) ? scrubSigned( *rhs ) : rhs;
                 } else {
-                    return isOneSigned( lhs, rhs ) ? scrubSigned( lhs ) : lhs;
+                    return isOneSigned( *lhs, *rhs ) ? scrubSigned( *lhs ) : lhs;
                 }
             }
         }
     }
 
-    std::string getType( const Expression& node, MemoryTracker& memory ) {
+    std::optional< std::string > getType( const Expression& node, MemoryTracker& memory ) {
 		if( auto binaryExpression = std::get_if< std::unique_ptr< BinaryExpression > >( &node.value ) ) {
  			return getType( **binaryExpression, memory );
 		}
@@ -254,7 +271,7 @@ namespace GoldScorpion {
 		}
 
 		// Many node types not yet implemented
-        return "";
+        return {};
     }
 
 }
