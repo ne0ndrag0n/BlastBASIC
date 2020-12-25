@@ -33,6 +33,11 @@ namespace GoldScorpion {
 		return result;
 	}
 
+	void MemoryTracker::clearMemory() {
+		dataSegment.clear();
+		stack.clear();
+	}
+
 	std::optional< MemoryQuery > MemoryTracker::find( const std::string& id ) const {
 		// When asked to find an elment, find from innermost scope to outermost scope
 

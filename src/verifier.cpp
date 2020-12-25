@@ -1,5 +1,7 @@
 #include "verifier.hpp"
 #include "error.hpp"
+#include "type_tools.hpp"
+#include "tree_tools.hpp"
 #include <variant>
 
 namespace GoldScorpion {
@@ -48,7 +50,7 @@ namespace GoldScorpion {
 
         // Verify x is an identifier containing a string
         expectTokenOfType( node.variable.name, TokenType::TOKEN_IDENTIFIER, "Expected: Identifier as token type for parameter declaration" );
-        expectTokenString( node.variable.name, "Internal compiler error" );
+        expectTokenString( node.variable.name, "Internal compiler error (VarDeclaration variable.name has no string alternative)" );
 
         // Verify type is either primitive or declared
         expectTokenType( node.variable.type.type, "Expected: User-defined type or one of [u8, u16, u32, s8, s16, s32, string]" );
@@ -59,6 +61,24 @@ namespace GoldScorpion {
             if( !memory.findUdt( typeId ) ) {
                 Error{ "Undeclared user-defined type: " + typeId, node.variable.type.type }.throwException();
             }
+        }
+
+        // Use memory tracker to push a memory element
+        std::optional< std::string > identifierTitle = getIdentifierName( node.variable.name );
+        if( !identifierTitle ) {
+            Error{ "Internal compiler error (VarDeclaration variable.name is not an identifier)", node.variable.name }.throwException();
+        }
+
+        std::optional< std::string > typeId = tokenToTypeId( node.variable.type.type );
+        if( !typeId ) {
+            Error{ "Internal compiler error (VarDeclaration variable.type should be properly verified)", node.variable.type.type }.throwException();
+        }
+
+        //memory.push( MemoryElement { *identifierTitle, *typeId, 0, 0 } );
+
+        // The type returned by the expression on the right must match the declared type, or be coercible to the type.
+        if( node.value ) {
+
         }
     }
 

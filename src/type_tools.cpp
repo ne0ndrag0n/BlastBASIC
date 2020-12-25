@@ -1,4 +1,5 @@
 #include "type_tools.hpp"
+#include "tree_tools.hpp"
 #include "variant_visitor.hpp"
 #include "error.hpp"
 
@@ -86,7 +87,7 @@ namespace GoldScorpion {
         return "<undefined>";
     }
 
-    TokenType typeIdToTokenType( const std::string& id ) {
+    std::optional< TokenType > typeIdToTokenType( const std::string& id ) {
         if( id == "u8" ) { return TokenType::TOKEN_U8; }
         if( id == "u16" ) { return TokenType::TOKEN_U16; }
         if( id == "u32" ) { return TokenType::TOKEN_U32; }
@@ -95,13 +96,13 @@ namespace GoldScorpion {
         if( id == "s32" ) { return TokenType::TOKEN_S32; }
         if( id == "string" ) { return TokenType::TOKEN_STRING; }
 
-        return TokenType::TOKEN_NONE;
+        return {};
     }
 
-    std::string tokenTypeToTypeId( const TokenType type ) {
+    std::optional< std::string > tokenTypeToTypeId( const TokenType type ) {
         switch( type ) {
             default:
-                return "";
+                return {};
             case TokenType::TOKEN_U8:
                 return "u8";
             case TokenType::TOKEN_U16:
@@ -119,24 +120,33 @@ namespace GoldScorpion {
         }
     }
 
-    static bool typeIsUdt( const std::string& typeId ) {
-        return typeIdToTokenType( typeId ) == TokenType::TOKEN_NONE;
-    }
+    std::optional< std::string > tokenToTypeId( const Token& token ) {
+        // Attempt to pull a type from the TokenType
+        std::optional< std::string > typeId = tokenTypeToTypeId( token.type );
+        if( typeId ) {
+            return typeId;
+        }
 
-    static std::optional< std::string > getIdentifierName( const Expression& node ) {
-        if( auto primaryResult = std::get_if< std::unique_ptr< Primary > >( &node.value ) ) {
-            const Primary& primary = **primaryResult;
-            if( auto tokenResult = std::get_if< Token >( &primary.value ) ) {
-                const Token& token = *tokenResult;
-                if( token.type == TokenType::TOKEN_IDENTIFIER && token.value ) {
-                    if( auto stringResult = std::get_if< std::string >( &*token.value ) ) {
-                        return *stringResult;
-                    }
-                }
+        // If that wasn't possible, then let's try to extract from an identifier w/string
+        if( token.type == TokenType::TOKEN_IDENTIFIER && token.value ) {
+            if( auto stringValue = std::get_if< std::string >( &*token.value ) ) {
+                return *stringValue;
             }
         }
 
         return {};
+    }
+
+    bool typeIsUdt( const std::string& typeId ) {
+        return !typeIdToTokenType( typeId );
+    }
+
+    std::string promotePrimitiveTypes( const std::string& lhs, const std::string& rhs ) {
+        if( getTypeComparison( rhs ) >= getTypeComparison( lhs ) ) {
+            return isOneSigned( lhs, rhs ) ? scrubSigned( rhs ) : rhs;
+        } else {
+            return isOneSigned( lhs, rhs ) ? scrubSigned( lhs ) : lhs;
+        }
     }
 
     std::optional< std::string > getType( const Primary& node, MemoryTracker& memory ) {
@@ -252,11 +262,7 @@ namespace GoldScorpion {
                 }
 
                 // Otherwise the data type of the BinaryExpression is the larger of lhs, rhs
-                if( getTypeComparison( *rhs ) >= getTypeComparison( *lhs ) ) {
-                    return isOneSigned( *lhs, *rhs ) ? scrubSigned( *rhs ) : rhs;
-                } else {
-                    return isOneSigned( *lhs, *rhs ) ? scrubSigned( *lhs ) : lhs;
-                }
+                return promotePrimitiveTypes( *lhs, *rhs );
             }
         }
     }

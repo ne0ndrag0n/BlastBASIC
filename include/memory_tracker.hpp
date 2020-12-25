@@ -47,6 +47,8 @@ namespace GoldScorpion {
 		void push( const MemoryElement& element );
 		MemoryElement pop();
 
+		void clearMemory();
+
 		std::optional< MemoryQuery > find( const std::string& id ) const;
 
 		void addUdt( const UserDefinedType& udt );
