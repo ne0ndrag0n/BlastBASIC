@@ -15,6 +15,8 @@ namespace GoldScorpion {
 
     bool typeIsUdt( const std::string& typeId );
 
+    bool typeIsInteger( const std::string& typeId );
+
     // Only valid for integer fields
     std::string promotePrimitiveTypes( const std::string& lhs, const std::string& rhs );
 

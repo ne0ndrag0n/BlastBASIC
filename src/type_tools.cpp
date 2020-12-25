@@ -141,6 +141,10 @@ namespace GoldScorpion {
         return !typeIdToTokenType( typeId );
     }
 
+    bool typeIsInteger( const std::string& typeId ) {
+        return typeId == "u8" || typeId == "u16" || typeId == "u32" || typeId == "s8" || typeId == "s16" || typeId == "s32";
+    }
+
     std::string promotePrimitiveTypes( const std::string& lhs, const std::string& rhs ) {
         if( getTypeComparison( rhs ) >= getTypeComparison( lhs ) ) {
             return isOneSigned( lhs, rhs ) ? scrubSigned( rhs ) : rhs;
