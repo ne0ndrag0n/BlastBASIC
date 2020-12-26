@@ -49,10 +49,12 @@ namespace GoldScorpion {
         }
     }
 
-    static void expectToken( const Primary& primary, std::optional< Token > nearestToken, const std::string& error ) {
-        if( !std::holds_alternative< Token >( primary.value ) ) {
-            Error{ error, nearestToken }.throwException();
+    static Token expectToken( const Primary& primary, std::optional< Token > nearestToken, const std::string& error ) {
+        if( auto token = std::get_if< Token >( &primary.value ) ) {
+            return *token;
         }
+
+        Error{ error, nearestToken }.throwException();
     }
 
     static void check( const BinaryExpression& node, std::optional< Token > nearestToken, MemoryTracker& memory ) {
@@ -65,10 +67,9 @@ namespace GoldScorpion {
         if( auto primaryExpression = std::get_if< std::unique_ptr< Primary > >( &identifierExpression.value ) ) {
             const Primary& primary = **primaryExpression;
 
-            expectToken( primary, identifierExpression.nearestToken, "Expected: Primary expression in LHS of AssignmentExpression must be a single identifier" );
+            Token token = expectToken( primary, identifierExpression.nearestToken, "Expected: Primary expression in LHS of AssignmentExpression must be a single identifier" );
 
             // Primary expression must contain a token of type IDENTIFIER
-            const Token& token = std::get< Token >( primary.value );
             expectTokenOfType( token, TokenType::TOKEN_IDENTIFIER, "Primary expression in LHS of AssignmentExpression must be a single identifier" );
             expectTokenString( token, "Internal compiler error (AssignmentExpression token has no string alternative" );
 
@@ -77,8 +78,9 @@ namespace GoldScorpion {
             const BinaryExpression& binaryExpression = **result;
             check( binaryExpression, identifierExpression.nearestToken, memory );
 
-            // Validate this binary expression is a dot expression
-            expectToken( *binaryExpression.op, identifierExpression.nearestToken, "Expected: Operator token of type ." );
+            // The above binary expression may validate as correct, but in this case, it must be a dot expression
+            Token token = expectToken( *binaryExpression.op, identifierExpression.nearestToken, "BinaryExpression must have an operator of Token type" );
+            expectTokenOfType( token, TokenType::TOKEN_DOT, "BinaryExpression must have operator \".\" for left-hand side of AssignmentExpression" );
         } else {
             Error{ "Invalid left-hand expression type for AssignmentExpression", nearestToken }.throwException();
         }
