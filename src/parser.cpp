@@ -125,7 +125,8 @@ namespace GoldScorpion {
 					return GeneratedAstNode< Expression >{
 						++current,
 						std::make_unique< Expression >( Expression {
-							std::make_unique< Primary >( Primary { currentToken } )
+							std::make_unique< Primary >( Primary { currentToken } ),
+							{}
 						} )
 					};
 				case TokenType::TOKEN_LEFT_PAREN: {
@@ -137,10 +138,11 @@ namespace GoldScorpion {
 							// Eat the current param and return the expression wrapped in a primary
 							return GeneratedAstNode< Expression >{
 								++expression->nextIterator,
-								std::make_unique< Expression >( Expression{
+								std::make_unique< Expression >( Expression {
 									std::make_unique< Primary >( Primary {
 										std::move( expression->node )
-									} )
+									} ),
+									{}
 								} )
 							};
 						}
@@ -162,26 +164,29 @@ namespace GoldScorpion {
 
 							if( currentToken.type == TokenType::TOKEN_IDENTIFIER ) {
 								// This is a BinaryExpression with super at left and IDENTIFIER at right
-								std::unique_ptr< Expression > expression = std::make_unique< Expression >( Expression{
+								std::unique_ptr< Expression > expression = std::make_unique< Expression >( Expression {
 									std::make_unique< BinaryExpression >( BinaryExpression {
 
-										std::make_unique< Expression >( Expression{
+										std::make_unique< Expression >( Expression {
 											std::make_unique< Primary >( Primary{
 												Token{ TokenType::TOKEN_SUPER, {}, 0, 0 }
-											} )
+											} ),
+											{}
 										} ),
 
 										std::make_unique< Primary >( Primary {
 											Token{ TokenType::TOKEN_DOT, {}, 0, 0 }
 										} ),
 
-										std::make_unique< Expression >( Expression{
+										std::make_unique< Expression >( Expression {
 											std::make_unique< Primary >( Primary{
 												currentToken
-											} )
+											} ),
+											{}
 										} )
 
-									} )
+									} ),
+									{}
 								} );
 
 								return GeneratedAstNode< Expression >{ ++current, std::move( expression ) };
@@ -237,11 +242,12 @@ namespace GoldScorpion {
 						current++;
 
 						// Assemble CallExpression from current list of arguments
-						queue.emplace( std::make_unique< Expression >( Expression{
+						queue.emplace( std::make_unique< Expression >( Expression {
 							std::make_unique< CallExpression >( CallExpression{
 								nullptr,
 								std::move( arguments )
-							} )
+							} ),
+							{}
 						} ) );
 					} else {
 						Error{ "Expected: closing \")\"", readToken( current ) }.throwException();
@@ -286,7 +292,8 @@ namespace GoldScorpion {
 				if( auto result = std::get_if< std::unique_ptr< CallExpression > >( &queue.front()->value ) ) {
 					(*result)->identifier = std::move( primary->node );
 					primary->node = std::make_unique< Expression >( Expression {
-						std::move( *result )
+						std::move( *result ),
+						{}
 					} );
 				} else if( auto result = std::get_if< std::unique_ptr< Primary > >( &queue.front()->value ) ) {
 					std::unique_ptr< BinaryExpression > binary = std::make_unique< BinaryExpression >( BinaryExpression {
@@ -297,12 +304,14 @@ namespace GoldScorpion {
 						} ),
 
 						std::make_unique< Expression >( Expression {
-							std::move( *result )
+							std::move( *result ),
+							{}
 						} )
 					} );
 
 					primary->node = std::make_unique< Expression >( Expression {
-						std::move( binary )
+						std::move( binary ),
+						{}
 					} );
 				} else {
 					Error{ "Internal compiler error (unexpected item in call-expression queue)", readToken( current ) }.throwException();
@@ -329,12 +338,13 @@ namespace GoldScorpion {
 			if( unary ) {
 				return GeneratedAstNode< Expression >{
 					unary->nextIterator,
-					std::make_unique< Expression >( Expression{
+					std::make_unique< Expression >( Expression {
 						std::make_unique< UnaryExpression >( UnaryExpression {
 							std::make_unique< Primary >( Primary{ operatorToken } ),
 
 							std::move( unary->node )
-						} )
+						} ),
+						{}
 					} )
 				};
 			} else {
@@ -364,14 +374,15 @@ namespace GoldScorpion {
 					current = next->nextIterator;
 
 					// Form BinaryExpression
-					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression {
 						std::make_unique< BinaryExpression >( BinaryExpression {
 							std::move( result->node ),
 
 							std::make_unique< Primary >( Primary{ op } ),
 
 							std::move( next->node )
-						} )
+						} ),
+						{}
 					} );
 
 					result->node = std::move( binaryExpression );
@@ -398,14 +409,15 @@ namespace GoldScorpion {
 					current = next->nextIterator;
 
 					// Form BinaryExpression
-					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression {
 						std::make_unique< BinaryExpression >( BinaryExpression {
 							std::move( result->node ),
 
 							std::make_unique< Primary >( Primary{ op } ),
 
 							std::move( next->node )
-						} )
+						} ),
+						{}
 					} );
 
 					result->node = std::move( binaryExpression );
@@ -434,14 +446,15 @@ namespace GoldScorpion {
 					current = next->nextIterator;
 
 					// Form BinaryExpression
-					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression {
 						std::make_unique< BinaryExpression >( BinaryExpression {
 							std::move( result->node ),
 
 							std::make_unique< Primary >( Primary{ op } ),
 
 							std::move( next->node )
-						} )
+						} ),
+						{}
 					} );
 
 					result->node = std::move( binaryExpression );
@@ -472,14 +485,15 @@ namespace GoldScorpion {
 					current = next->nextIterator;
 
 					// Form BinaryExpression
-					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression {
 						std::make_unique< BinaryExpression >( BinaryExpression {
 							std::move( result->node ),
 
 							std::make_unique< Primary >( Primary{ op } ),
 
 							std::move( next->node )
-						} )
+						} ),
+						{}
 					} );
 
 					result->node = std::move( binaryExpression );
@@ -506,14 +520,15 @@ namespace GoldScorpion {
 					current = next->nextIterator;
 
 					// Form BinaryExpression
-					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression {
 						std::make_unique< BinaryExpression >( BinaryExpression {
 							std::move( result->node ),
 
 							std::make_unique< Primary >( Primary{ op } ),
 
 							std::move( next->node )
-						} )
+						} ),
+						{}
 					} );
 
 					result->node = std::move( binaryExpression );
@@ -540,14 +555,15 @@ namespace GoldScorpion {
 					current = next->nextIterator;
 
 					// Form BinaryExpression
-					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression {
 						std::make_unique< BinaryExpression >( BinaryExpression {
 							std::move( result->node ),
 
 							std::make_unique< Primary >( Primary{ op } ),
 
 							std::move( next->node )
-						} )
+						} ),
+						{}
 					} );
 
 					result->node = std::move( binaryExpression );
@@ -574,14 +590,15 @@ namespace GoldScorpion {
 					current = next->nextIterator;
 
 					// Form BinaryExpression
-					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression {
 						std::make_unique< BinaryExpression >( BinaryExpression {
 							std::move( result->node ),
 
 							std::make_unique< Primary >( Primary{ op } ),
 
 							std::move( next->node )
-						} )
+						} ),
+						{}
 					} );
 
 					result->node = std::move( binaryExpression );
@@ -608,14 +625,15 @@ namespace GoldScorpion {
 					current = next->nextIterator;
 
 					// Form BinaryExpression
-					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression {
 						std::make_unique< BinaryExpression >( BinaryExpression {
 							std::move( result->node ),
 
 							std::make_unique< Primary >( Primary{ op } ),
 
 							std::move( next->node )
-						} )
+						} ),
+						{}
 					} );
 
 					result->node = std::move( binaryExpression );
@@ -642,14 +660,15 @@ namespace GoldScorpion {
 					current = next->nextIterator;
 
 					// Form BinaryExpression
-					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression {
 						std::make_unique< BinaryExpression >( BinaryExpression {
 							std::move( result->node ),
 
 							std::make_unique< Primary >( Primary{ op } ),
 
 							std::move( next->node )
-						} )
+						} ),
+						{}
 					} );
 
 					result->node = std::move( binaryExpression );
@@ -676,14 +695,15 @@ namespace GoldScorpion {
 					current = next->nextIterator;
 
 					// Form BinaryExpression
-					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression {
 						std::make_unique< BinaryExpression >( BinaryExpression {
 							std::move( result->node ),
 
 							std::make_unique< Primary >( Primary{ op } ),
 
 							std::move( next->node )
-						} )
+						} ),
+						{}
 					} );
 
 					result->node = std::move( binaryExpression );
@@ -710,14 +730,15 @@ namespace GoldScorpion {
 					current = next->nextIterator;
 
 					// Form BinaryExpression
-					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression{
+					std::unique_ptr< Expression > binaryExpression = std::make_unique< Expression >( Expression {
 						std::make_unique< BinaryExpression >( BinaryExpression {
 							std::move( result->node ),
 
 							std::make_unique< Primary >( Primary{ op } ),
 
 							std::move( next->node )
-						} )
+						} ),
+						{}
 					} );
 
 					result->node = std::move( binaryExpression );
@@ -746,12 +767,13 @@ namespace GoldScorpion {
 						// Everything we need
 						return GeneratedAstNode< Expression >{
 							rhs->nextIterator,
-							std::make_unique< Expression >( Expression{
+							std::make_unique< Expression >( Expression {
 								std::make_unique< AssignmentExpression >( AssignmentExpression{
 									std::move( lhs->node ),
 
 									std::move( rhs->node )
-								} )
+								} ),
+								{}
 							} )
 						};
 					} else {
@@ -767,7 +789,15 @@ namespace GoldScorpion {
 	}
 
 	static AstResult< Expression > getExpression( std::vector< Token >::iterator current ) {
-		return getAssignment( current );
+		std::optional< Token > nearest = readToken( current );
+
+		AstResult< Expression > result = getAssignment( current );
+
+		if( result ) {
+			result->node->nearestToken = nearest;
+		}
+
+		return result;
 	}
 
 	static AstResult< ExpressionStatement > getExpressionStatement( std::vector< Token >::iterator current ) {

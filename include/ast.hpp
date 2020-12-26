@@ -65,6 +65,7 @@ namespace GoldScorpion {
 			std::unique_ptr< CallExpression >,
 			std::unique_ptr< Primary >
 		> value;
+		std::optional< Token > nearestToken;
 	};
 
 	struct ExpressionStatement {
