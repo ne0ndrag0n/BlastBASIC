@@ -49,23 +49,23 @@ namespace GoldScorpion {
         }
     }
 
-    static void expectToken( const Primary& primary, const std::string& error ) {
+    static void expectToken( const Primary& primary, std::optional< Token > nearestToken, const std::string& error ) {
         if( !std::holds_alternative< Token >( primary.value ) ) {
-            Error{ error, {} }.throwException();
+            Error{ error, nearestToken }.throwException();
         }
     }
 
-    static void check( const BinaryExpression& node, MemoryTracker& memory ) {
+    static void check( const BinaryExpression& node, std::optional< Token > nearestToken, MemoryTracker& memory ) {
         Error{ "Internal compiler error (BinaryExpression check not implemented)", {} }.throwException();
     }
 
-    static void check( const AssignmentExpression& node, MemoryTracker& memory ) {
+    static void check( const AssignmentExpression& node, std::optional< Token > nearestToken, MemoryTracker& memory ) {
         // Left hand side must be either primary expression type with identifier, or binaryexpression type with dot operator
         const Expression& identifierExpression = *node.identifier;
         if( auto primaryExpression = std::get_if< std::unique_ptr< Primary > >( &identifierExpression.value ) ) {
             const Primary& primary = **primaryExpression;
 
-            expectToken( primary, "Expected: Primary expression in LHS of AssignmentExpression must be a single identifier" );
+            expectToken( primary, identifierExpression.nearestToken, "Expected: Primary expression in LHS of AssignmentExpression must be a single identifier" );
 
             // Primary expression must contain a token of type IDENTIFIER
             const Token& token = std::get< Token >( primary.value );
@@ -75,12 +75,12 @@ namespace GoldScorpion {
         } else if( auto result = std::get_if< std::unique_ptr< BinaryExpression > >( &identifierExpression.value ) ) {
             // Validate this binary expression
             const BinaryExpression& binaryExpression = **result;
-            check( binaryExpression, memory );
+            check( binaryExpression, identifierExpression.nearestToken, memory );
 
             // Validate this binary expression is a dot expression
-            expectToken( *binaryExpression.op, "Expected: Operator token of type ." );
+            expectToken( *binaryExpression.op, identifierExpression.nearestToken, "Expected: Operator token of type ." );
         } else {
-            Error{ "Invalid left-hand expression type for AssignmentExpression", {} }.throwException();
+            Error{ "Invalid left-hand expression type for AssignmentExpression", nearestToken }.throwException();
         }
 
         // Right hand side must be valid expression
@@ -89,18 +89,18 @@ namespace GoldScorpion {
         // Type of right hand side assignment should match type of identifier on left hand side
         std::optional< std::string > lhsType = getType( *node.identifier, memory );
         if( !lhsType ) {
-            Error{ "Internal compiler error (AssignmentExpression unable to determine type for node.identifier)", {} }.throwException();
+            Error{ "Internal compiler error (AssignmentExpression unable to determine type for node.identifier)", nearestToken }.throwException();
         }
 
         std::optional< std::string > rhsType = getType( *node.expression, memory );
         if( !rhsType ) {
-            Error{ "Internal compiler error (AssignmentExpression unable to determine type for node.expression", {} }.throwException();
+            Error{ "Internal compiler error (AssignmentExpression unable to determine type for node.expression", nearestToken }.throwException();
         }
 
         bool integerTypesMatch = typeIsInteger( *lhsType ) && typeIsInteger( *rhsType );
         bool typesMatch = *lhsType == *rhsType;
         if( !( integerTypesMatch || typesMatch ) ) {
-            Error{ "Type mismatch: Expected type " + *lhsType + " but expression is of type " + *rhsType, {} }.throwException();
+            Error{ "Type mismatch: Expected type " + *lhsType + " but expression is of type " + *rhsType, nearestToken }.throwException();
         }
     }
 
