@@ -3,6 +3,7 @@
 #include <vector>
 #include <optional>
 #include <variant>
+#include <stack>
 
 namespace GoldScorpion {
 
@@ -35,19 +36,24 @@ namespace GoldScorpion {
 	};
 
 	using MemoryQuery = std::variant< GlobalMemoryElement, StackMemoryElement >;
+	using Scope = long;
 
 	class MemoryTracker {
 		std::vector< MemoryElement > dataSegment;
 		std::vector< MemoryElement > stack;
 		std::vector< UserDefinedType > udts;
+		std::stack< Scope > scopes;
 
 	public:
 		void insert( MemoryElement element );
 
 		void push( const MemoryElement& element );
-		MemoryElement pop();
+		std::optional< MemoryElement > pop();
 
 		void clearMemory();
+
+		void openScope();
+		std::vector< StackMemoryElement > closeScope();
 
 		std::optional< MemoryQuery > find( const std::string& id ) const;
 

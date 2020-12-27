@@ -23,19 +23,55 @@ namespace GoldScorpion {
 
 	void MemoryTracker::push( const MemoryElement& element ) {
 		stack.push_back( element );
+
+		// Push a pointer to this value onto the most recently opened scope
+		if( !scopes.empty() ) {
+			scopes.top()++;
+		}
 	}
 
-	MemoryElement MemoryTracker::pop() {
-		MemoryElement result = stack.back();
+	std::optional< MemoryElement > MemoryTracker::pop() {
+		if( !stack.empty() ) {
+			MemoryElement result = stack.back();
+			stack.pop_back();
 
-		stack.pop_back();
+			if( !scopes.empty() ) {
+				scopes.top()--;
+			}
 
-		return result;
+			return result;
+		} else {
+			return {};
+		}
 	}
 
 	void MemoryTracker::clearMemory() {
 		dataSegment.clear();
 		stack.clear();
+		while( !scopes.empty() ) {
+			scopes.pop();
+		}
+	}
+
+	void MemoryTracker::openScope() {
+		scopes.push( 0 );
+	}
+
+	std::vector< StackMemoryElement > MemoryTracker::closeScope() {
+		std::vector< StackMemoryElement > elements;
+
+		if( !scopes.empty() ) {
+			long offset = 0;
+			for( long i = 0; i != scopes.top(); i++ ) {
+				elements.push_back( StackMemoryElement{ stack.back(), offset } );
+				offset += stack.back().size;
+				stack.pop_back();
+			}
+
+			scopes.pop();
+		}
+
+		return elements;
 	}
 
 	std::optional< MemoryQuery > MemoryTracker::find( const std::string& id ) const {

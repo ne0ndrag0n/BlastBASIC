@@ -3,6 +3,7 @@
 #include "type_tools.hpp"
 #include "tree_tools.hpp"
 #include <variant>
+#include <set>
 
 namespace GoldScorpion {
 
@@ -10,16 +11,26 @@ namespace GoldScorpion {
     static void check( const Expression& node, MemoryTracker& memory );
     // end
 
-    static void expectTokenString( const Token& token, const std::string& error ) {
-        if( !token.value || !std::holds_alternative< std::string >( *token.value ) ) {
-           Error{ error, token }.throwException();
+    static std::string expectTokenString( const Token& token, const std::string& error ) {
+        if( token.value ) {
+            if( auto stringValue = std::get_if< std::string >( &*token.value ) ) {
+                return *stringValue;
+            }
         }
+
+        Error{ error, token }.throwException();
+        return "";
     }
 
-    static void expectTokenLong( const Token& token, const std::string& error ) {
-        if( !token.value || !std::holds_alternative< long >( *token.value ) ) {
-           Error{ error, token }.throwException();
+    static long expectTokenLong( const Token& token, const std::string& error ) {
+        if( token.value ) {
+            if( auto longValue = std::get_if< long >( &*token.value ) ) {
+                return *longValue;
+            }
         }
+
+        Error{ error, token }.throwException();
+        return 0;
     }
 
     static void expectTokenValue( const Token& token, const std::string& error ) {
@@ -49,19 +60,93 @@ namespace GoldScorpion {
         }
     }
 
+    static void expectTokenOfType( const Token& token, const std::set< TokenType >& acceptableTypes, const std::string& error ) {
+        if( !acceptableTypes.count( token.type ) ) {
+            Error{ error, token }.throwException();
+        }
+    }
+
     static Token expectToken( const Primary& primary, std::optional< Token > nearestToken, const std::string& error ) {
         if( auto token = std::get_if< Token >( &primary.value ) ) {
             return *token;
         }
 
         Error{ error, nearestToken }.throwException();
+        return Token{ TokenType::TOKEN_NONE, {}, 0, 0 };
     }
 
     static void check( const BinaryExpression& node, std::optional< Token > nearestToken, MemoryTracker& memory ) {
-        Error{ "Internal compiler error (BinaryExpression check not implemented)", {} }.throwException();
+        // Constraints on BinaryExpressions:
+        // 1) Left-hand side expression and right-hand side expression must validate
+        // 2) Operator must be token-type primary and one of the following: +, -, *, /, %, or .
+        // 3) For . operator:
+        // - Left-hand side must return a declared UDT type
+        // - Right-hand side must be a token-type primary of identifier type
+        // - Right-hand side identifier must be a valid field on the left-hand side user-defined type
+        // 4) For all other operators:
+        // - Left-hand side type must match right-hand side type, OR
+        // - Right-hand side type must be coercible to left-hand side type:
+        //  - Both are integer type, or
+        //  - One side is a string while another is an integer type
+
+        check( *node.lhsValue, memory );
+        check( *node.rhsValue, memory );
+
+        std::optional< std::string > lhsType = getType( *node.lhsValue, memory );
+        std::optional< std::string > rhsType = getType( *node.rhsValue, memory );
+
+        Token token = expectToken( *node.op, nearestToken, "Expected: Operator of BinaryExpression to be of Token type" );
+        if( token.type == TokenType::TOKEN_DOT ) {
+            // - Left-hand side must return a declared UDT type...
+            if( !lhsType || !typeIsUdt( *lhsType ) ) {
+                Error{ "Expected: Declared user-defined type as left-hand side of BinaryExpression with \".\" operator", token }.throwException();
+            }
+
+            if( !memory.findUdt( *lhsType ) ) {
+                Error{ "Undeclared user-defined type: " + *lhsType, token }.throwException();
+            }
+
+            // - Right hand side must be a token-type primary....
+            if( auto primaryType = std::get_if< std::unique_ptr< Primary > >( &node.rhsValue->value ) ) {
+                // ...of identifier type
+                Token rhsIdentifier = expectToken( **primaryType, nearestToken, "Expected: Expression of Primary token type as right-hand side of BinaryExpression with \".\" operator" );
+                expectTokenOfType( rhsIdentifier, TokenType::TOKEN_IDENTIFIER, "Primary expression in RHS of BinaryExpression with \".\' operator must be of identifier type" );
+
+                std::string rhsUdtFieldId = expectTokenString( rhsIdentifier, "Internal compiler error (BinaryExpression dot RHS token has no string alternative)" );
+                if( !memory.findUdtField( *lhsType, rhsUdtFieldId ) ) {
+                    Error{ "Invalid field " + rhsUdtFieldId + " on user-defined type " + *lhsType, rhsIdentifier }.throwException();
+                }
+            } else {
+                Error{ "Expected: Expression of Primary type as right-hand side of BinaryExpression with \".\" operator", nearestToken }.throwException();
+            }
+        }
+
+        expectTokenOfType(
+            token,
+            {
+                TokenType::TOKEN_PLUS,
+                TokenType::TOKEN_MINUS,
+                TokenType::TOKEN_ASTERISK,
+                TokenType::TOKEN_FORWARD_SLASH,
+                TokenType::TOKEN_MODULO
+            },
+            "Expected: Operator of BinaryExpression to be one of \"+\",\"-\",\"*\",\"/\",\"%\",\".\""
+        );
+
+        // Check if types are identical, and if not identical, if they can be coerced
+        bool integerTypesMatch = typeIsInteger( *lhsType ) && typeIsInteger( *rhsType );
+        bool typesMatch = *lhsType == *rhsType;
+        bool coercibleToString = ( *lhsType == "string" && typeIsInteger( *rhsType ) ) || ( typeIsInteger( *lhsType ) && *rhsType == "string" );
+        if( !( integerTypesMatch || typesMatch || coercibleToString ) ) {
+            Error{ "Type mismatch: Expected type " + *lhsType + " but right-hand side expression is of type " + *rhsType, nearestToken }.throwException();
+        }
     }
 
     static void check( const AssignmentExpression& node, std::optional< Token > nearestToken, MemoryTracker& memory ) {
+        // Begin with a simple verification of both the left-hand side and the right-hand side
+        check( *node.identifier, memory );
+        check( *node.expression, memory );
+
         // Left hand side must be either primary expression type with identifier, or binaryexpression type with dot operator
         const Expression& identifierExpression = *node.identifier;
         if( auto primaryExpression = std::get_if< std::unique_ptr< Primary > >( &identifierExpression.value ) ) {
@@ -72,7 +157,6 @@ namespace GoldScorpion {
             // Primary expression must contain a token of type IDENTIFIER
             expectTokenOfType( token, TokenType::TOKEN_IDENTIFIER, "Primary expression in LHS of AssignmentExpression must be a single identifier" );
             expectTokenString( token, "Internal compiler error (AssignmentExpression token has no string alternative" );
-
         } else if( auto result = std::get_if< std::unique_ptr< BinaryExpression > >( &identifierExpression.value ) ) {
             // Validate this binary expression
             const BinaryExpression& binaryExpression = **result;
@@ -84,9 +168,6 @@ namespace GoldScorpion {
         } else {
             Error{ "Invalid left-hand expression type for AssignmentExpression", nearestToken }.throwException();
         }
-
-        // Right hand side must be valid expression
-        check( *node.expression, memory );
 
         // Type of right hand side assignment should match type of identifier on left hand side
         std::optional< std::string > lhsType = getType( *node.identifier, memory );
