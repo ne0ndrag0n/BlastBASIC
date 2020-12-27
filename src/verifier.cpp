@@ -134,10 +134,7 @@ namespace GoldScorpion {
         );
 
         // Check if types are identical, and if not identical, if they can be coerced
-        bool integerTypesMatch = typeIsInteger( *lhsType ) && typeIsInteger( *rhsType );
-        bool typesMatch = *lhsType == *rhsType;
-        bool coercibleToString = ( *lhsType == "string" && typeIsInteger( *rhsType ) ) || ( typeIsInteger( *lhsType ) && *rhsType == "string" );
-        if( !( integerTypesMatch || typesMatch || coercibleToString ) ) {
+        if( !( typesMatch( *lhsType, *rhsType ) || integerTypesMatch( *lhsType, *rhsType ) || coercibleToString( *lhsType, *rhsType ) ) ) {
             Error{ "Type mismatch: Expected type " + *lhsType + " but right-hand side expression is of type " + *rhsType, nearestToken }.throwException();
         }
     }
@@ -180,9 +177,7 @@ namespace GoldScorpion {
             Error{ "Internal compiler error (AssignmentExpression unable to determine type for node.expression", nearestToken }.throwException();
         }
 
-        bool integerTypesMatch = typeIsInteger( *lhsType ) && typeIsInteger( *rhsType );
-        bool typesMatch = *lhsType == *rhsType;
-        if( !( integerTypesMatch || typesMatch ) ) {
+        if( !( typesMatch( *lhsType, *rhsType ) || integerTypesMatch( *lhsType, *rhsType ) ) ) {
             Error{ "Type mismatch: Expected type " + *lhsType + " but expression is of type " + *rhsType, nearestToken }.throwException();
         }
     }

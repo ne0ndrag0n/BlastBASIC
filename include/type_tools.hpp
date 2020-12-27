@@ -17,6 +17,12 @@ namespace GoldScorpion {
 
     bool typeIsInteger( const std::string& typeId );
 
+    bool typesMatch( const std::string& lhs, const std::string& rhs );
+
+    bool integerTypesMatch( const std::string& lhs, const std::string& rhs );
+
+    bool coercibleToString( const std::string& lhs, const std::string& rhs );
+
     // Only valid for integer fields
     std::string promotePrimitiveTypes( const std::string& lhs, const std::string& rhs );
 
