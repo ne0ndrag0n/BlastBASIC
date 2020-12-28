@@ -7,6 +7,6 @@
 
 namespace GoldScorpion {
 
-    Result< MemoryTracker > check( const Program& program );
+    std::optional< std::string > check( const Program& program );
 
 }

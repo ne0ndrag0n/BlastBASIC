@@ -2,6 +2,7 @@
 #include "error.hpp"
 #include "type_tools.hpp"
 #include "tree_tools.hpp"
+#include "variant_visitor.hpp"
 #include <variant>
 #include <set>
 
@@ -139,6 +140,37 @@ namespace GoldScorpion {
         }
     }
 
+    // mostly checks for internal compiler errors
+    static void check( const Primary& node, std::optional< Token > nearestToken, MemoryTracker& memory ) {
+        std::visit( overloaded {
+
+            []( const Token& token ) {
+                switch( token.type ) {
+                    case TokenType::TOKEN_IDENTIFIER: {
+                        expectTokenValue( token, "Internal compiler error (Token of type TOKEN_IDENTIFIER has no associated value)" );
+                        break;
+                    }
+                    case TokenType::TOKEN_LITERAL_STRING: {
+                        expectTokenString( token, "Internal compiler error (Token of type TOKEN_LITERAL_STRING has no associated string)" );
+                        break;
+                    }
+                    case TokenType::TOKEN_LITERAL_INTEGER: {
+                        expectTokenLong( token, "Internal compiler error (Token of type TOKEN_LITERAL_INTEGER has no associated long)" );
+                        break;
+                    }
+                    default:
+                        // tests pass
+                        break;
+                }
+            },
+
+            [ &memory ]( const std::unique_ptr< Expression >& expression ) {
+                check( *expression, memory );
+            }
+
+        }, node.value );
+    }
+
     static void check( const AssignmentExpression& node, std::optional< Token > nearestToken, MemoryTracker& memory ) {
         // Begin with a simple verification of both the left-hand side and the right-hand side
         check( *node.identifier, memory );
@@ -183,7 +215,16 @@ namespace GoldScorpion {
     }
 
     static void check( const Expression& node, MemoryTracker& memory ) {
-        Error{ "Internal compiler error (Expression check not implemented)", {} }.throwException();
+        if( auto assignmentExpression = std::get_if< std::unique_ptr< AssignmentExpression > >( &node.value ) ) {
+            check( **assignmentExpression, node.nearestToken, memory );
+        }
+
+        if( auto binaryExpression = std::get_if< std::unique_ptr< BinaryExpression > >( &node.value ) ) {
+            check( **binaryExpression, node.nearestToken, memory );
+        }
+
+
+        Error{ "Internal compiler error (Expression check not implemented for this expression subtype)", {} }.throwException();
     }
 
     static void check( const VarDeclaration& node, MemoryTracker& memory ) {
@@ -239,11 +280,32 @@ namespace GoldScorpion {
         memory.push( MemoryElement { *identifierTitle, *typeId, 0, 0 } );
     }
 
+    static void check( const Statement& node, MemoryTracker& memory ) {\
+        if( auto expressionStatement = std::get_if< std::unique_ptr< ExpressionStatement > >( &node.value ) ) {
+            // There's nothing to check in an expression statement so unwrap the expression inside and check that
+            check( *((**expressionStatement).value), memory );
+        }
+
+        Error{ "Internal compiler error (Statement check not implemented for this statement subtype)", {} }.throwException();
+    }
+
+    static void check( const Declaration& node, MemoryTracker& memory ) {
+        if( auto varDeclaration = std::get_if< std::unique_ptr< VarDeclaration > >( &node.value ) ) {
+            check( **varDeclaration, memory );
+        }
+
+        if( auto statement = std::get_if< std::unique_ptr< Statement > >( &node.value ) ) {
+            check( **statement, memory );
+        }
+
+        Error{ "Internal compiler error (Declaration check not implemented for this declaration subtype)", {} }.throwException();
+    }
+
     /**
      * Run a verification step to make sure items are logically consistent
      * Additionally, build a MemoryTracker object that will contain registered UDTs encountered
      */
-    Result< MemoryTracker > check( const Program& program ) {
+    std::optional< std::string > check( const Program& program ) {
         return "Not implemented";
     }
 
