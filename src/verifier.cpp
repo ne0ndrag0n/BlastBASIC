@@ -76,6 +76,37 @@ namespace GoldScorpion {
         return Token{ TokenType::TOKEN_NONE, {}, 0, 0 };
     }
 
+    // mostly checks for internal compiler errors
+    static void check( const Primary& node, MemoryTracker& memory ) {
+        std::visit( overloaded {
+
+            []( const Token& token ) {
+                switch( token.type ) {
+                    case TokenType::TOKEN_IDENTIFIER: {
+                        expectTokenValue( token, "Internal compiler error (Token of type TOKEN_IDENTIFIER has no associated value)" );
+                        break;
+                    }
+                    case TokenType::TOKEN_LITERAL_STRING: {
+                        expectTokenString( token, "Internal compiler error (Token of type TOKEN_LITERAL_STRING has no associated string)" );
+                        break;
+                    }
+                    case TokenType::TOKEN_LITERAL_INTEGER: {
+                        expectTokenLong( token, "Internal compiler error (Token of type TOKEN_LITERAL_INTEGER has no associated long)" );
+                        break;
+                    }
+                    default:
+                        // tests pass
+                        break;
+                }
+            },
+
+            [ &memory ]( const std::unique_ptr< Expression >& expression ) {
+                check( *expression, memory );
+            }
+
+        }, node.value );
+    }
+
     static void check( const BinaryExpression& node, std::optional< Token > nearestToken, MemoryTracker& memory ) {
         // Constraints on BinaryExpressions:
         // 1) Left-hand side expression and right-hand side expression must validate
@@ -91,6 +122,7 @@ namespace GoldScorpion {
         //  - One side is a string while another is an integer type
 
         check( *node.lhsValue, memory );
+        check( *node.op, memory );
         check( *node.rhsValue, memory );
 
         std::optional< std::string > lhsType = getType( *node.lhsValue, memory );
@@ -140,37 +172,6 @@ namespace GoldScorpion {
         }
     }
 
-    // mostly checks for internal compiler errors
-    static void check( const Primary& node, std::optional< Token > nearestToken, MemoryTracker& memory ) {
-        std::visit( overloaded {
-
-            []( const Token& token ) {
-                switch( token.type ) {
-                    case TokenType::TOKEN_IDENTIFIER: {
-                        expectTokenValue( token, "Internal compiler error (Token of type TOKEN_IDENTIFIER has no associated value)" );
-                        break;
-                    }
-                    case TokenType::TOKEN_LITERAL_STRING: {
-                        expectTokenString( token, "Internal compiler error (Token of type TOKEN_LITERAL_STRING has no associated string)" );
-                        break;
-                    }
-                    case TokenType::TOKEN_LITERAL_INTEGER: {
-                        expectTokenLong( token, "Internal compiler error (Token of type TOKEN_LITERAL_INTEGER has no associated long)" );
-                        break;
-                    }
-                    default:
-                        // tests pass
-                        break;
-                }
-            },
-
-            [ &memory ]( const std::unique_ptr< Expression >& expression ) {
-                check( *expression, memory );
-            }
-
-        }, node.value );
-    }
-
     static void check( const AssignmentExpression& node, std::optional< Token > nearestToken, MemoryTracker& memory ) {
         // Begin with a simple verification of both the left-hand side and the right-hand side
         check( *node.identifier, memory );
@@ -189,7 +190,6 @@ namespace GoldScorpion {
         } else if( auto result = std::get_if< std::unique_ptr< BinaryExpression > >( &identifierExpression.value ) ) {
             // Validate this binary expression
             const BinaryExpression& binaryExpression = **result;
-            check( binaryExpression, identifierExpression.nearestToken, memory );
 
             // The above binary expression may validate as correct, but in this case, it must be a dot expression
             Token token = expectToken( *binaryExpression.op, identifierExpression.nearestToken, "BinaryExpression must have an operator of Token type" );
@@ -223,6 +223,9 @@ namespace GoldScorpion {
             check( **binaryExpression, node.nearestToken, memory );
         }
 
+        if( auto primary = std::get_if< std::unique_ptr< Primary > >( &node.value ) ) {
+            check( **primary, memory );
+        }
 
         Error{ "Internal compiler error (Expression check not implemented for this expression subtype)", {} }.throwException();
     }
@@ -303,10 +306,19 @@ namespace GoldScorpion {
 
     /**
      * Run a verification step to make sure items are logically consistent
-     * Additionally, build a MemoryTracker object that will contain registered UDTs encountered
      */
     std::optional< std::string > check( const Program& program ) {
-        return "Not implemented";
+        MemoryTracker memory;
+
+        for( const auto& declaration : program.statements ) {
+            try {
+                check( *declaration, memory );
+            } catch( std::runtime_error e ) {
+                return e.what();
+            }
+        }
+
+        return {};
     }
 
 }
