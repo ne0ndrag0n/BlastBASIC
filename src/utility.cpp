@@ -29,7 +29,7 @@ namespace GoldScorpion::Utility {
 		return stringLtrim( rTrimmed );
 	}
 
-	Result< File > fileToString( const std::string& filename ) {
+	VariantResult< File > fileToString( const std::string& filename ) {
 		File result;
 
 		try {

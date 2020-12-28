@@ -127,8 +127,8 @@ namespace GoldScorpion {
         check( *node.op, memory );
         check( *node.rhsValue, memory );
 
-        std::optional< std::string > lhsType = getType( *node.lhsValue, memory );
-        std::optional< std::string > rhsType = getType( *node.rhsValue, memory );
+        auto lhsType = getType( *node.lhsValue, memory );
+        auto rhsType = getType( *node.rhsValue, memory );
 
         Token token = expectToken( *node.op, nearestToken, "Expected: Operator of BinaryExpression to be of Token type" );
         if( token.type == TokenType::TOKEN_DOT ) {
@@ -201,12 +201,12 @@ namespace GoldScorpion {
         }
 
         // Type of right hand side assignment should match type of identifier on left hand side
-        std::optional< std::string > lhsType = getType( *node.identifier, memory );
+        auto lhsType = getType( *node.identifier, memory );
         if( !lhsType ) {
             Error{ "Internal compiler error (AssignmentExpression unable to determine type for node.identifier)", nearestToken }.throwException();
         }
 
-        std::optional< std::string > rhsType = getType( *node.expression, memory );
+        auto rhsType = getType( *node.expression, memory );
         if( !rhsType ) {
             Error{ "Internal compiler error (AssignmentExpression unable to determine type for node.expression", nearestToken }.throwException();
         }
@@ -247,7 +247,7 @@ namespace GoldScorpion {
         }
 
         // Use memory tracker to push a memory element
-        std::optional< std::string > identifierTitle = getIdentifierName( node.variable.name );
+        auto identifierTitle = getIdentifierName( node.variable.name );
         if( !identifierTitle ) {
             Error{ "Internal compiler error (VarDeclaration variable.name is not an identifier)", node.variable.name }.throwException();
         }
@@ -263,7 +263,7 @@ namespace GoldScorpion {
             check( **node.value, memory );
 
             // Get type of expression
-            std::optional< std::string > expressionType = getType( **node.value, memory );
+            auto expressionType = getType( **node.value, memory );
             if( !expressionType ) {
                 Error{ "Internal compiler error (VarDeclaration validated Expression failed to yield a type)", {} }.throwException();
             }
@@ -271,7 +271,7 @@ namespace GoldScorpion {
             // If both types are integer types then they are compatible with one another
             bool integerTypesMatch = typeIsInteger( *typeId ) && typeIsInteger( *expressionType );
             // Otherwise the types must match directly
-            bool typesMatch = typeId == expressionType;
+            bool typesMatch = *typeId == *expressionType;
 
             if( !( typesMatch || integerTypesMatch ) ) {
                 Error{ "Type mismatch: Expected type " + *typeId + " but expression is of type " + *expressionType, node.variable.type.type }.throwException();

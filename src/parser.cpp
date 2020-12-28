@@ -133,7 +133,7 @@ namespace GoldScorpion {
 					// Attempt to get expression
 					AstResult< Expression > expression = getExpression( ++current );
 					if( expression ) {
-						// Result valid if there is a closing paren in the next iterator
+						// VariantResult valid if there is a closing paren in the next iterator
 						if( expression->nextIterator->type == TokenType::TOKEN_RIGHT_PAREN ) {
 							// Eat the current param and return the expression wrapped in a primary
 							return GeneratedAstNode< Expression >{
@@ -1481,7 +1481,7 @@ namespace GoldScorpion {
 		return result;
 	}
 
-	Result< Program > getProgram( std::vector< Token > tokens ) {
+	VariantResult< Program > getProgram( std::vector< Token > tokens ) {
 		end = tokens.end();
 
 		// Just a test for now

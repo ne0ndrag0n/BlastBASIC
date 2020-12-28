@@ -6,6 +6,6 @@
 
 namespace GoldScorpion {
 
-	Result< Assembly > generate( const Program& program );
+	VariantResult< Assembly > generate( const Program& program );
 
 }

@@ -5,6 +5,6 @@
 
 namespace GoldScorpion {
 
-	Result< std::vector< Token > > getTokens( std::string body );
+	VariantResult< std::vector< Token > > getTokens( std::string body );
 
 }

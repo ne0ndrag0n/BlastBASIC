@@ -1,11 +1,14 @@
 #pragma once
 #include "token.hpp"
 #include "memory_tracker.hpp"
+#include "result_type.hpp"
 #include "ast.hpp"
 #include <string>
 #include <optional>
 
 namespace GoldScorpion {
+
+    using TypeResult = Result< std::string, std::string >;
 
     std::optional< TokenType > typeIdToTokenType( const std::string& id );
 
@@ -26,10 +29,10 @@ namespace GoldScorpion {
     // Only valid for integer fields
     std::string promotePrimitiveTypes( const std::string& lhs, const std::string& rhs );
 
-    std::optional< std::string > getType( const Primary& node, MemoryTracker& memory );
+    TypeResult getType( const Primary& node, MemoryTracker& memory );
 
-    std::optional< std::string > getType( const BinaryExpression& node, MemoryTracker& memory );
+    TypeResult getType( const BinaryExpression& node, MemoryTracker& memory );
 
-    std::optional< std::string > getType( const Expression& expression, MemoryTracker& memory );
+    TypeResult getType( const Expression& expression, MemoryTracker& memory );
 
 }

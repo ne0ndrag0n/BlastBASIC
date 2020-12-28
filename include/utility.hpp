@@ -11,7 +11,7 @@ namespace GoldScorpion::Utility {
 	std::string stringRtrim( std::string& s );
 	std::string stringTrim( std::string s );
 
-	Result< File > fileToString( const std::string& filename );
+	VariantResult< File > fileToString( const std::string& filename );
 
 	std::string longToHex( long value );
 

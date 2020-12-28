@@ -197,7 +197,7 @@ namespace GoldScorpion {
 		}
 	}
 
-	Result< std::vector< Token > > getTokens( std::string body ) {
+	VariantResult< std::vector< Token > > getTokens( std::string body ) {
 		// Append an extra character to force-flush the buffer
 		body += '\t';
 

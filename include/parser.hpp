@@ -6,6 +6,6 @@
 
 namespace GoldScorpion {
 
-	Result< Program > getProgram( std::vector< Token > tokens );
+	VariantResult< Program > getProgram( std::vector< Token > tokens );
 
 }

@@ -165,19 +165,19 @@ namespace GoldScorpion {
         }
     }
 
-    std::optional< std::string > getType( const Primary& node, MemoryTracker& memory ) {
-        std::optional< std::string > result;
+    TypeResult getType( const Primary& node, MemoryTracker& memory ) {
+        TypeResult result;
 
         std::visit(
             overloaded {
                 [ &memory, &result ]( const Token& token ){
                     switch( token.type ) {
                         case TokenType::TOKEN_LITERAL_INTEGER: {
-                            result = getLiteralType( expectLong( token ) );
+                            result = TypeResult::good( getLiteralType( expectLong( token ) ) );
                             return;
                         }
                         case TokenType::TOKEN_LITERAL_STRING: {
-                            result = std::string( "string" );
+                            result = TypeResult::good( "string" );
                             return;
                         }
                         case TokenType::TOKEN_IDENTIFIER: {
@@ -185,7 +185,7 @@ namespace GoldScorpion {
                             std::string id = expectString( token );
                             auto memoryQuery = memory.find( id );
                             if( !memoryQuery ) {
-                                result = {};
+                                result = TypeResult::err( "Undefined variable: " + id );
                                 return;
                             }
 
@@ -195,7 +195,7 @@ namespace GoldScorpion {
                                 // Udt
                                 std::optional< UserDefinedType > udt = memory.findUdt( typeId );
                                 if( udt ) {
-                                    result = udt->id;
+                                    result = TypeResult::good( udt->id );
                                     return;
                                 }
 
@@ -204,19 +204,16 @@ namespace GoldScorpion {
                                 Error{ "Internal compiler error", token }.throwException();
                             }
 
-                            result = typeId;
+                            result = TypeResult::good( typeId );
                             return;
                         }
                         default: {
                             Error{ "Internal compiler error", token }.throwException();
-                            result = {};
-                            return;
                         }
                     }
                 },
                 [ &memory, &result ]( const std::unique_ptr< Expression >& expression ){
                     result = getType( *expression, memory );
-                    return;
                 }
             },
             node.value
@@ -225,10 +222,10 @@ namespace GoldScorpion {
         return result;
     }
 
-    std::optional< std::string > getType( const BinaryExpression& node, MemoryTracker& memory ) {
+    TypeResult getType( const BinaryExpression& node, MemoryTracker& memory ) {
 
-        std::optional< std::string > lhs = getType( *node.lhsValue, memory );
-        std::optional< std::string > rhs = getType( *node.rhsValue, memory );
+        TypeResult lhs = getType( *node.lhsValue, memory );
+        TypeResult rhs = getType( *node.rhsValue, memory );
 
         // If operator is dot then type of the expression is the field on the left hand side
         TokenType tokenOp;
@@ -243,47 +240,46 @@ namespace GoldScorpion {
                 // The type of a dot operation is the field, specified on the RHS, of the UDT on the LHS.
                 auto rhsIdentifier = getIdentifierName( *node.rhsValue );
                 if( !rhsIdentifier ) {
-                    return {};
+                    return TypeResult::err( "No identifier" );
                 }
 
                 if( !lhs ) {
-                    return {};
+                    return lhs;
                 }
 
                 auto lhsUdt = memory.findUdt( *lhs );
                 if( !lhsUdt ) {
-                    return {};
+                    return TypeResult::err( "Undeclared user-defined type" );
                 }
 
                 auto rhsUdtField = memory.findUdtField( lhsUdt->id, *rhsIdentifier );
                 if( !rhsUdtField ) {
-                    return {};
+                    return TypeResult::err( "Invalid field on user-defined type" );
                 }
 
-                return rhsUdtField->typeId;
+                return TypeResult::good( rhsUdtField->typeId );
             }
             default: {
                 // All other operators require both sides to have a well-defined type
-                if( !lhs || !rhs ) {
-                    return {};
-                }
+                if( !lhs ) { return lhs; }
+                if( !rhs ) { return rhs; }
 
                 // For all other operators, if left hand side is a UDT, then RHS must be as well.
                 if( typeIsUdt( *lhs ) ) {
                     if( *lhs == *rhs ) {
                         return lhs;
                     } else {
-                        return {};
+                        return TypeResult::err( "Type mismatch" );
                     }
                 }
 
                 // Otherwise the data type of the BinaryExpression is the larger of lhs, rhs
-                return promotePrimitiveTypes( *lhs, *rhs );
+                return TypeResult::good( promotePrimitiveTypes( *lhs, *rhs ) );
             }
         }
     }
 
-    std::optional< std::string > getType( const Expression& node, MemoryTracker& memory ) {
+    TypeResult getType( const Expression& node, MemoryTracker& memory ) {
 		if( auto binaryExpression = std::get_if< std::unique_ptr< BinaryExpression > >( &node.value ) ) {
  			return getType( **binaryExpression, memory );
 		}
@@ -293,7 +289,7 @@ namespace GoldScorpion {
 		}
 
 		// Many node types not yet implemented
-        return {};
+        return TypeResult::err( "Expression subtype not implemented" );
     }
 
 }
