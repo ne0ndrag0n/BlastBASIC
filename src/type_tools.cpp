@@ -240,7 +240,7 @@ namespace GoldScorpion {
                 // The type of a dot operation is the field, specified on the RHS, of the UDT on the LHS.
                 auto rhsIdentifier = getIdentifierName( *node.rhsValue );
                 if( !rhsIdentifier ) {
-                    return TypeResult::err( "No identifier" );
+                    return TypeResult::err( "Right-hand side of dot operator must contain single identifier" );
                 }
 
                 if( !lhs ) {
@@ -254,7 +254,7 @@ namespace GoldScorpion {
 
                 auto rhsUdtField = memory.findUdtField( lhsUdt->id, *rhsIdentifier );
                 if( !rhsUdtField ) {
-                    return TypeResult::err( "Invalid field on user-defined type" );
+                    return TypeResult::err( "User-defined type " + lhsUdt->id + " does not have field " + *rhsIdentifier );
                 }
 
                 return TypeResult::good( rhsUdtField->typeId );
