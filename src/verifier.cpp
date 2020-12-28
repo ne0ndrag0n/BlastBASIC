@@ -127,12 +127,10 @@ namespace GoldScorpion {
         check( *node.op, memory );
         check( *node.rhsValue, memory );
 
-        auto lhsType = getType( *node.lhsValue, memory );
-        auto rhsType = getType( *node.rhsValue, memory );
-
         Token token = expectToken( *node.op, nearestToken, "Expected: Operator of BinaryExpression to be of Token type" );
         if( token.type == TokenType::TOKEN_DOT ) {
             // - Left-hand side must return a declared UDT type...
+            auto lhsType = getType( *node.lhsValue, memory );
             if( !lhsType || !typeIsUdt( *lhsType ) ) {
                 Error{ "Expected: Declared user-defined type as left-hand side of BinaryExpression with \".\" operator", token }.throwException();
             }
@@ -154,6 +152,8 @@ namespace GoldScorpion {
             } else {
                 Error{ "Expected: Expression of Primary type as right-hand side of BinaryExpression with \".\" operator", nearestToken }.throwException();
             }
+
+            return;
         }
 
         expectTokenOfType(
@@ -167,6 +167,12 @@ namespace GoldScorpion {
             },
             "Expected: Operator of BinaryExpression to be one of \"+\",\"-\",\"*\",\"/\",\"%\",\".\""
         );
+
+        auto lhsType = getType( *node.lhsValue, memory );
+        if( !lhsType ) { Error{ lhsType.getError(), nearestToken }.throwException(); }
+
+        auto rhsType = getType( *node.rhsValue, memory );
+        if( !rhsType ) { Error{ rhsType.getError(), nearestToken }.throwException(); }
 
         // Check if types are identical, and if not identical, if they can be coerced
         if( !( typesMatch( *lhsType, *rhsType ) || integerTypesMatch( *lhsType, *rhsType ) || coercibleToString( *lhsType, *rhsType ) ) ) {
@@ -202,14 +208,10 @@ namespace GoldScorpion {
 
         // Type of right hand side assignment should match type of identifier on left hand side
         auto lhsType = getType( *node.identifier, memory );
-        if( !lhsType ) {
-            Error{ "Internal compiler error (AssignmentExpression unable to determine type for node.identifier)", nearestToken }.throwException();
-        }
+        if( !lhsType ) { Error{ lhsType.getError(), nearestToken }.throwException(); }
 
         auto rhsType = getType( *node.expression, memory );
-        if( !rhsType ) {
-            Error{ "Internal compiler error (AssignmentExpression unable to determine type for node.expression", nearestToken }.throwException();
-        }
+        if( !rhsType ) { Error{ rhsType.getError(), nearestToken }.throwException(); }
 
         if( !( typesMatch( *lhsType, *rhsType ) || integerTypesMatch( *lhsType, *rhsType ) ) ) {
             Error{ "Type mismatch: Expected type " + *lhsType + " but expression is of type " + *rhsType, nearestToken }.throwException();
