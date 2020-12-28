@@ -4,6 +4,7 @@
 #include "utility.hpp"
 #include "variant_visitor.hpp"
 #include "visitor_print.hpp"
+#include "verifier.hpp"
 #include <rang.hpp>
 #include <CLI11.hpp>
 
@@ -64,6 +65,13 @@ int main( int argc, char** argv ) {
 
 					if( printAst ) {
 						GoldScorpion::printAst( *program );
+					}
+
+					if( auto error = check( *program ) ) {
+						printError( "Failed to validate file " + parseFilename + ": " + *error );
+						return 5;
+					} else {
+						printSuccess( "Validated file " + parseFilename );
 					}
 
 					return 0;

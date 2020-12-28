@@ -40,21 +40,6 @@ namespace GoldScorpion {
         }
     }
 
-    static void expectTokenType( const Token& token, const std::string& error ) {
-        if( token.type != TokenType::TOKEN_U8 ||
-            token.type != TokenType::TOKEN_U16 ||
-            token.type != TokenType::TOKEN_U32 ||
-            token.type != TokenType::TOKEN_S8 ||
-            token.type != TokenType::TOKEN_S16 ||
-            token.type != TokenType::TOKEN_S32 ||
-            token.type != TokenType::TOKEN_STRING ||
-            token.type != TokenType::TOKEN_IDENTIFIER ||
-            ( token.type == TokenType::TOKEN_IDENTIFIER && ( !token.value || !std::holds_alternative< std::string >( *token.value ) ) )
-        ) {
-            Error{ error, token }.throwException();
-        }
-    }
-
     static void expectTokenOfType( const Token& token, const TokenType& type, const std::string& error ) {
         if( token.type != type ) {
             Error{ error, token }.throwException();
@@ -63,6 +48,23 @@ namespace GoldScorpion {
 
     static void expectTokenOfType( const Token& token, const std::set< TokenType >& acceptableTypes, const std::string& error ) {
         if( !acceptableTypes.count( token.type ) ) {
+            Error{ error, token }.throwException();
+        }
+    }
+
+    static void expectTokenType( const Token& token, const std::string& error ) {
+        static const std::set< TokenType > VALID_TOKENS = {
+            TokenType::TOKEN_U8,
+            TokenType::TOKEN_U16,
+            TokenType::TOKEN_U32,
+            TokenType::TOKEN_S8,
+            TokenType::TOKEN_S16,
+            TokenType::TOKEN_S32,
+            TokenType::TOKEN_STRING
+        };
+
+        if( ( token.type == TokenType::TOKEN_IDENTIFIER && ( !token.value || !std::holds_alternative< std::string >( *token.value ) ) ) ||
+              !VALID_TOKENS.count( token.type ) ) {
             Error{ error, token }.throwException();
         }
     }
@@ -215,19 +217,15 @@ namespace GoldScorpion {
     }
 
     static void check( const Expression& node, MemoryTracker& memory ) {
-        if( auto assignmentExpression = std::get_if< std::unique_ptr< AssignmentExpression > >( &node.value ) ) {
-            check( **assignmentExpression, node.nearestToken, memory );
-        }
+        std::visit( overloaded {
 
-        if( auto binaryExpression = std::get_if< std::unique_ptr< BinaryExpression > >( &node.value ) ) {
-            check( **binaryExpression, node.nearestToken, memory );
-        }
+            [ &node, &memory ]( const std::unique_ptr< AssignmentExpression >& expression ) { check( *expression, node.nearestToken, memory ); },
+            [ &node, &memory ]( const std::unique_ptr< BinaryExpression >& expression ) { check( *expression, node.nearestToken, memory ); },
+            []( const std::unique_ptr< UnaryExpression >& expression ) { Error{ "Internal compiler error (Expression check not implemented for expression subtype UnaryExpression)", {} }.throwException(); },
+            []( const std::unique_ptr< CallExpression >& expression ) { Error{ "Internal compiler error (Expression check not implemented for expression subtype CallExpression)", {} }.throwException(); },
+            [ &memory ]( const std::unique_ptr< Primary >& expression ) { check( *expression, memory ); },
 
-        if( auto primary = std::get_if< std::unique_ptr< Primary > >( &node.value ) ) {
-            check( **primary, memory );
-        }
-
-        Error{ "Internal compiler error (Expression check not implemented for this expression subtype)", {} }.throwException();
+        }, node.value );
     }
 
     static void check( const VarDeclaration& node, MemoryTracker& memory ) {
@@ -238,7 +236,7 @@ namespace GoldScorpion {
         expectTokenString( node.variable.name, "Internal compiler error (VarDeclaration variable.name has no string alternative)" );
 
         // Verify type is either primitive or declared
-        expectTokenType( node.variable.type.type, "Expected: User-defined type or one of [u8, u16, u32, s8, s16, s32, string]" );
+        expectTokenType( node.variable.type.type, "Expected: Declared user-defined type or one of [u8, u16, u32, s8, s16, s32, string]" );
 
         // If type is user-defined type (IDENTIFIER) then we must verify the UDT was declared
         if( node.variable.type.type.type == TokenType::TOKEN_IDENTIFIER ) {
@@ -283,25 +281,31 @@ namespace GoldScorpion {
         memory.push( MemoryElement { *identifierTitle, *typeId, 0, 0 } );
     }
 
-    static void check( const Statement& node, MemoryTracker& memory ) {\
-        if( auto expressionStatement = std::get_if< std::unique_ptr< ExpressionStatement > >( &node.value ) ) {
-            // There's nothing to check in an expression statement so unwrap the expression inside and check that
-            check( *((**expressionStatement).value), memory );
-        }
+    static void check( const Statement& node, MemoryTracker& memory ) {
+        std::visit( overloaded {
 
-        Error{ "Internal compiler error (Statement check not implemented for this statement subtype)", {} }.throwException();
+            [ &memory ]( const std::unique_ptr< ExpressionStatement >& statement ) { check( *(statement->value), memory ); },
+			[]( const std::unique_ptr< ForStatement >& statement ) { Error{ "Internal compiler error (Statement check not implemented for statement subtype ForStatement)", {} }.throwException(); },
+			[]( const std::unique_ptr< IfStatement >& statement ) { Error{ "Internal compiler error (Statement check not implemented for statement subtype IfStatement)", {} }.throwException(); },
+			[]( const std::unique_ptr< ReturnStatement >& statement ) { Error{ "Internal compiler error (Statement check not implemented for statement subtype ReturnStatement)", {} }.throwException(); },
+			[]( const std::unique_ptr< AsmStatement >& statement ) { Error{ "Internal compiler error (Statement check not implemented for statement subtype AsmStatement)", {} }.throwException(); },
+			[]( const std::unique_ptr< WhileStatement >& statement ) { Error{ "Internal compiler error (Statement check not implemented for statement subtype WhileStatement)", {} }.throwException(); }
+
+        }, node.value );
     }
 
     static void check( const Declaration& node, MemoryTracker& memory ) {
-        if( auto varDeclaration = std::get_if< std::unique_ptr< VarDeclaration > >( &node.value ) ) {
-            check( **varDeclaration, memory );
-        }
+        std::visit( overloaded {
 
-        if( auto statement = std::get_if< std::unique_ptr< Statement > >( &node.value ) ) {
-            check( **statement, memory );
-        }
+            []( const std::unique_ptr< Annotation >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype Annotation)", {} }.throwException(); },
+            [ &memory ]( const std::unique_ptr< VarDeclaration >& declaration ) { check( *declaration, memory ); },
+            []( const std::unique_ptr< ConstDeclaration >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype ConstDeclaration)", {} }.throwException(); },
+            []( const std::unique_ptr< FunctionDeclaration >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype FunctionDeclaration)", {} }.throwException(); },
+            []( const std::unique_ptr< TypeDeclaration >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype TypeDeclaration)", {} }.throwException(); },
+            []( const std::unique_ptr< ImportDeclaration >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype ImportDeclaration)", {} }.throwException(); },
+            [ &memory ]( const std::unique_ptr< Statement >& declaration ) { check( *declaration, memory ); }
 
-        Error{ "Internal compiler error (Declaration check not implemented for this declaration subtype)", {} }.throwException();
+        }, node.value );
     }
 
     /**
