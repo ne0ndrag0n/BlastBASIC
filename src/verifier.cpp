@@ -10,6 +10,7 @@ namespace GoldScorpion {
 
     // Forward Declarations
     static void check( const Expression& node, MemoryTracker& memory );
+    static void check( const Declaration& node, MemoryTracker& memory );
     // end
 
     static std::string expectTokenString( const Token& token, const std::string& error ) {
@@ -264,6 +265,8 @@ namespace GoldScorpion {
             Error{ "Internal compiler error (VarDeclaration variable.type should be properly verified)", node.variable.type.type }.throwException();
         }
 
+        // TODO: Cannot redefine a variable in the same scope, check for this using memorytracker
+
         // The type returned by the expression on the right must match the declared type, or be coercible to the type.
         if( node.value ) {
             // Validate expression
@@ -281,6 +284,49 @@ namespace GoldScorpion {
         }
 
         memory.push( MemoryElement { *identifierTitle, *typeId, 0, 0 } );
+    }
+
+    static void check( const FunctionDeclaration& node, MemoryTracker& memory, bool thisPermitted, bool labelRequired ) {
+        Error{ "Internal compiler error (Declaration check not implemented for declaration subtype FunctionDeclaration)", {} }.throwException();
+    }
+
+    static void check( const TypeDeclaration& node, MemoryTracker& memory ) {
+        // Type name is a single token of string type
+        expectTokenOfType( node.name, TokenType::TOKEN_IDENTIFIER, "Internal compiler error (TypeDeclaration token not of identifier type)" );
+        std::string typeId = expectTokenString( node.name, "Internal compiler error (TypeDeclaration token of identifier type contains no string alternative)" );
+
+        // Each parameter must contain an identifier/string token and either a primitive type or a declared user-defined type
+        // No two fields may have the same name
+        std::set< std::string > declaredNames;
+        for( const Parameter& parameter : node.fields ) {
+            expectTokenOfType( parameter.name, TokenType::TOKEN_IDENTIFIER, "Internal compiler error (TypeDeclaration field name token not of identifier type)" );
+            std::string fieldId = expectTokenString( parameter.name, "Internal compiler error (TypeDeclaration field name token of identifier type contains no string alternative)" );
+
+            if( declaredNames.count( fieldId ) ) {
+                Error{ "Redeclaration of user-defined type field: " + fieldId, parameter.name }.throwException();
+            } else {
+                declaredNames.insert( fieldId );
+            }
+
+            expectTokenType( parameter.type.type, "Internal compiler error (TypeDeclaration parameter type token not of any discernable type)" );
+            std::optional< std::string > fieldTypeId = tokenToTypeId( parameter.type.type );
+            if( !fieldTypeId ) {
+                Error{ "Internal compiler error (TypeDeclaration parameter type token unable to determine type)", parameter.type.type }.throwException();
+            }
+
+            // If fieldTypeId is a udt, the udt must exist
+            if( typeIsUdt( *fieldTypeId ) ) {
+                if( !memory.findUdt( *fieldTypeId ) ) {
+                    Error{ "Undeclared user-defined type: " + *fieldTypeId, parameter.type.type }.throwException();
+                }
+            }
+        }
+
+        for( const std::unique_ptr< FunctionDeclaration >& function : node.functions ) {
+            check( *function, memory, true, true );
+        }
+
+        // TODO: Add the user-defined type to the memory tracker
     }
 
     static void check( const Statement& node, MemoryTracker& memory ) {
@@ -302,8 +348,8 @@ namespace GoldScorpion {
             []( const std::unique_ptr< Annotation >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype Annotation)", {} }.throwException(); },
             [ &memory ]( const std::unique_ptr< VarDeclaration >& declaration ) { check( *declaration, memory ); },
             []( const std::unique_ptr< ConstDeclaration >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype ConstDeclaration)", {} }.throwException(); },
-            []( const std::unique_ptr< FunctionDeclaration >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype FunctionDeclaration)", {} }.throwException(); },
-            []( const std::unique_ptr< TypeDeclaration >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype TypeDeclaration)", {} }.throwException(); },
+            [ &memory ]( const std::unique_ptr< FunctionDeclaration >& declaration ) { check( *declaration, memory, false, false ); },
+            [ &memory ]( const std::unique_ptr< TypeDeclaration >& declaration ) { check( *declaration, memory ); },
             []( const std::unique_ptr< ImportDeclaration >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype ImportDeclaration)", {} }.throwException(); },
             [ &memory ]( const std::unique_ptr< Statement >& declaration ) { check( *declaration, memory ); }
 
