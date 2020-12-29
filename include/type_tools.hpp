@@ -24,6 +24,8 @@ namespace GoldScorpion {
 
     bool integerTypesMatch( const std::string& lhs, const std::string& rhs );
 
+    bool assignmentCoercible( const std::string& lhs, const std::string& rhs );
+
     bool coercibleToString( const std::string& lhs, const std::string& rhs );
 
     // Only valid for integer fields

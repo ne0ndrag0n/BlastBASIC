@@ -153,6 +153,10 @@ namespace GoldScorpion {
         return typeIsInteger( lhs ) && typeIsInteger( rhs );
     }
 
+    bool assignmentCoercible( const std::string& lhs, const std::string& rhs ) {
+        return lhs == "string" && typeIsInteger( rhs );
+    }
+
     bool coercibleToString( const std::string& lhs, const std::string& rhs ) {
         return ( lhs == "string" || rhs == "string" ) && ( typeIsInteger( lhs ) || typeIsInteger( rhs ) );
     }

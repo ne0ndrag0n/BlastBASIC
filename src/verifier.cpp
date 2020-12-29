@@ -174,6 +174,11 @@ namespace GoldScorpion {
         auto rhsType = getType( *node.rhsValue, memory );
         if( !rhsType ) { Error{ rhsType.getError(), nearestToken }.throwException(); }
 
+        // A type is only coercible to string if the operator is plus
+        if( *lhsType == "string" || *rhsType == "string" ) {
+            expectTokenOfType( token, TokenType::TOKEN_PLUS, "Expected: \"+\" operator for the concatenation of strings with string or integer types" );
+        }
+
         // Check if types are identical, and if not identical, if they can be coerced
         if( !( typesMatch( *lhsType, *rhsType ) || integerTypesMatch( *lhsType, *rhsType ) || coercibleToString( *lhsType, *rhsType ) ) ) {
             Error{ "Type mismatch: Expected type " + *lhsType + " but right-hand side expression is of type " + *rhsType, nearestToken }.throwException();
@@ -213,7 +218,7 @@ namespace GoldScorpion {
         auto rhsType = getType( *node.expression, memory );
         if( !rhsType ) { Error{ rhsType.getError(), nearestToken }.throwException(); }
 
-        if( !( typesMatch( *lhsType, *rhsType ) || integerTypesMatch( *lhsType, *rhsType ) ) ) {
+        if( !( typesMatch( *lhsType, *rhsType ) || integerTypesMatch( *lhsType, *rhsType ) || assignmentCoercible( *lhsType, *rhsType ) ) ) {
             Error{ "Type mismatch: Expected type " + *lhsType + " but expression is of type " + *rhsType, nearestToken }.throwException();
         }
     }
@@ -270,12 +275,7 @@ namespace GoldScorpion {
                 Error{ "Internal compiler error (VarDeclaration validated Expression failed to yield a type)", {} }.throwException();
             }
 
-            // If both types are integer types then they are compatible with one another
-            bool integerTypesMatch = typeIsInteger( *typeId ) && typeIsInteger( *expressionType );
-            // Otherwise the types must match directly
-            bool typesMatch = *typeId == *expressionType;
-
-            if( !( typesMatch || integerTypesMatch ) ) {
+            if( !( typesMatch( *typeId, *expressionType ) || integerTypesMatch( *typeId, *expressionType ) || assignmentCoercible( *typeId, *expressionType ) ) ) {
                 Error{ "Type mismatch: Expected type " + *typeId + " but expression is of type " + *expressionType, node.variable.type.type }.throwException();
             }
         }
