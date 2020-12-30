@@ -107,6 +107,7 @@ namespace GoldScorpion {
 			std::unique_ptr< AsmStatement >,
 			std::unique_ptr< WhileStatement >
 		> value;
+		std::optional< Token > nearestToken;
 	};
 
 	struct Parameter {
@@ -155,6 +156,7 @@ namespace GoldScorpion {
 			std::unique_ptr< ImportDeclaration >,
 			std::unique_ptr< Statement >
 		> value;
+		std::optional< Token > nearestToken;
 	};
 
 	struct Program {

@@ -8,8 +8,15 @@
 
 namespace GoldScorpion {
 
+    struct VerifierContextParameter {
+        std::string id;
+        std::string typeId;
+    };
+
     struct VerifierSettings {
         MemoryTracker& memory;
+        std::optional< Token > nearestToken;
+        std::vector< VerifierContextParameter > functionParameters;
         bool thisPermitted = true;
         bool anonymousFunctionPermitted = true;
     };
@@ -140,7 +147,11 @@ namespace GoldScorpion {
             // - Left-hand side must return a declared UDT type...
             auto lhsType = getType( *node.lhsValue, settings.memory );
             if( !lhsType || !typeIsUdt( *lhsType ) ) {
-                Error{ "Expected: Declared user-defined type as left-hand side of BinaryExpression with \".\" operator", token }.throwException();
+                std::string error = "Expected: Declared user-defined type as left-hand side of BinaryExpression with \".\" operator";
+                if( !lhsType ) {
+                    error += ": Unable to deduce type: " + lhsType.getError();
+                }
+                Error{ error, token }.throwException();
             }
 
             if( !settings.memory.findUdt( *lhsType ) ) {
@@ -296,7 +307,57 @@ namespace GoldScorpion {
     }
 
     static void check( const FunctionDeclaration& node, VerifierSettings settings ) {
-        Error{ "Internal compiler error (Declaration check not implemented for declaration subtype FunctionDeclaration)", {} }.throwException();
+        if( !node.name && !settings.anonymousFunctionPermitted ) {
+            Error{ "Anonymous function declaration not permitted here", settings.nearestToken }.throwException();
+        }
+
+        std::optional< std::string > functionName;
+        if( node.name ) {
+            expectTokenOfType( *node.name, TokenType::TOKEN_IDENTIFIER, "Name token not of identifier type" );
+            functionName = expectTokenString( *node.name, "Identifier token not of string type" );
+        }
+
+        // - No arguments can have duplicate names
+        // - No arguments can refer to undeclared user-defined types
+        std::set< std::string > usedNames;
+        for( const Parameter& parameter : node.arguments ) {
+            expectTokenOfType( parameter.name, TokenType::TOKEN_IDENTIFIER, "Internal compiler error (FunctionDeclaration Parameter identifier token not of identifier type)" );
+            std::string paramName = expectTokenString( parameter.name, "Internal compiler error (FunctionDeclaration Parameter identifier token contains no string alternative)" );
+            if( usedNames.count( paramName ) ) {
+                Error{ "Duplicate argument identifier: " + paramName, parameter.name }.throwException();
+            } else {
+                usedNames.insert( paramName );
+            }
+
+            // The typeId must be valid and, if a udt, declared
+            expectTokenType( parameter.type.type, "Internal compiler error (FunctionDeclaration Parameter type identifier not of any discernable type)" );
+            if( parameter.type.type.type == TokenType::TOKEN_IDENTIFIER ) {
+                std::string typeId = expectTokenString( parameter.type.type, "Internal compiler error (FunctionDeclaration Parameter type identifier contains no string alternative)" );
+                if( !settings.memory.findUdt( typeId ) ) {
+                    Error{ "Undeclared user-defined type: " + typeId, parameter.type.type }.throwException();
+                }
+            }
+        }
+
+        // Return type must be a valid
+        if( node.returnType ) {
+            expectTokenType( *node.returnType, "Internal compiler error (FunctionDeclaration return type identifier not of any discernable type)" );
+            if( node.returnType->type == TokenType::TOKEN_IDENTIFIER ) {
+                std::string typeId = expectTokenString( *node.returnType, "Internal compiler error (FunctionDeclaration return type identifier contains no string alternative)" );
+                if( !settings.memory.findUdt( typeId ) ) {
+                    Error{ "Undeclared user-defined type: " + typeId, *node.returnType }.throwException();
+                }
+            }
+        }
+
+        // All subdeclarations must validate properly - pass down settings
+        settings.memory.openScope();
+        // anonymousFunctionPermitted does not propagate
+        settings.anonymousFunctionPermitted = true;
+        for( const auto& declaration : node.body ) {
+            check( *declaration, settings );
+        }
+        settings.memory.closeScope();
     }
 
     static void check( const TypeDeclaration& node, VerifierSettings settings ) {
@@ -372,7 +433,10 @@ namespace GoldScorpion {
             []( const std::unique_ptr< Annotation >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype Annotation)", {} }.throwException(); },
             [ &settings ]( const std::unique_ptr< VarDeclaration >& declaration ) { check( *declaration, settings ); },
             []( const std::unique_ptr< ConstDeclaration >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype ConstDeclaration)", {} }.throwException(); },
-            [ &settings ]( const std::unique_ptr< FunctionDeclaration >& declaration ) { check( *declaration, settings ); },
+            [ &node, settings ]( const std::unique_ptr< FunctionDeclaration >& declaration ) mutable {
+                settings.nearestToken = node.nearestToken;
+                check( *declaration, settings );
+            },
             [ &settings ]( const std::unique_ptr< TypeDeclaration >& declaration ) { check( *declaration, settings ); },
             []( const std::unique_ptr< ImportDeclaration >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype ImportDeclaration)", {} }.throwException(); },
             [ &settings ]( const std::unique_ptr< Statement >& declaration ) { check( *declaration, settings ); }
@@ -385,7 +449,7 @@ namespace GoldScorpion {
      */
     std::optional< std::string > check( const Program& program ) {
         MemoryTracker memory;
-        VerifierSettings settings{ memory, true, true };
+        VerifierSettings settings{ memory, {}, {}, true, true };
 
         for( const auto& declaration : program.statements ) {
             try {

@@ -1046,11 +1046,14 @@ namespace GoldScorpion {
 	}
 
 	static AstResult< Statement > getStatement( std::vector< Token >::iterator current ) {
+		std::optional< Token > nearest = readToken( current );
+
 		if( AstResult< ExpressionStatement > expressionStatementResult = getExpressionStatement( current ) ) {
 			return GeneratedAstNode< Statement >{
 				expressionStatementResult->nextIterator,
 				std::make_unique< Statement >( Statement{
-					std::move( expressionStatementResult->node )
+					std::move( expressionStatementResult->node ),
+					nearest
 				} )
 			};
 		}
@@ -1059,7 +1062,8 @@ namespace GoldScorpion {
 			return GeneratedAstNode< Statement >{
 				forStatementResult->nextIterator,
 				std::make_unique< Statement >( Statement {
-					std::move( forStatementResult->node )
+					std::move( forStatementResult->node ),
+					nearest
 				} )
 			};
 		}
@@ -1068,7 +1072,8 @@ namespace GoldScorpion {
 			return GeneratedAstNode< Statement >{
 				ifStatementResult->nextIterator,
 				std::make_unique< Statement >( Statement {
-					std::move( ifStatementResult->node )
+					std::move( ifStatementResult->node ),
+					nearest
 				} )
 			};
 		}
@@ -1077,7 +1082,8 @@ namespace GoldScorpion {
 			return GeneratedAstNode< Statement >{
 				returnStatementResult->nextIterator,
 				std::make_unique< Statement >( Statement {
-					std::move( returnStatementResult->node )
+					std::move( returnStatementResult->node ),
+					nearest
 				} )
 			};
 		}
@@ -1086,7 +1092,8 @@ namespace GoldScorpion {
 			return GeneratedAstNode< Statement >{
 				asmStatementResult->nextIterator,
 				std::make_unique< Statement >( Statement {
-					std::move( asmStatementResult->node )
+					std::move( asmStatementResult->node ),
+					nearest
 				} )
 			};
 		}
@@ -1095,7 +1102,8 @@ namespace GoldScorpion {
 			return GeneratedAstNode< Statement >{
 				whileStatementResult->nextIterator,
 				std::make_unique< Statement >( Statement {
-					std::move( whileStatementResult->node )
+					std::move( whileStatementResult->node ),
+					nearest
 				} )
 			};
 		}
@@ -1405,6 +1413,7 @@ namespace GoldScorpion {
 			current++;
 		}
 
+		std::optional< Token > nearest = readToken( current );
 		AstResult< Declaration > result = {};
 
 		// Must return one of: annotation, typeDecl, funDecl, varDecl, constDecl, importDecl, statement
@@ -1414,7 +1423,8 @@ namespace GoldScorpion {
 			result = GeneratedAstNode< Declaration >{
 				current,
 				std::make_unique< Declaration >( Declaration{
-					std::move( annotation->node )
+					std::move( annotation->node ),
+					nearest
 				})
 			};
 		} else if( auto typeDecl = getTypeDeclaration( current ) ) {
@@ -1423,7 +1433,8 @@ namespace GoldScorpion {
 			result = GeneratedAstNode< Declaration >{
 				current,
 				std::make_unique< Declaration >( Declaration{
-					std::move( typeDecl->node )
+					std::move( typeDecl->node ),
+					nearest
 				} )
 			};
 		} else if( auto funDecl = getFunctionDeclaration( current ) ) {
@@ -1432,7 +1443,8 @@ namespace GoldScorpion {
 			result = GeneratedAstNode< Declaration > {
 				current,
 				std::make_unique< Declaration >( Declaration {
-					std::move( funDecl->node )
+					std::move( funDecl->node ),
+					nearest
 				} )
 			};
 		} else if( auto varDecl = getVarDeclaration( current ) ) {
@@ -1441,7 +1453,8 @@ namespace GoldScorpion {
 			result = GeneratedAstNode< Declaration > {
 				current,
 				std::make_unique< Declaration >( Declaration {
-					std::move( varDecl->node )
+					std::move( varDecl->node ),
+					nearest
 				} )
 			};
 		} else if( auto constDecl = getConstDeclaration( current ) ) {
@@ -1450,7 +1463,8 @@ namespace GoldScorpion {
 			result = GeneratedAstNode< Declaration > {
 				current,
 				std::make_unique< Declaration >( Declaration {
-					std::move( constDecl->node )
+					std::move( constDecl->node ),
+					nearest
 				} )
 			};
 		} else if( auto importDecl = getImportDeclaration( current ) ) {
@@ -1459,7 +1473,8 @@ namespace GoldScorpion {
 			result = GeneratedAstNode< Declaration > {
 				current,
 				std::make_unique< Declaration >( Declaration {
-					std::move( importDecl->node )
+					std::move( importDecl->node ),
+					nearest
 				} )
 			};
 		} else if( auto statement = getStatement( current ) ) {
@@ -1468,7 +1483,8 @@ namespace GoldScorpion {
 			result = GeneratedAstNode< Declaration >{
 				current,
 				std::make_unique< Declaration >( Declaration {
-					std::move( statement->node )
+					std::move( statement->node ),
+					nearest
 				} )
 			};
 		}
