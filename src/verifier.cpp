@@ -8,9 +8,15 @@
 
 namespace GoldScorpion {
 
+    struct VerifierSettings {
+        MemoryTracker& memory;
+        bool thisPermitted = true;
+        bool anonymousFunctionPermitted = true;
+    };
+
     // Forward Declarations
-    static void check( const Expression& node, MemoryTracker& memory );
-    static void check( const Declaration& node, MemoryTracker& memory );
+    static void check( const Expression& node, VerifierSettings settings );
+    static void check( const Declaration& node, VerifierSettings settings );
     // end
 
     static std::string expectTokenString( const Token& token, const std::string& error ) {
@@ -81,7 +87,7 @@ namespace GoldScorpion {
     }
 
     // mostly checks for internal compiler errors
-    static void check( const Primary& node, MemoryTracker& memory ) {
+    static void check( const Primary& node, VerifierSettings settings ) {
         std::visit( overloaded {
 
             []( const Token& token ) {
@@ -104,14 +110,14 @@ namespace GoldScorpion {
                 }
             },
 
-            [ &memory ]( const std::unique_ptr< Expression >& expression ) {
-                check( *expression, memory );
+            [ &settings ]( const std::unique_ptr< Expression >& expression ) {
+                check( *expression, settings );
             }
 
         }, node.value );
     }
 
-    static void check( const BinaryExpression& node, std::optional< Token > nearestToken, MemoryTracker& memory ) {
+    static void check( const BinaryExpression& node, std::optional< Token > nearestToken, VerifierSettings settings ) {
         // Constraints on BinaryExpressions:
         // 1) Left-hand side expression and right-hand side expression must validate
         // 2) Operator must be token-type primary and one of the following: +, -, *, /, %, or .
@@ -125,19 +131,19 @@ namespace GoldScorpion {
         //  - Both are integer type, or
         //  - One side is a string while another is an integer type
 
-        check( *node.lhsValue, memory );
-        check( *node.op, memory );
-        check( *node.rhsValue, memory );
+        check( *node.lhsValue, settings );
+        check( *node.op, settings );
+        check( *node.rhsValue, settings );
 
         Token token = expectToken( *node.op, nearestToken, "Expected: Operator of BinaryExpression to be of Token type" );
         if( token.type == TokenType::TOKEN_DOT ) {
             // - Left-hand side must return a declared UDT type...
-            auto lhsType = getType( *node.lhsValue, memory );
+            auto lhsType = getType( *node.lhsValue, settings.memory );
             if( !lhsType || !typeIsUdt( *lhsType ) ) {
                 Error{ "Expected: Declared user-defined type as left-hand side of BinaryExpression with \".\" operator", token }.throwException();
             }
 
-            if( !memory.findUdt( *lhsType ) ) {
+            if( !settings.memory.findUdt( *lhsType ) ) {
                 Error{ "Undeclared user-defined type: " + *lhsType, token }.throwException();
             }
 
@@ -148,7 +154,7 @@ namespace GoldScorpion {
                 expectTokenOfType( rhsIdentifier, TokenType::TOKEN_IDENTIFIER, "Primary expression in RHS of BinaryExpression with \".\' operator must be of identifier type" );
 
                 std::string rhsUdtFieldId = expectTokenString( rhsIdentifier, "Internal compiler error (BinaryExpression dot RHS token has no string alternative)" );
-                if( !memory.findUdtField( *lhsType, rhsUdtFieldId ) ) {
+                if( !settings.memory.findUdtField( *lhsType, rhsUdtFieldId ) ) {
                     Error{ "Invalid field " + rhsUdtFieldId + " on user-defined type " + *lhsType, rhsIdentifier }.throwException();
                 }
             } else {
@@ -170,10 +176,10 @@ namespace GoldScorpion {
             "Expected: Operator of BinaryExpression to be one of \"+\",\"-\",\"*\",\"/\",\"%\",\".\""
         );
 
-        auto lhsType = getType( *node.lhsValue, memory );
+        auto lhsType = getType( *node.lhsValue, settings.memory );
         if( !lhsType ) { Error{ lhsType.getError(), nearestToken }.throwException(); }
 
-        auto rhsType = getType( *node.rhsValue, memory );
+        auto rhsType = getType( *node.rhsValue, settings.memory );
         if( !rhsType ) { Error{ rhsType.getError(), nearestToken }.throwException(); }
 
         // A type is only coercible to string if the operator is plus
@@ -187,10 +193,10 @@ namespace GoldScorpion {
         }
     }
 
-    static void check( const AssignmentExpression& node, std::optional< Token > nearestToken, MemoryTracker& memory ) {
+    static void check( const AssignmentExpression& node, std::optional< Token > nearestToken, VerifierSettings settings ) {
         // Begin with a simple verification of both the left-hand side and the right-hand side
-        check( *node.identifier, memory );
-        check( *node.expression, memory );
+        check( *node.identifier, settings );
+        check( *node.expression, settings );
 
         // Left hand side must be either primary expression type with identifier, or binaryexpression type with dot operator
         const Expression& identifierExpression = *node.identifier;
@@ -214,10 +220,10 @@ namespace GoldScorpion {
         }
 
         // Type of right hand side assignment should match type of identifier on left hand side
-        auto lhsType = getType( *node.identifier, memory );
+        auto lhsType = getType( *node.identifier, settings.memory );
         if( !lhsType ) { Error{ lhsType.getError(), nearestToken }.throwException(); }
 
-        auto rhsType = getType( *node.expression, memory );
+        auto rhsType = getType( *node.expression, settings.memory );
         if( !rhsType ) { Error{ rhsType.getError(), nearestToken }.throwException(); }
 
         if( !( typesMatch( *lhsType, *rhsType ) || integerTypesMatch( *lhsType, *rhsType ) || assignmentCoercible( *lhsType, *rhsType ) ) ) {
@@ -225,19 +231,19 @@ namespace GoldScorpion {
         }
     }
 
-    static void check( const Expression& node, MemoryTracker& memory ) {
+    static void check( const Expression& node, VerifierSettings settings ) {
         std::visit( overloaded {
 
-            [ &node, &memory ]( const std::unique_ptr< AssignmentExpression >& expression ) { check( *expression, node.nearestToken, memory ); },
-            [ &node, &memory ]( const std::unique_ptr< BinaryExpression >& expression ) { check( *expression, node.nearestToken, memory ); },
+            [ &node, &settings ]( const std::unique_ptr< AssignmentExpression >& expression ) { check( *expression, node.nearestToken, settings ); },
+            [ &node, &settings ]( const std::unique_ptr< BinaryExpression >& expression ) { check( *expression, node.nearestToken, settings ); },
             []( const std::unique_ptr< UnaryExpression >& expression ) { Error{ "Internal compiler error (Expression check not implemented for expression subtype UnaryExpression)", {} }.throwException(); },
             []( const std::unique_ptr< CallExpression >& expression ) { Error{ "Internal compiler error (Expression check not implemented for expression subtype CallExpression)", {} }.throwException(); },
-            [ &memory ]( const std::unique_ptr< Primary >& expression ) { check( *expression, memory ); },
+            [ &settings ]( const std::unique_ptr< Primary >& expression ) { check( *expression, settings ); },
 
         }, node.value );
     }
 
-    static void check( const VarDeclaration& node, MemoryTracker& memory ) {
+    static void check( const VarDeclaration& node, VerifierSettings settings ) {
         // def x as type = value
 
         // Verify x is an identifier containing a string
@@ -245,7 +251,7 @@ namespace GoldScorpion {
         std::string name = expectTokenString( node.variable.name, "Internal compiler error (VarDeclaration variable.name has no string alternative)" );
 
         // Cannot redefine a variable in the same scope, check for this using memorytracker
-        if( memory.find( name, true ) ) {
+        if( settings.memory.find( name, true ) ) {
             Error{ "Redeclaration of identifier " + name + " in the current scope", node.variable.name }.throwException();
         }
 
@@ -255,7 +261,7 @@ namespace GoldScorpion {
         // If type is user-defined type (IDENTIFIER) then we must verify the UDT was declared
         if( node.variable.type.type.type == TokenType::TOKEN_IDENTIFIER ) {
             std::string typeId = std::get< std::string >( *node.variable.type.type.value );
-            if( !memory.findUdt( typeId ) ) {
+            if( !settings.memory.findUdt( typeId ) ) {
                 Error{ "Undeclared user-defined type: " + typeId, node.variable.type.type }.throwException();
             }
         }
@@ -273,10 +279,10 @@ namespace GoldScorpion {
         // The type returned by the expression on the right must match the declared type, or be coercible to the type.
         if( node.value ) {
             // Validate expression
-            check( **node.value, memory );
+            check( **node.value, settings );
 
             // Get type of expression
-            auto expressionType = getType( **node.value, memory );
+            auto expressionType = getType( **node.value, settings.memory );
             if( !expressionType ) {
                 Error{ "Internal compiler error (VarDeclaration validated Expression failed to yield a type)", {} }.throwException();
             }
@@ -286,20 +292,20 @@ namespace GoldScorpion {
             }
         }
 
-        memory.push( MemoryElement { *identifierTitle, *typeId, 0, 0 } );
+        settings.memory.push( MemoryElement { *identifierTitle, *typeId, 0, 0 } );
     }
 
-    static void check( const FunctionDeclaration& node, MemoryTracker& memory, bool thisPermitted, bool labelRequired ) {
+    static void check( const FunctionDeclaration& node, VerifierSettings settings ) {
         Error{ "Internal compiler error (Declaration check not implemented for declaration subtype FunctionDeclaration)", {} }.throwException();
     }
 
-    static void check( const TypeDeclaration& node, MemoryTracker& memory ) {
+    static void check( const TypeDeclaration& node, VerifierSettings settings ) {
         // Type name is a single token of string type
         expectTokenOfType( node.name, TokenType::TOKEN_IDENTIFIER, "Internal compiler error (TypeDeclaration token not of identifier type)" );
         std::string typeId = expectTokenString( node.name, "Internal compiler error (TypeDeclaration token of identifier type contains no string alternative)" );
 
         // Typeid must not already exist in the current scope
-        if( memory.findUdt( typeId, true ) ) {
+        if( settings.memory.findUdt( typeId, true ) ) {
             Error{ "Redeclaration of user-defined type " + typeId + " in the current scope", node.name }.throwException();
         }
 
@@ -325,7 +331,7 @@ namespace GoldScorpion {
 
             // If fieldTypeId is a udt, the udt must exist
             if( typeIsUdt( *fieldTypeId ) ) {
-                if( !memory.findUdt( *fieldTypeId ) ) {
+                if( !settings.memory.findUdt( *fieldTypeId ) ) {
                     Error{ "Undeclared user-defined type: " + *fieldTypeId, parameter.type.type }.throwException();
                 }
             }
@@ -340,17 +346,17 @@ namespace GoldScorpion {
         }
 
         for( const std::unique_ptr< FunctionDeclaration >& function : node.functions ) {
-            check( *function, memory, true, true );
+            check( *function, settings );
         }
 
         // Add the user-defined type to the memory tracker
-        memory.addUdt( UserDefinedType { typeId, fields } );
+        settings.memory.addUdt( UserDefinedType { typeId, fields } );
     }
 
-    static void check( const Statement& node, MemoryTracker& memory ) {
+    static void check( const Statement& node, VerifierSettings settings ) {
         std::visit( overloaded {
 
-            [ &memory ]( const std::unique_ptr< ExpressionStatement >& statement ) { check( *(statement->value), memory ); },
+            [ &settings ]( const std::unique_ptr< ExpressionStatement >& statement ) { check( *(statement->value), settings ); },
 			[]( const std::unique_ptr< ForStatement >& statement ) { Error{ "Internal compiler error (Statement check not implemented for statement subtype ForStatement)", {} }.throwException(); },
 			[]( const std::unique_ptr< IfStatement >& statement ) { Error{ "Internal compiler error (Statement check not implemented for statement subtype IfStatement)", {} }.throwException(); },
 			[]( const std::unique_ptr< ReturnStatement >& statement ) { Error{ "Internal compiler error (Statement check not implemented for statement subtype ReturnStatement)", {} }.throwException(); },
@@ -360,16 +366,16 @@ namespace GoldScorpion {
         }, node.value );
     }
 
-    static void check( const Declaration& node, MemoryTracker& memory ) {
+    static void check( const Declaration& node, VerifierSettings settings ) {
         std::visit( overloaded {
 
             []( const std::unique_ptr< Annotation >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype Annotation)", {} }.throwException(); },
-            [ &memory ]( const std::unique_ptr< VarDeclaration >& declaration ) { check( *declaration, memory ); },
+            [ &settings ]( const std::unique_ptr< VarDeclaration >& declaration ) { check( *declaration, settings ); },
             []( const std::unique_ptr< ConstDeclaration >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype ConstDeclaration)", {} }.throwException(); },
-            [ &memory ]( const std::unique_ptr< FunctionDeclaration >& declaration ) { check( *declaration, memory, false, false ); },
-            [ &memory ]( const std::unique_ptr< TypeDeclaration >& declaration ) { check( *declaration, memory ); },
+            [ &settings ]( const std::unique_ptr< FunctionDeclaration >& declaration ) { check( *declaration, settings ); },
+            [ &settings ]( const std::unique_ptr< TypeDeclaration >& declaration ) { check( *declaration, settings ); },
             []( const std::unique_ptr< ImportDeclaration >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype ImportDeclaration)", {} }.throwException(); },
-            [ &memory ]( const std::unique_ptr< Statement >& declaration ) { check( *declaration, memory ); }
+            [ &settings ]( const std::unique_ptr< Statement >& declaration ) { check( *declaration, settings ); }
 
         }, node.value );
     }
@@ -379,10 +385,11 @@ namespace GoldScorpion {
      */
     std::optional< std::string > check( const Program& program ) {
         MemoryTracker memory;
+        VerifierSettings settings{ memory, true, true };
 
         for( const auto& declaration : program.statements ) {
             try {
-                check( *declaration, memory );
+                check( *declaration, settings );
             } catch( std::runtime_error e ) {
                 return e.what();
             }
