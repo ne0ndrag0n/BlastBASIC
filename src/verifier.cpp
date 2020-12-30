@@ -241,7 +241,12 @@ namespace GoldScorpion {
 
         // Verify x is an identifier containing a string
         expectTokenOfType( node.variable.name, TokenType::TOKEN_IDENTIFIER, "Expected: Identifier as token type for parameter declaration" );
-        expectTokenString( node.variable.name, "Internal compiler error (VarDeclaration variable.name has no string alternative)" );
+        std::string name = expectTokenString( node.variable.name, "Internal compiler error (VarDeclaration variable.name has no string alternative)" );
+
+        // Cannot redefine a variable in the same scope, check for this using memorytracker
+        if( memory.find( name, true ) ) {
+            Error{ "Redeclaration of identifier " + name + " in the current scope", node.variable.name }.throwException();
+        }
 
         // Verify type is either primitive or declared
         expectTokenType( node.variable.type.type, "Expected: Declared user-defined type or one of [u8, u16, u32, s8, s16, s32, string]" );
@@ -254,7 +259,6 @@ namespace GoldScorpion {
             }
         }
 
-        // Use memory tracker to push a memory element
         auto identifierTitle = getIdentifierName( node.variable.name );
         if( !identifierTitle ) {
             Error{ "Internal compiler error (VarDeclaration variable.name is not an identifier)", node.variable.name }.throwException();
@@ -264,8 +268,6 @@ namespace GoldScorpion {
         if( !typeId ) {
             Error{ "Internal compiler error (VarDeclaration variable.type should be properly verified)", node.variable.type.type }.throwException();
         }
-
-        // TODO: Cannot redefine a variable in the same scope, check for this using memorytracker
 
         // The type returned by the expression on the right must match the declared type, or be coercible to the type.
         if( node.value ) {
@@ -295,9 +297,15 @@ namespace GoldScorpion {
         expectTokenOfType( node.name, TokenType::TOKEN_IDENTIFIER, "Internal compiler error (TypeDeclaration token not of identifier type)" );
         std::string typeId = expectTokenString( node.name, "Internal compiler error (TypeDeclaration token of identifier type contains no string alternative)" );
 
+        // Typeid must not already exist in the current scope
+        if( memory.findUdt( typeId, true ) ) {
+            Error{ "Redeclaration of user-defined type " + typeId + " in the current scope", node.name }.throwException();
+        }
+
         // Each parameter must contain an identifier/string token and either a primitive type or a declared user-defined type
         // No two fields may have the same name
         std::set< std::string > declaredNames;
+        std::vector< UdtField > fields;
         for( const Parameter& parameter : node.fields ) {
             expectTokenOfType( parameter.name, TokenType::TOKEN_IDENTIFIER, "Internal compiler error (TypeDeclaration field name token not of identifier type)" );
             std::string fieldId = expectTokenString( parameter.name, "Internal compiler error (TypeDeclaration field name token of identifier type contains no string alternative)" );
@@ -320,13 +328,22 @@ namespace GoldScorpion {
                     Error{ "Undeclared user-defined type: " + *fieldTypeId, parameter.type.type }.throwException();
                 }
             }
+
+            // Push onto the fields array
+            fields.push_back( UdtField { fieldId, *fieldTypeId } );
+        }
+
+        // User-defined type must contain at least one field
+        if( fields.empty() ) {
+            Error{ "User-defined type must declare at least one field", node.name }.throwException();
         }
 
         for( const std::unique_ptr< FunctionDeclaration >& function : node.functions ) {
             check( *function, memory, true, true );
         }
 
-        // TODO: Add the user-defined type to the memory tracker
+        // Add the user-defined type to the memory tracker
+        memory.addUdt( UserDefinedType { typeId, fields } );
     }
 
     static void check( const Statement& node, MemoryTracker& memory ) {

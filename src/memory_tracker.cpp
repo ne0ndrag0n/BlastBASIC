@@ -26,7 +26,7 @@ namespace GoldScorpion {
 
 		// Push a pointer to this value onto the most recently opened scope
 		if( !scopes.empty() ) {
-			scopes.top()++;
+			scopes.top().stackItems++;
 		}
 	}
 
@@ -36,7 +36,7 @@ namespace GoldScorpion {
 			stack.pop_back();
 
 			if( !scopes.empty() ) {
-				scopes.top()--;
+				scopes.top().stackItems--;
 			}
 
 			return result;
@@ -48,13 +48,14 @@ namespace GoldScorpion {
 	void MemoryTracker::clearMemory() {
 		dataSegment.clear();
 		stack.clear();
+		udts.clear();
 		while( !scopes.empty() ) {
 			scopes.pop();
 		}
 	}
 
 	void MemoryTracker::openScope() {
-		scopes.push( 0 );
+		scopes.push( Scope{ 0, 0 } );
 	}
 
 	std::vector< StackMemoryElement > MemoryTracker::closeScope() {
@@ -62,10 +63,14 @@ namespace GoldScorpion {
 
 		if( !scopes.empty() ) {
 			long offset = 0;
-			for( long i = 0; i != scopes.top(); i++ ) {
+			for( long i = 0; i != scopes.top().stackItems; i++ ) {
 				elements.push_back( StackMemoryElement{ stack.back(), offset } );
 				offset += stack.back().size;
 				stack.pop_back();
+			}
+
+			for( long i = 0; i != scopes.top().udtItems; i++ ) {
+				udts.pop_back();
 			}
 
 			scopes.pop();
@@ -74,12 +79,21 @@ namespace GoldScorpion {
 		return elements;
 	}
 
-	std::optional< MemoryQuery > MemoryTracker::find( const std::string& id ) const {
+	std::optional< MemoryQuery > MemoryTracker::find( const std::string& id, bool currentScope ) const {
 		// When asked to find an elment, find from innermost scope to outermost scope
 
 		// Step 1: Stack, from top down
 		long offset = 0;
+		long scopeCount = 0;
 		for( auto entry = stack.crbegin(); entry != stack.crend(); ++entry ) {
+			if( currentScope ) {
+				if( scopeCount < scopes.top().stackItems ) {
+					scopeCount++;
+				} else {
+					break;
+				}
+			}
+
 			if( entry->id && *entry->id == id ) {
 				return StackMemoryElement {
 					*entry,
@@ -88,6 +102,11 @@ namespace GoldScorpion {
 			} else {
 				offset += entry->size;
 			}
+		}
+
+		// If we're only searching the current scope then we need to stop here
+		if( currentScope ) {
+			return {};
 		}
 
 		// The variable wasn't found on the stack
@@ -110,10 +129,22 @@ namespace GoldScorpion {
 
 	void MemoryTracker::addUdt( const UserDefinedType& udt ) {
 		udts.push_back( udt );
+		if( !scopes.empty() ) {
+			scopes.top().udtItems++;
+		}
 	}
 
-	std::optional< UserDefinedType > MemoryTracker::findUdt( const std::string& id ) const {
+	std::optional< UserDefinedType > MemoryTracker::findUdt( const std::string& id, bool currentScope ) const {
+		long scopeCount = 0;
 		for( const auto& udt : udts ) {
+			if( currentScope ) {
+				if( scopeCount < scopes.top().udtItems ) {
+					scopeCount++;
+				} else {
+					break;
+				}
+			}
+
 			if( udt.id == id ) {
 				return udt;
 			}
@@ -122,8 +153,8 @@ namespace GoldScorpion {
 		return {};
 	}
 
-	std::optional< UdtField > MemoryTracker::findUdtField( const std::string& id, const std::string& fieldId ) const {
-		auto udt = findUdt( id );
+	std::optional< UdtField > MemoryTracker::findUdtField( const std::string& id, const std::string& fieldId, bool currentScope ) const {
+		auto udt = findUdt( id, currentScope );
 
 		if( udt ) {
 			for( const auto& udtField : udt->fields ) {
