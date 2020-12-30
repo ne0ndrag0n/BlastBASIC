@@ -61,11 +61,12 @@ namespace GoldScorpion {
             TokenType::TOKEN_S8,
             TokenType::TOKEN_S16,
             TokenType::TOKEN_S32,
-            TokenType::TOKEN_STRING
+            TokenType::TOKEN_STRING,
+            TokenType::TOKEN_IDENTIFIER
         };
 
-        if( ( token.type == TokenType::TOKEN_IDENTIFIER && ( !token.value || !std::holds_alternative< std::string >( *token.value ) ) ) ||
-              !VALID_TOKENS.count( token.type ) ) {
+        bool identifierNoString = ( token.type == TokenType::TOKEN_IDENTIFIER ) && ( !token.value || !std::holds_alternative< std::string >( *token.value ) );
+        if( identifierNoString || !VALID_TOKENS.count( token.type ) ) {
             Error{ error, token }.throwException();
         }
     }

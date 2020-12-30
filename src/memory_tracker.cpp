@@ -87,7 +87,7 @@ namespace GoldScorpion {
 		long scopeCount = 0;
 		for( auto entry = stack.crbegin(); entry != stack.crend(); ++entry ) {
 			if( currentScope ) {
-				if( scopeCount < scopes.top().stackItems ) {
+				if( !scopes.empty() && scopeCount < scopes.top().stackItems ) {
 					scopeCount++;
 				} else {
 					break;
@@ -138,7 +138,7 @@ namespace GoldScorpion {
 		long scopeCount = 0;
 		for( const auto& udt : udts ) {
 			if( currentScope ) {
-				if( scopeCount < scopes.top().udtItems ) {
+				if( !scopes.empty() && scopeCount < scopes.top().udtItems ) {
 					scopeCount++;
 				} else {
 					break;
