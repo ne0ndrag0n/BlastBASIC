@@ -1181,6 +1181,10 @@ namespace GoldScorpion {
 				current = declaration->nextIterator;
 			}
 
+			while( readToken( current ) && current->type == TokenType::TOKEN_NEWLINE ) {
+				current++;
+			}
+
 			// End must close function declaration
 			auto endResult = readToken( current );
 			if( endResult && endResult->type == TokenType::TOKEN_END ) {

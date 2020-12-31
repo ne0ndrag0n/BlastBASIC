@@ -96,8 +96,14 @@ namespace GoldScorpion {
     static void check( const Primary& node, VerifierSettings settings ) {
         std::visit( overloaded {
 
-            []( const Token& token ) {
+            [ &settings ]( const Token& token ) {
                 switch( token.type ) {
+                    case TokenType::TOKEN_THIS: {
+                        if( !settings.thisPermitted ) {
+                            Error{ "\"this\" specifier not permitted in this context", token }.throwException();
+                        }
+                        break;
+                    }
                     case TokenType::TOKEN_IDENTIFIER: {
                         expectTokenValue( token, "Internal compiler error (Token of type TOKEN_IDENTIFIER has no associated value)" );
                         break;
