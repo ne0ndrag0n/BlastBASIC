@@ -28,6 +28,10 @@ namespace GoldScorpion {
 
     bool coercibleToString( const std::string& lhs, const std::string& rhs );
 
+    std::optional< long > getPrimitiveTypeSize( const std::string& typeId );
+
+    std::optional< long > getUdtTypeSize( const std::string& typeId, const MemoryTracker& memory );
+
     // Only valid for integer fields
     std::string promotePrimitiveTypes( const std::string& lhs, const std::string& rhs );
 

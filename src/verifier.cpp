@@ -8,7 +8,7 @@
 
 namespace GoldScorpion {
 
-    struct VerifierContextParameter {
+    struct VerifierArgument {
         std::string id;
         std::string typeId;
     };
@@ -16,7 +16,6 @@ namespace GoldScorpion {
     struct VerifierSettings {
         MemoryTracker& memory;
         std::optional< Token > nearestToken;
-        std::vector< VerifierContextParameter > functionParameters;
         bool thisPermitted = true;
         bool anonymousFunctionPermitted = true;
     };
@@ -320,6 +319,7 @@ namespace GoldScorpion {
         // - No arguments can have duplicate names
         // - No arguments can refer to undeclared user-defined types
         std::set< std::string > usedNames;
+        std::vector< VerifierArgument > arguments;
         for( const Parameter& parameter : node.arguments ) {
             expectTokenOfType( parameter.name, TokenType::TOKEN_IDENTIFIER, "Internal compiler error (FunctionDeclaration Parameter identifier token not of identifier type)" );
             std::string paramName = expectTokenString( parameter.name, "Internal compiler error (FunctionDeclaration Parameter identifier token contains no string alternative)" );
@@ -331,12 +331,16 @@ namespace GoldScorpion {
 
             // The typeId must be valid and, if a udt, declared
             expectTokenType( parameter.type.type, "Internal compiler error (FunctionDeclaration Parameter type identifier not of any discernable type)" );
-            if( parameter.type.type.type == TokenType::TOKEN_IDENTIFIER ) {
-                std::string typeId = expectTokenString( parameter.type.type, "Internal compiler error (FunctionDeclaration Parameter type identifier contains no string alternative)" );
-                if( !settings.memory.findUdt( typeId ) ) {
-                    Error{ "Undeclared user-defined type: " + typeId, parameter.type.type }.throwException();
-                }
+            std::optional< std::string > typeId = tokenToTypeId( parameter.type.type );
+            if( !typeId ) {
+                Error{ "Internal compiler error (Unable to obtain type id)", parameter.type.type }.throwException();
             }
+
+            if( typeIsUdt( *typeId ) && !settings.memory.findUdt( *typeId ) ) {
+                Error{ "Undeclared user-defined type: " + *typeId, parameter.type.type }.throwException();
+            }
+
+            arguments.push_back( VerifierArgument{ paramName, *typeId } );
         }
 
         // Return type must be a valid
@@ -354,9 +358,20 @@ namespace GoldScorpion {
         settings.memory.openScope();
         // anonymousFunctionPermitted does not propagate
         settings.anonymousFunctionPermitted = true;
+        // Push arguments onto stack right-to-left so that they are in scope when subsequent checks are performed
+        for( auto argument = arguments.crbegin(); argument != arguments.crend(); ++argument ) {
+            // Just gotta have something in scope with the ID + type ID
+            settings.memory.push( MemoryElement {
+                argument->id,
+                argument->typeId,
+                0,
+                0
+            } );
+        }
         for( const auto& declaration : node.body ) {
             check( *declaration, settings );
         }
+        // This should clear anything done by the function including the pushed arguments
         settings.memory.closeScope();
     }
 
@@ -449,7 +464,7 @@ namespace GoldScorpion {
      */
     std::optional< std::string > check( const Program& program ) {
         MemoryTracker memory;
-        VerifierSettings settings{ memory, {}, {}, true, true };
+        VerifierSettings settings{ memory, {}, true, true };
 
         for( const auto& declaration : program.statements ) {
             try {

@@ -161,6 +161,56 @@ namespace GoldScorpion {
         return ( lhs == "string" || rhs == "string" ) && ( typeIsInteger( lhs ) || typeIsInteger( rhs ) );
     }
 
+    std::optional< long > getPrimitiveTypeSize( const std::string& typeId ) {
+        if( typeIsUdt( typeId ) ) {
+            // Cannot report the size of a UDT using this function
+            return {};
+        }
+
+        if( typeId == "u8" || typeId == "s8" ) { return 1; }
+        if( typeId == "u16" || typeId == "s16" ) { return 2; }
+        if( typeId == "u32" || typeId == "s32" || typeId == "string" ) { return 4; }
+
+        return {};
+    }
+
+    std::optional< long > getUdtTypeSize( const std::string& typeId, const MemoryTracker& memory ) {
+        if( !typeIsUdt( typeId ) ) {
+            return {};
+        }
+
+        auto query = memory.findUdt( typeId );
+        if( !query ) {
+            return {};
+        }
+
+        // Add all subtypes
+        long totalSize = 0;
+        for( const UdtField& field : query->fields ) {
+            if( typeIsUdt( field.typeId ) ) {
+                std::optional< long > size = getUdtTypeSize( field.typeId, memory );
+                if( !size ) {
+                    return {};
+                }
+
+                totalSize += *size;
+            } else {
+                std::optional< long > size = getPrimitiveTypeSize( field.typeId );
+                if( !size ) {
+                    return {};
+                }
+
+                totalSize += *size;
+            }
+        }
+
+        if( !totalSize ) {
+            return {};
+        }
+
+        return totalSize;
+    }
+
     std::string promotePrimitiveTypes( const std::string& lhs, const std::string& rhs ) {
         if( getTypeComparison( rhs ) >= getTypeComparison( lhs ) ) {
             return isOneSigned( lhs, rhs ) ? scrubSigned( rhs ) : rhs;
