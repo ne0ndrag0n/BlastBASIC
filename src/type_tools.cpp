@@ -234,6 +234,16 @@ namespace GoldScorpion {
                             result = TypeResult::good( "string" );
                             return;
                         }
+                        case TokenType::TOKEN_THIS: {
+                            // Type of "this" token is obtainable from the pointer on the stack
+                            auto thisQuery = memory.find( "this" );
+                            if( !thisQuery ) {
+                                Error{ "Internal compiler error (unable to determine type of \"this\" token)", token }.throwException();
+                            }
+
+                            result = TypeResult::good( MemoryTracker::unwrapValue( *thisQuery ).typeId );
+                            return;
+                        }
                         case TokenType::TOKEN_IDENTIFIER: {
                             // Look up identifier in memory
                             std::string id = expectString( token );

@@ -16,8 +16,9 @@ namespace GoldScorpion {
     struct VerifierSettings {
         MemoryTracker& memory;
         std::optional< Token > nearestToken;
-        bool thisPermitted = true;
-        bool anonymousFunctionPermitted = true;
+        std::optional< std::string > contextTypeId;
+        bool thisPermitted;
+        bool anonymousFunctionPermitted;
     };
 
     // Forward Declarations
@@ -374,6 +375,15 @@ namespace GoldScorpion {
                 0
             } );
         }
+        // If there is a context ID, the last variable pushed will be the "this" pointer
+        if( settings.contextTypeId ) {
+            settings.memory.push( MemoryElement {
+                "this",
+                *settings.contextTypeId,
+                0,
+                0
+            } );
+        }
         for( const auto& declaration : node.body ) {
             check( *declaration, settings );
         }
@@ -427,6 +437,11 @@ namespace GoldScorpion {
             Error{ "User-defined type must declare at least one field", node.name }.throwException();
         }
 
+        // For all functions inside this type, set the contextTypeId so that "this" tokens may have obtainable types
+        settings.contextTypeId = typeId;
+        settings.thisPermitted = true;
+
+        // Check all member functions
         for( const std::unique_ptr< FunctionDeclaration >& function : node.functions ) {
             check( *function, settings );
         }
@@ -470,7 +485,7 @@ namespace GoldScorpion {
      */
     std::optional< std::string > check( const Program& program ) {
         MemoryTracker memory;
-        VerifierSettings settings{ memory, {}, true, true };
+        VerifierSettings settings{ memory, {}, {}, false, false };
 
         for( const auto& declaration : program.statements ) {
             try {
