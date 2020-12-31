@@ -441,13 +441,13 @@ namespace GoldScorpion {
         settings.contextTypeId = typeId;
         settings.thisPermitted = true;
 
+        // Add the user-defined type to the memory tracker
+        settings.memory.addUdt( UserDefinedType { typeId, fields } );
+
         // Check all member functions
         for( const std::unique_ptr< FunctionDeclaration >& function : node.functions ) {
             check( *function, settings );
         }
-
-        // Add the user-defined type to the memory tracker
-        settings.memory.addUdt( UserDefinedType { typeId, fields } );
     }
 
     static void check( const Statement& node, VerifierSettings settings ) {
