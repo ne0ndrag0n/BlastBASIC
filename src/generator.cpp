@@ -305,9 +305,9 @@ namespace GoldScorpion {
 					Error{ "Internal compiler error", {} }.throwException();
 				}
 
-				ExpressionDataType rhsType = getIdentifierType( udtField->typeId );
+				ExpressionDataType rhsType = getIdentifierType( MemoryTracker::unwrapTypeId( udtField->type ) );
 				if( rhsType.type == ExpressionTypeTag::INVALID ) {
-					std::optional< UserDefinedType > udt = assembly.memory.findUdt( udtField->typeId );
+					std::optional< UserDefinedType > udt = assembly.memory.findUdt( MemoryTracker::unwrapTypeId( udtField->type ) );
 					if( udt ) {
 						rhsType.type = ExpressionTypeTag::UDT;
 						rhsType.udt = udt;

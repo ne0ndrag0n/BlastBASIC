@@ -20,6 +20,8 @@ namespace GoldScorpion {
 
     bool typeIsInteger( const std::string& typeId );
 
+    bool typeIsFunction( const std::string& typeId );
+
     bool typesMatch( const std::string& lhs, const std::string& rhs );
 
     bool integerTypesMatch( const std::string& lhs, const std::string& rhs );

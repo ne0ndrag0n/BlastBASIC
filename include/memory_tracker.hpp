@@ -25,7 +25,7 @@ namespace GoldScorpion {
 
 	struct UdtField {
 		std::string id;
-		std::string typeId;
+		MemoryDataType type;
 	};
 
 	struct UserDefinedType {

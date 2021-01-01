@@ -2,6 +2,7 @@
 #include "tree_tools.hpp"
 #include "variant_visitor.hpp"
 #include "error.hpp"
+#include "utility.hpp"
 
 namespace GoldScorpion {
 
@@ -138,11 +139,21 @@ namespace GoldScorpion {
     }
 
     bool typeIsUdt( const std::string& typeId ) {
-        return !typeIdToTokenType( typeId );
+        return !typeIdToTokenType( typeId ) && !typeIsFunction( typeId );
     }
 
     bool typeIsInteger( const std::string& typeId ) {
         return typeId == "u8" || typeId == "u16" || typeId == "u32" || typeId == "s8" || typeId == "s16" || typeId == "s32";
+    }
+
+    bool typeIsFunction( const std::string& typeId ) {
+        std::vector< std::string > split = Utility::split( typeId, '.' );
+
+        if( split.size() <= 1 ) {
+            return false;
+        }
+
+        return split[ 0 ] == "function";
     }
 
     bool typesMatch( const std::string& lhs, const std::string& rhs ) {
@@ -187,15 +198,17 @@ namespace GoldScorpion {
         // Add all subtypes
         long totalSize = 0;
         for( const UdtField& field : query->fields ) {
-            if( typeIsUdt( field.typeId ) ) {
-                std::optional< long > size = getUdtTypeSize( field.typeId, memory );
+            std::string typeId = MemoryTracker::unwrapTypeId( field.type );
+
+            if( typeIsUdt( typeId ) ) {
+                std::optional< long > size = getUdtTypeSize( typeId, memory );
                 if( !size ) {
                     return {};
                 }
 
                 totalSize += *size;
             } else {
-                std::optional< long > size = getPrimitiveTypeSize( field.typeId );
+                std::optional< long > size = getPrimitiveTypeSize( typeId );
                 if( !size ) {
                     return {};
                 }
@@ -321,7 +334,7 @@ namespace GoldScorpion {
                     return TypeResult::err( "User-defined type " + lhsUdt->id + " does not have field " + *rhsIdentifier );
                 }
 
-                return TypeResult::good( rhsUdtField->typeId );
+                return TypeResult::good( MemoryTracker::unwrapTypeId( rhsUdtField->type ) );
             }
             default: {
                 // All other operators require both sides to have a well-defined type

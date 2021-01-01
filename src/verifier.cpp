@@ -478,7 +478,7 @@ namespace GoldScorpion {
             }
 
             // Push onto the fields array
-            fields.push_back( UdtField { fieldId, *fieldTypeId } );
+            fields.push_back( UdtField { fieldId, ValueType { *fieldTypeId } } );
         }
 
         // User-defined type must contain at least one field
