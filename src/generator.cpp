@@ -2,6 +2,7 @@
 #include "variant_visitor.hpp"
 #include "memory_tracker.hpp"
 #include "arch/m68k/instruction.hpp"
+#include "type_tools.hpp"
 #include "token.hpp"
 #include "error.hpp"
 #include <cstdio>
@@ -248,7 +249,7 @@ namespace GoldScorpion {
 							Error{ std::string( "Undefined identifier: " ) + id, token }.throwException();
 						}
 
-						std::string typeId = MemoryTracker::unwrapTypeId( MemoryTracker::unwrapValue( *memoryQuery ).type );
+						std::string typeId = unwrapTypeId( MemoryTracker::unwrapValue( *memoryQuery ).type );
 						result = getIdentifierType( typeId );
 						if( result.type == ExpressionTypeTag::INVALID ) {
 							// Possibly a UDT
@@ -305,9 +306,9 @@ namespace GoldScorpion {
 					Error{ "Internal compiler error", {} }.throwException();
 				}
 
-				ExpressionDataType rhsType = getIdentifierType( MemoryTracker::unwrapTypeId( udtField->type ) );
+				ExpressionDataType rhsType = getIdentifierType( unwrapTypeId( udtField->type ) );
 				if( rhsType.type == ExpressionTypeTag::INVALID ) {
-					std::optional< UserDefinedType > udt = assembly.memory.findUdt( MemoryTracker::unwrapTypeId( udtField->type ) );
+					std::optional< UserDefinedType > udt = assembly.memory.findUdt( unwrapTypeId( udtField->type ) );
 					if( udt ) {
 						rhsType.type = ExpressionTypeTag::UDT;
 						rhsType.udt = udt;

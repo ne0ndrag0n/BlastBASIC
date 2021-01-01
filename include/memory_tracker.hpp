@@ -82,8 +82,6 @@ namespace GoldScorpion {
 
 		static MemoryElement unwrapValue( const MemoryQuery& query );
 		static long unwrapOffset( const MemoryQuery& query );
-
-		static std::string unwrapTypeId( const MemoryDataType& type );
 	};
 
 }

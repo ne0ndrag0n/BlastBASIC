@@ -198,7 +198,7 @@ namespace GoldScorpion {
         // Add all subtypes
         long totalSize = 0;
         for( const UdtField& field : query->fields ) {
-            std::string typeId = MemoryTracker::unwrapTypeId( field.type );
+            std::string typeId = unwrapTypeId( field.type );
 
             if( typeIsUdt( typeId ) ) {
                 std::optional< long > size = getUdtTypeSize( typeId, memory );
@@ -222,6 +222,13 @@ namespace GoldScorpion {
         }
 
         return totalSize;
+    }
+
+    std::string unwrapTypeId( const MemoryDataType& type ) {
+		return std::visit( overloaded {
+			[]( const FunctionType& element ) { return element.id; },
+			[]( const ValueType& element ) { return element.id; }
+		}, type );
     }
 
     std::string promotePrimitiveTypes( const std::string& lhs, const std::string& rhs ) {
@@ -254,7 +261,7 @@ namespace GoldScorpion {
                                 Error{ "Internal compiler error (unable to determine type of \"this\" token)", token }.throwException();
                             }
 
-                            result = TypeResult::good( MemoryTracker::unwrapTypeId( MemoryTracker::unwrapValue( *thisQuery ).type ) );
+                            result = TypeResult::good( unwrapTypeId( MemoryTracker::unwrapValue( *thisQuery ).type ) );
                             return;
                         }
                         case TokenType::TOKEN_IDENTIFIER: {
@@ -267,7 +274,7 @@ namespace GoldScorpion {
                             }
 
                             // Get its type id, and if it is a udt, attach the udt id
-                            std::string typeId = MemoryTracker::unwrapTypeId( MemoryTracker::unwrapValue( *memoryQuery ).type );
+                            std::string typeId = unwrapTypeId( MemoryTracker::unwrapValue( *memoryQuery ).type );
                             if( typeIsUdt( typeId ) ) {
                                 // Udt
                                 std::optional< UserDefinedType > udt = memory.findUdt( typeId );
@@ -334,7 +341,7 @@ namespace GoldScorpion {
                     return TypeResult::err( "User-defined type " + lhsUdt->id + " does not have field " + *rhsIdentifier );
                 }
 
-                return TypeResult::good( MemoryTracker::unwrapTypeId( rhsUdtField->type ) );
+                return TypeResult::good( unwrapTypeId( rhsUdtField->type ) );
             }
             default: {
                 // All other operators require both sides to have a well-defined type

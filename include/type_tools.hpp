@@ -34,6 +34,8 @@ namespace GoldScorpion {
 
     std::optional< long > getUdtTypeSize( const std::string& typeId, const MemoryTracker& memory );
 
+    std::string unwrapTypeId( const MemoryDataType& type );
+
     // Only valid for integer fields
     std::string promotePrimitiveTypes( const std::string& lhs, const std::string& rhs );
 
