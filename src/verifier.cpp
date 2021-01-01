@@ -339,7 +339,7 @@ namespace GoldScorpion {
                 Error{ "Internal compiler error (ReturnStatement unable to determine type for expression)", settings.nearestToken }.throwException();
             }
 
-            if( *typeId != *settings.functionReturnType ) {
+            if( !( typesMatch( *typeId, *settings.functionReturnType ) || integerTypesMatch( *typeId, *settings.functionReturnType ) || assignmentCoercible( *typeId, *settings.functionReturnType ) ) ) {
                 Error{ "Return statement expression of type " + *typeId + " does not match function return type of " + *settings.functionReturnType, settings.nearestToken }.throwException();
             }
         }
@@ -391,9 +391,14 @@ namespace GoldScorpion {
                 if( !settings.memory.findUdt( typeId ) ) {
                     Error{ "Undeclared user-defined type: " + typeId, *node.returnType }.throwException();
                 }
-
-                settings.functionReturnType = typeId;
             }
+
+            auto typeId = tokenToTypeId( *node.returnType );
+            if( !typeId ) {
+                Error{ "Internal compiler error (FunctionDeclaration unable to convert return type token to type id)", *node.returnType }.throwException();
+            }
+
+            settings.functionReturnType = *typeId;
         } else {
             settings.functionReturnType = {};
         }
