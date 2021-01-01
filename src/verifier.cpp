@@ -17,8 +17,10 @@ namespace GoldScorpion {
         MemoryTracker& memory;
         std::optional< Token > nearestToken;
         std::optional< std::string > contextTypeId;
+        std::optional< std::string > functionReturnType;
         bool thisPermitted;
         bool anonymousFunctionPermitted;
+        bool withinFunction;
     };
 
     // Forward Declarations
@@ -312,6 +314,37 @@ namespace GoldScorpion {
         settings.memory.push( MemoryElement { *identifierTitle, *typeId, 0, 0 } );
     }
 
+    static void check( const ReturnStatement& node, VerifierSettings settings ) {
+        // Return statement never valid outside function
+        if( !settings.withinFunction ) {
+            Error{ "Return statement not valid outside of function body", settings.nearestToken }.throwException();
+        }
+
+        // Return statement not valid if return type is specified but ReturnStatement expression is not
+        if( !node.expression ) {
+            if( settings.functionReturnType ) {
+                Error{ "Return statement must return expression of type " + *settings.functionReturnType, settings.nearestToken }.throwException();
+            }
+        } else {
+            // If expression is provided it must both validate and be the same type as the function
+            // Return statement not valid if return type is not specified but ReturnStatement expression is
+            if( !settings.functionReturnType ) {
+                Error{ "Return statement must not return expression for function of void return type", settings.nearestToken }.throwException();
+            }
+
+            check( **node.expression, settings );
+
+            auto typeId = getType( **node.expression, settings.memory );
+            if( !typeId ) {
+                Error{ "Internal compiler error (ReturnStatement unable to determine type for expression)", settings.nearestToken }.throwException();
+            }
+
+            if( *typeId != *settings.functionReturnType ) {
+                Error{ "Return statement expression of type " + *typeId + " does not match function return type of " + *settings.functionReturnType, settings.nearestToken }.throwException();
+            }
+        }
+    }
+
     static void check( const FunctionDeclaration& node, VerifierSettings settings ) {
         if( !node.name && !settings.anonymousFunctionPermitted ) {
             Error{ "Anonymous function declaration not permitted here", settings.nearestToken }.throwException();
@@ -358,13 +391,18 @@ namespace GoldScorpion {
                 if( !settings.memory.findUdt( typeId ) ) {
                     Error{ "Undeclared user-defined type: " + typeId, *node.returnType }.throwException();
                 }
+
+                settings.functionReturnType = typeId;
             }
+        } else {
+            settings.functionReturnType = {};
         }
 
         // All subdeclarations must validate properly - pass down settings
         settings.memory.openScope();
-        // anonymousFunctionPermitted does not propagate
+        // anonymousFunctionPermitted does not propagate, set within function
         settings.anonymousFunctionPermitted = true;
+        settings.withinFunction = true;
         // Push arguments onto stack right-to-left so that they are in scope when subsequent checks are performed
         for( auto argument = arguments.crbegin(); argument != arguments.crend(); ++argument ) {
             // Just gotta have something in scope with the ID + type ID
@@ -387,6 +425,12 @@ namespace GoldScorpion {
         for( const auto& declaration : node.body ) {
             check( *declaration, settings );
         }
+
+        // If function has return type, function must contain a return
+        if( settings.functionReturnType && !containsReturn( node ) ) {
+            Error{ "Function has return type " + *settings.functionReturnType + " but function does not always return value of type", settings.nearestToken }.throwException();
+        }
+
         // This should clear anything done by the function including the pushed arguments
         settings.memory.closeScope();
     }
@@ -456,7 +500,10 @@ namespace GoldScorpion {
             [ &settings ]( const std::unique_ptr< ExpressionStatement >& statement ) { check( *(statement->value), settings ); },
 			[]( const std::unique_ptr< ForStatement >& statement ) { Error{ "Internal compiler error (Statement check not implemented for statement subtype ForStatement)", {} }.throwException(); },
 			[]( const std::unique_ptr< IfStatement >& statement ) { Error{ "Internal compiler error (Statement check not implemented for statement subtype IfStatement)", {} }.throwException(); },
-			[]( const std::unique_ptr< ReturnStatement >& statement ) { Error{ "Internal compiler error (Statement check not implemented for statement subtype ReturnStatement)", {} }.throwException(); },
+			[ &node, settings ]( const std::unique_ptr< ReturnStatement >& statement ) mutable {
+                settings.nearestToken = node.nearestToken;
+                check( *statement, settings );
+            },
 			[]( const std::unique_ptr< AsmStatement >& statement ) { Error{ "Internal compiler error (Statement check not implemented for statement subtype AsmStatement)", {} }.throwException(); },
 			[]( const std::unique_ptr< WhileStatement >& statement ) { Error{ "Internal compiler error (Statement check not implemented for statement subtype WhileStatement)", {} }.throwException(); }
 
@@ -485,7 +532,7 @@ namespace GoldScorpion {
      */
     std::optional< std::string > check( const Program& program ) {
         MemoryTracker memory;
-        VerifierSettings settings{ memory, {}, {}, false, false };
+        VerifierSettings settings{ memory, {}, {}, {}, false, false, false };
 
         for( const auto& declaration : program.statements ) {
             try {
