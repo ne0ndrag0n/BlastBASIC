@@ -241,7 +241,7 @@ namespace GoldScorpion {
                                 Error{ "Internal compiler error (unable to determine type of \"this\" token)", token }.throwException();
                             }
 
-                            result = TypeResult::good( MemoryTracker::unwrapValue( *thisQuery ).typeId );
+                            result = TypeResult::good( MemoryTracker::unwrapTypeId( MemoryTracker::unwrapValue( *thisQuery ).type ) );
                             return;
                         }
                         case TokenType::TOKEN_IDENTIFIER: {
@@ -254,7 +254,7 @@ namespace GoldScorpion {
                             }
 
                             // Get its type id, and if it is a udt, attach the udt id
-                            std::string typeId = MemoryTracker::unwrapValue( *memoryQuery ).typeId;
+                            std::string typeId = MemoryTracker::unwrapTypeId( MemoryTracker::unwrapValue( *memoryQuery ).type );
                             if( typeIsUdt( typeId ) ) {
                                 // Udt
                                 std::optional< UserDefinedType > udt = memory.findUdt( typeId );

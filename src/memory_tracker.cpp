@@ -17,6 +17,13 @@ namespace GoldScorpion {
 		}, query );
 	}
 
+	std::string MemoryTracker::unwrapTypeId( const MemoryDataType& type ) {
+		return std::visit( overloaded {
+			[]( const FunctionType& element ) { return element.id; },
+			[]( const ValueType& element ) { return element.id; }
+		}, type );
+	}
+
 	void MemoryTracker::insert( MemoryElement element ) {
 		dataSegment.push_back( element );
 	}

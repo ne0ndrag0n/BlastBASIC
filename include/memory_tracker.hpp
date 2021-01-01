@@ -7,6 +7,22 @@
 
 namespace GoldScorpion {
 
+	struct FunctionTypeParameter {
+		std::string id;
+		std::string typeId;
+	};
+
+	struct FunctionType {
+		std::string id;
+		std::vector< FunctionTypeParameter > arguments;
+		std::string returnTypeId;
+	};
+
+	struct ValueType {
+		std::string id;
+	};
+	using MemoryDataType = std::variant< FunctionType, ValueType >;
+
 	struct UdtField {
 		std::string id;
 		std::string typeId;
@@ -19,7 +35,7 @@ namespace GoldScorpion {
 
 	struct MemoryElement {
 		std::optional< std::string > id;
-		std::string typeId;
+		MemoryDataType type;
 		int size;
 		long value;
 	};
@@ -66,6 +82,8 @@ namespace GoldScorpion {
 
 		static MemoryElement unwrapValue( const MemoryQuery& query );
 		static long unwrapOffset( const MemoryQuery& query );
+
+		static std::string unwrapTypeId( const MemoryDataType& type );
 	};
 
 }

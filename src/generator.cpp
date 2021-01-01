@@ -248,7 +248,7 @@ namespace GoldScorpion {
 							Error{ std::string( "Undefined identifier: " ) + id, token }.throwException();
 						}
 
-						std::string typeId = MemoryTracker::unwrapValue( *memoryQuery ).typeId;
+						std::string typeId = MemoryTracker::unwrapTypeId( MemoryTracker::unwrapValue( *memoryQuery ).type );
 						result = getIdentifierType( typeId );
 						if( result.type == ExpressionTypeTag::INVALID ) {
 							// Possibly a UDT

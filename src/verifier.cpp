@@ -311,7 +311,7 @@ namespace GoldScorpion {
             }
         }
 
-        settings.memory.push( MemoryElement { *identifierTitle, *typeId, 0, 0 } );
+        settings.memory.push( MemoryElement { *identifierTitle, ValueType { *typeId }, 0, 0 } );
     }
 
     static void check( const ReturnStatement& node, VerifierSettings settings ) {
@@ -413,7 +413,7 @@ namespace GoldScorpion {
             // Just gotta have something in scope with the ID + type ID
             settings.memory.push( MemoryElement {
                 argument->id,
-                argument->typeId,
+                ValueType { argument->typeId },
                 0,
                 0
             } );
@@ -422,7 +422,7 @@ namespace GoldScorpion {
         if( settings.contextTypeId ) {
             settings.memory.push( MemoryElement {
                 "this",
-                *settings.contextTypeId,
+                ValueType { *settings.contextTypeId },
                 0,
                 0
             } );
