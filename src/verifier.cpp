@@ -163,7 +163,7 @@ namespace GoldScorpion {
             }
 
             if( !settings.memory.findUdt( unwrapTypeId( *lhsType ) ) ) {
-                Error{ "Undeclared user-defined type: " + unwrapTypeId( *lhsType ), token }.throwException();
+                Error{ "Undeclared user-defined type: " + typeToString( *lhsType ), token }.throwException();
             }
 
             // - Right hand side must be a token-type primary....
@@ -174,7 +174,7 @@ namespace GoldScorpion {
 
                 std::string rhsUdtFieldId = expectTokenString( rhsIdentifier, "Internal compiler error (BinaryExpression dot RHS token has no string alternative)" );
                 if( !settings.memory.findUdtField( unwrapTypeId( *lhsType ), rhsUdtFieldId ) ) {
-                    Error{ "Invalid field " + rhsUdtFieldId + " on user-defined type " + unwrapTypeId( *lhsType ), rhsIdentifier }.throwException();
+                    Error{ "Invalid field " + rhsUdtFieldId + " on user-defined type " + typeToString( *lhsType ), rhsIdentifier }.throwException();
                 }
             } else {
                 Error{ "Expected: Expression of Primary type as right-hand side of BinaryExpression with \".\" operator", nearestToken }.throwException();
@@ -206,9 +206,14 @@ namespace GoldScorpion {
             expectTokenOfType( token, TokenType::TOKEN_PLUS, "Expected: \"+\" operator for the concatenation of strings with string or integer types" );
         }
 
+        // Operations cannot be performed on functions
+        if( typeIsFunction( *lhsType ) || typeIsFunction( *rhsType ) ) {
+            Error{ "Cannot apply BinaryExpression operation to function type", nearestToken }.throwException();
+        }
+
         // Check if types are identical, and if not identical, if they can be coerced
         if( !( typesMatch( *lhsType, *rhsType ) || integerTypesMatch( *lhsType, *rhsType ) || coercibleToString( *lhsType, *rhsType ) ) ) {
-            Error{ "Type mismatch: Expected type " + unwrapTypeId( *lhsType ) + " but right-hand side expression is of type " + unwrapTypeId( *rhsType ), nearestToken }.throwException();
+            Error{ "Type mismatch: Expected type " + typeToString( *lhsType ) + " but right-hand side expression is of type " + typeToString( *rhsType ), nearestToken }.throwException();
         }
     }
 
@@ -246,7 +251,7 @@ namespace GoldScorpion {
         if( !rhsType ) { Error{ rhsType.getError(), nearestToken }.throwException(); }
 
         if( !( typesMatch( *lhsType, *rhsType ) || integerTypesMatch( *lhsType, *rhsType ) || assignmentCoercible( *lhsType, *rhsType ) ) ) {
-            Error{ "Type mismatch: Expected type " + unwrapTypeId( *lhsType ) + " but expression is of type " + unwrapTypeId( *rhsType ), nearestToken }.throwException();
+            Error{ "Type mismatch: Expected type " + typeToString( *lhsType ) + " but expression is of type " + typeToString( *rhsType ), nearestToken }.throwException();
         }
     }
 
@@ -309,7 +314,7 @@ namespace GoldScorpion {
             }
 
             if( !( typesMatch( typeId, *expressionType ) || integerTypesMatch( typeId, *expressionType ) || assignmentCoercible( typeId, *expressionType ) ) ) {
-                Error{ "Type mismatch: Expected type " + unwrapTypeId( typeId ) + " but expression is of type " + unwrapTypeId( *expressionType ), node.variable.type.type }.throwException();
+                Error{ "Type mismatch: Expected type " + typeToString( typeId ) + " but expression is of type " + typeToString( *expressionType ), node.variable.type.type }.throwException();
             }
         }
 
@@ -343,7 +348,7 @@ namespace GoldScorpion {
 
             ValueType functionReturnType{ *settings.functionReturnType };
             if( !( typesMatch( *typeId, functionReturnType ) || integerTypesMatch( *typeId, functionReturnType ) || assignmentCoercible( *typeId, functionReturnType ) ) ) {
-                Error{ "Return statement expression of type " + unwrapTypeId( *typeId ) + " does not match function return type of " + unwrapTypeId( functionReturnType ), settings.nearestToken }.throwException();
+                Error{ "Return statement expression of type " + typeToString( *typeId ) + " does not match function return type of " + typeToString( functionReturnType ), settings.nearestToken }.throwException();
             }
         }
     }

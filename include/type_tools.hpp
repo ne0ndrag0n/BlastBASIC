@@ -18,6 +18,8 @@ namespace GoldScorpion {
 
     std::string unwrapTypeId( const MemoryDataType& type );
 
+    std::string typeToString( const MemoryDataType& type );
+
     bool typesComparable( const MemoryDataType& lhs, const MemoryDataType& rhs );
 
     bool typeIsValue( const MemoryDataType& type );

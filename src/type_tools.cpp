@@ -145,6 +145,34 @@ namespace GoldScorpion {
 		}, type );
     }
 
+    std::string typeToString( const MemoryDataType& type ) {
+        if( typeIsFunction( type ) ) {
+            std::string typeString = "function.";
+
+            const FunctionType& function = std::get< FunctionType >( type );
+            if( function.udtId ) {
+                typeString += *function.udtId + ".";
+            }
+
+           typeString += "(";
+
+            for( unsigned int i = 0; i != function.arguments.size(); i++ ) {
+                typeString += function.arguments[ i ].typeId;
+                if( i != function.arguments.size() - 1 ) {
+                    typeString += ",";
+                }
+            }
+
+            typeString += ").";
+
+            typeString += function.returnTypeId;
+
+            return typeString;
+        } else {
+            return unwrapTypeId( type );
+        }
+    }
+
     /**
      * "Comparable" types refer to whether or not two types are BOTH FunctionType or BOTH ValueType
      */
