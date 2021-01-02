@@ -162,8 +162,8 @@ namespace GoldScorpion {
                 Error{ error, token }.throwException();
             }
 
-            if( !settings.memory.findUdt( *lhsType ) ) {
-                Error{ "Undeclared user-defined type: " + *lhsType, token }.throwException();
+            if( !settings.memory.findUdt( unwrapTypeId( *lhsType ) ) ) {
+                Error{ "Undeclared user-defined type: " + unwrapTypeId( *lhsType ), token }.throwException();
             }
 
             // - Right hand side must be a token-type primary....
@@ -173,8 +173,8 @@ namespace GoldScorpion {
                 expectTokenOfType( rhsIdentifier, TokenType::TOKEN_IDENTIFIER, "Primary expression in RHS of BinaryExpression with \".\' operator must be of identifier type" );
 
                 std::string rhsUdtFieldId = expectTokenString( rhsIdentifier, "Internal compiler error (BinaryExpression dot RHS token has no string alternative)" );
-                if( !settings.memory.findUdtField( *lhsType, rhsUdtFieldId ) ) {
-                    Error{ "Invalid field " + rhsUdtFieldId + " on user-defined type " + *lhsType, rhsIdentifier }.throwException();
+                if( !settings.memory.findUdtField( unwrapTypeId( *lhsType ), rhsUdtFieldId ) ) {
+                    Error{ "Invalid field " + rhsUdtFieldId + " on user-defined type " + unwrapTypeId( *lhsType ), rhsIdentifier }.throwException();
                 }
             } else {
                 Error{ "Expected: Expression of Primary type as right-hand side of BinaryExpression with \".\" operator", nearestToken }.throwException();
@@ -202,13 +202,13 @@ namespace GoldScorpion {
         if( !rhsType ) { Error{ rhsType.getError(), nearestToken }.throwException(); }
 
         // A type is only coercible to string if the operator is plus
-        if( *lhsType == "string" || *rhsType == "string" ) {
+        if( typeIsString( *lhsType ) || typeIsString( *rhsType ) ) {
             expectTokenOfType( token, TokenType::TOKEN_PLUS, "Expected: \"+\" operator for the concatenation of strings with string or integer types" );
         }
 
         // Check if types are identical, and if not identical, if they can be coerced
         if( !( typesMatch( *lhsType, *rhsType ) || integerTypesMatch( *lhsType, *rhsType ) || coercibleToString( *lhsType, *rhsType ) ) ) {
-            Error{ "Type mismatch: Expected type " + *lhsType + " but right-hand side expression is of type " + *rhsType, nearestToken }.throwException();
+            Error{ "Type mismatch: Expected type " + unwrapTypeId( *lhsType ) + " but right-hand side expression is of type " + unwrapTypeId( *rhsType ), nearestToken }.throwException();
         }
     }
 
@@ -246,7 +246,7 @@ namespace GoldScorpion {
         if( !rhsType ) { Error{ rhsType.getError(), nearestToken }.throwException(); }
 
         if( !( typesMatch( *lhsType, *rhsType ) || integerTypesMatch( *lhsType, *rhsType ) || assignmentCoercible( *lhsType, *rhsType ) ) ) {
-            Error{ "Type mismatch: Expected type " + *lhsType + " but expression is of type " + *rhsType, nearestToken }.throwException();
+            Error{ "Type mismatch: Expected type " + unwrapTypeId( *lhsType ) + " but expression is of type " + unwrapTypeId( *rhsType ), nearestToken }.throwException();
         }
     }
 
@@ -290,10 +290,12 @@ namespace GoldScorpion {
             Error{ "Internal compiler error (VarDeclaration variable.name is not an identifier)", node.variable.name }.throwException();
         }
 
-        std::optional< std::string > typeId = tokenToTypeId( node.variable.type.type );
-        if( !typeId ) {
+        std::optional< std::string > typeIdConversion = tokenToTypeId( node.variable.type.type );
+        if( !typeIdConversion ) {
             Error{ "Internal compiler error (VarDeclaration variable.type should be properly verified)", node.variable.type.type }.throwException();
         }
+
+        ValueType typeId{ *typeIdConversion };
 
         // The type returned by the expression on the right must match the declared type, or be coercible to the type.
         if( node.value ) {
@@ -306,12 +308,12 @@ namespace GoldScorpion {
                 Error{ "Internal compiler error (VarDeclaration validated Expression failed to yield a type)", {} }.throwException();
             }
 
-            if( !( typesMatch( *typeId, *expressionType ) || integerTypesMatch( *typeId, *expressionType ) || assignmentCoercible( *typeId, *expressionType ) ) ) {
-                Error{ "Type mismatch: Expected type " + *typeId + " but expression is of type " + *expressionType, node.variable.type.type }.throwException();
+            if( !( typesMatch( typeId, *expressionType ) || integerTypesMatch( typeId, *expressionType ) || assignmentCoercible( typeId, *expressionType ) ) ) {
+                Error{ "Type mismatch: Expected type " + unwrapTypeId( typeId ) + " but expression is of type " + unwrapTypeId( *expressionType ), node.variable.type.type }.throwException();
             }
         }
 
-        settings.memory.push( MemoryElement { *identifierTitle, ValueType { *typeId }, 0, 0 } );
+        settings.memory.push( MemoryElement { *identifierTitle, typeId, 0, 0 } );
     }
 
     static void check( const ReturnStatement& node, VerifierSettings settings ) {
@@ -339,8 +341,9 @@ namespace GoldScorpion {
                 Error{ "Internal compiler error (ReturnStatement unable to determine type for expression)", settings.nearestToken }.throwException();
             }
 
-            if( !( typesMatch( *typeId, *settings.functionReturnType ) || integerTypesMatch( *typeId, *settings.functionReturnType ) || assignmentCoercible( *typeId, *settings.functionReturnType ) ) ) {
-                Error{ "Return statement expression of type " + *typeId + " does not match function return type of " + *settings.functionReturnType, settings.nearestToken }.throwException();
+            ValueType functionReturnType{ *settings.functionReturnType };
+            if( !( typesMatch( *typeId, functionReturnType ) || integerTypesMatch( *typeId, functionReturnType ) || assignmentCoercible( *typeId, functionReturnType ) ) ) {
+                Error{ "Return statement expression of type " + unwrapTypeId( *typeId ) + " does not match function return type of " + unwrapTypeId( functionReturnType ), settings.nearestToken }.throwException();
             }
         }
     }
@@ -376,7 +379,7 @@ namespace GoldScorpion {
                 Error{ "Internal compiler error (Unable to obtain type id)", parameter.type.type }.throwException();
             }
 
-            if( typeIsUdt( *typeId ) && !settings.memory.findUdt( *typeId ) ) {
+            if( typeIsUdt( ValueType{ *typeId } ) && !settings.memory.findUdt( *typeId ) ) {
                 Error{ "Undeclared user-defined type: " + *typeId, parameter.type.type }.throwException();
             }
 
@@ -471,7 +474,7 @@ namespace GoldScorpion {
             }
 
             // If fieldTypeId is a udt, the udt must exist
-            if( typeIsUdt( *fieldTypeId ) ) {
+            if( typeIsUdt( ValueType{ *fieldTypeId } ) ) {
                 if( !settings.memory.findUdt( *fieldTypeId ) ) {
                     Error{ "Undeclared user-defined type: " + *fieldTypeId, parameter.type.type }.throwException();
                 }

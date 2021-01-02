@@ -9,11 +9,12 @@ namespace GoldScorpion {
 
 	struct FunctionTypeParameter {
 		std::string id;
+		// Can't pass a function as a parameter yet so these are always value types
 		std::string typeId;
 	};
 
 	struct FunctionType {
-		std::string id;
+		std::optional< std::string > udtId;
 		std::vector< FunctionTypeParameter > arguments;
 		std::string returnTypeId;
 	};

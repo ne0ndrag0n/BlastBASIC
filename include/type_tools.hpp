@@ -8,7 +8,7 @@
 
 namespace GoldScorpion {
 
-    using TypeResult = Result< std::string, std::string >;
+    using TypeResult = Result< MemoryDataType, std::string >;
 
     std::optional< TokenType > typeIdToTokenType( const std::string& id );
 
@@ -16,28 +16,34 @@ namespace GoldScorpion {
 
     std::optional< std::string > tokenToTypeId( const Token& token );
 
-    bool typeIsUdt( const std::string& typeId );
-
-    bool typeIsInteger( const std::string& typeId );
-
-    bool typeIsFunction( const std::string& typeId );
-
-    bool typesMatch( const std::string& lhs, const std::string& rhs );
-
-    bool integerTypesMatch( const std::string& lhs, const std::string& rhs );
-
-    bool assignmentCoercible( const std::string& lhs, const std::string& rhs );
-
-    bool coercibleToString( const std::string& lhs, const std::string& rhs );
-
-    std::optional< long > getPrimitiveTypeSize( const std::string& typeId );
-
-    std::optional< long > getUdtTypeSize( const std::string& typeId, const MemoryTracker& memory );
-
     std::string unwrapTypeId( const MemoryDataType& type );
 
+    bool typesComparable( const MemoryDataType& lhs, const MemoryDataType& rhs );
+
+    bool typeIsValue( const MemoryDataType& type );
+
+    bool typeIsFunction( const MemoryDataType& type );
+
+    bool typeIsUdt( const MemoryDataType& type );
+
+    bool typeIsInteger( const MemoryDataType& typeId );
+
+    bool typeIsString( const MemoryDataType& type );
+
+    bool typesMatch( const MemoryDataType& lhs, const MemoryDataType& rhs );
+
+    bool integerTypesMatch( const MemoryDataType& lhs, const MemoryDataType& rhs );
+
+    bool assignmentCoercible( const MemoryDataType& lhs, const MemoryDataType& rhs );
+
+    bool coercibleToString( const MemoryDataType& lhs, const MemoryDataType& rhs );
+
+    std::optional< long > getPrimitiveTypeSize( const MemoryDataType& type );
+
+    std::optional< long > getUdtTypeSize( const MemoryDataType& type, const MemoryTracker& memory );
+
     // Only valid for integer fields
-    std::string promotePrimitiveTypes( const std::string& lhs, const std::string& rhs );
+    MemoryDataType promotePrimitiveTypes( const MemoryDataType& lhs, const MemoryDataType& rhs );
 
     TypeResult getType( const Primary& node, MemoryTracker& memory );
 

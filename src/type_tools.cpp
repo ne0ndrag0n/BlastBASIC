@@ -138,45 +138,130 @@ namespace GoldScorpion {
         return {};
     }
 
-    bool typeIsUdt( const std::string& typeId ) {
-        return !typeIdToTokenType( typeId ) && !typeIsFunction( typeId );
+    std::string unwrapTypeId( const MemoryDataType& type ) {
+		return std::visit( overloaded {
+			[]( const FunctionType& element ) { Error{ "Internal compiler error (attempted simple unwrap of function type)", {} }.throwException(); return std::string( "" ); },
+			[]( const ValueType& element ) { return element.id; }
+		}, type );
     }
 
-    bool typeIsInteger( const std::string& typeId ) {
-        return typeId == "u8" || typeId == "u16" || typeId == "u32" || typeId == "s8" || typeId == "s16" || typeId == "s32";
+    /**
+     * "Comparable" types refer to whether or not two types are BOTH FunctionType or BOTH ValueType
+     */
+    bool typesComparable( const MemoryDataType& lhs, const MemoryDataType& rhs ) {
+        // Function types and value types are incomparable
+        if( ( typeIsFunction( lhs ) && typeIsFunction( rhs ) ) || ( typeIsValue( lhs ) && typeIsValue( rhs ) ) ) {
+            return true;
+        }
+
+        return false;
     }
 
-    bool typeIsFunction( const std::string& typeId ) {
-        std::vector< std::string > split = Utility::split( typeId, '.' );
+    bool typeIsValue( const MemoryDataType& type ) {
+        return std::holds_alternative< ValueType >( type );
+    }
 
-        if( split.size() <= 1 ) {
+    bool typeIsFunction( const MemoryDataType& type ) {
+        return std::holds_alternative< FunctionType >( type );
+    }
+
+    bool typeIsUdt( const MemoryDataType& type ) {
+        if( typeIsFunction( type ) ) {
             return false;
         }
 
-        return split[ 0 ] == "function";
+        return !typeIdToTokenType( unwrapTypeId( type ) );
     }
 
-    bool typesMatch( const std::string& lhs, const std::string& rhs ) {
-        return lhs == rhs;
+    bool typeIsInteger( const MemoryDataType& type ) {
+        if( typeIsFunction( type ) ) {
+            return false;
+        }
+
+        std::string typeId = unwrapTypeId( type );
+
+        return typeId == "u8" || typeId == "u16" || typeId == "u32" || typeId == "s8" || typeId == "s16" || typeId == "s32";
     }
 
-    bool integerTypesMatch( const std::string& lhs, const std::string& rhs ) {
+    bool typeIsString( const MemoryDataType& type ) {
+        if( typeIsFunction( type ) ) {
+            return false;
+        }
+
+        return unwrapTypeId( type ) == "string";
+    }
+
+    bool typesMatch( const MemoryDataType& lhs, const MemoryDataType& rhs ) {
+        if( !typesComparable( lhs, rhs ) ) {
+            return false;
+        }
+
+        if( typeIsFunction( lhs ) ) {
+            // Types are function
+            // Function types are equivalent if they:
+            // - Share a UDT id or lack thereof
+            // - Share equivalent arguments
+            // - Share a return type
+            const FunctionType& lhsFunction = std::get< FunctionType >( lhs );
+            const FunctionType& rhsFunction = std::get< FunctionType >( rhs );
+
+            if( lhsFunction.udtId != rhsFunction.udtId ) {
+                return false;
+            }
+
+            if( lhsFunction.arguments.size() != rhsFunction.arguments.size() ) {
+                return false;
+            }
+
+            for( unsigned int i = 0; i != lhsFunction.arguments.size(); i++ ) {
+                if( lhsFunction.arguments[ i ].id != rhsFunction.arguments[ i ].id ) {
+                    return false;
+                }
+
+                if( lhsFunction.arguments[ i ].typeId != rhsFunction.arguments[ i ].typeId ) {
+                    return false;
+                }
+            }
+
+            if( lhsFunction.returnTypeId != rhsFunction.returnTypeId ) {
+                return false;
+            }
+
+            // Passed all the checks!
+            return true;
+        } else {
+            // Types are value
+            return unwrapTypeId( lhs ) == unwrapTypeId( rhs );
+        }
+    }
+
+    bool integerTypesMatch( const MemoryDataType& lhs, const MemoryDataType& rhs ) {
         return typeIsInteger( lhs ) && typeIsInteger( rhs );
     }
 
-    bool assignmentCoercible( const std::string& lhs, const std::string& rhs ) {
-        return lhs == "string" && typeIsInteger( rhs );
+    bool assignmentCoercible( const MemoryDataType& lhs, const MemoryDataType& rhs ) {
+        if( typeIsFunction( lhs ) || typeIsFunction( rhs ) ) {
+            return false;
+        }
+
+        return unwrapTypeId( lhs ) == "string" && typeIsInteger( rhs );
     }
 
-    bool coercibleToString( const std::string& lhs, const std::string& rhs ) {
-        return ( lhs == "string" || rhs == "string" ) && ( typeIsInteger( lhs ) || typeIsInteger( rhs ) );
+    bool coercibleToString( const MemoryDataType& lhs, const MemoryDataType& rhs ) {
+        if( typeIsFunction( lhs ) || typeIsFunction( rhs ) ) {
+            return false;
+        }
+
+        return ( unwrapTypeId( lhs ) == "string" || unwrapTypeId( rhs ) == "string" ) && ( typeIsInteger( lhs ) || typeIsInteger( rhs ) );
     }
 
-    std::optional< long > getPrimitiveTypeSize( const std::string& typeId ) {
-        if( typeIsUdt( typeId ) ) {
-            // Cannot report the size of a UDT using this function
+    std::optional< long > getPrimitiveTypeSize( const MemoryDataType& type ) {
+        if( typeIsUdt( type ) || typeIsFunction( type ) ) {
+            // Cannot report the size of a UDT or a functional type using this method
             return {};
         }
+
+        std::string typeId = unwrapTypeId( type );
 
         if( typeId == "u8" || typeId == "s8" ) { return 1; }
         if( typeId == "u16" || typeId == "s16" ) { return 2; }
@@ -185,10 +270,12 @@ namespace GoldScorpion {
         return {};
     }
 
-    std::optional< long > getUdtTypeSize( const std::string& typeId, const MemoryTracker& memory ) {
-        if( !typeIsUdt( typeId ) ) {
+    std::optional< long > getUdtTypeSize( const MemoryDataType& type, const MemoryTracker& memory ) {
+        if( !typeIsUdt( type ) ) {
             return {};
         }
+
+        std::string typeId = unwrapTypeId( type );
 
         auto query = memory.findUdt( typeId );
         if( !query ) {
@@ -198,17 +285,15 @@ namespace GoldScorpion {
         // Add all subtypes
         long totalSize = 0;
         for( const UdtField& field : query->fields ) {
-            std::string typeId = unwrapTypeId( field.type );
-
-            if( typeIsUdt( typeId ) ) {
-                std::optional< long > size = getUdtTypeSize( typeId, memory );
+            if( typeIsUdt( field.type ) ) {
+                std::optional< long > size = getUdtTypeSize( field.type, memory );
                 if( !size ) {
                     return {};
                 }
 
                 totalSize += *size;
             } else {
-                std::optional< long > size = getPrimitiveTypeSize( typeId );
+                std::optional< long > size = getPrimitiveTypeSize( field.type );
                 if( !size ) {
                     return {};
                 }
@@ -224,18 +309,19 @@ namespace GoldScorpion {
         return totalSize;
     }
 
-    std::string unwrapTypeId( const MemoryDataType& type ) {
-		return std::visit( overloaded {
-			[]( const FunctionType& element ) { return element.id; },
-			[]( const ValueType& element ) { return element.id; }
-		}, type );
-    }
+    MemoryDataType promotePrimitiveTypes( const MemoryDataType& lhs, const MemoryDataType& rhs ) {
+        // Cannot promote udt or function types
+        if( !typeIsInteger( lhs ) || !typeIsInteger( rhs ) ) {
+            Error{ "Internal compiler error (attempted to promote noninteger type)", {} }.throwException();
+        }
 
-    std::string promotePrimitiveTypes( const std::string& lhs, const std::string& rhs ) {
-        if( getTypeComparison( rhs ) >= getTypeComparison( lhs ) ) {
-            return isOneSigned( lhs, rhs ) ? scrubSigned( rhs ) : rhs;
+        std::string lhsTypeId = unwrapTypeId( lhs );
+        std::string rhsTypeId = unwrapTypeId( rhs );
+
+        if( getTypeComparison( rhsTypeId ) >= getTypeComparison( lhsTypeId ) ) {
+            return ValueType{ isOneSigned( lhsTypeId, rhsTypeId ) ? scrubSigned( rhsTypeId ) : rhsTypeId };
         } else {
-            return isOneSigned( lhs, rhs ) ? scrubSigned( lhs ) : lhs;
+            return ValueType{ isOneSigned( lhsTypeId, rhsTypeId ) ? scrubSigned( lhsTypeId ) : lhsTypeId };
         }
     }
 
@@ -247,11 +333,11 @@ namespace GoldScorpion {
                 [ &memory, &result ]( const Token& token ){
                     switch( token.type ) {
                         case TokenType::TOKEN_LITERAL_INTEGER: {
-                            result = TypeResult::good( getLiteralType( expectLong( token ) ) );
+                            result = TypeResult::good( ValueType{ getLiteralType( expectLong( token ) ) } );
                             return;
                         }
                         case TokenType::TOKEN_LITERAL_STRING: {
-                            result = TypeResult::good( "string" );
+                            result = TypeResult::good( ValueType{ "string" } );
                             return;
                         }
                         case TokenType::TOKEN_THIS: {
@@ -261,7 +347,7 @@ namespace GoldScorpion {
                                 Error{ "Internal compiler error (unable to determine type of \"this\" token)", token }.throwException();
                             }
 
-                            result = TypeResult::good( unwrapTypeId( MemoryTracker::unwrapValue( *thisQuery ).type ) );
+                            result = TypeResult::good( MemoryTracker::unwrapValue( *thisQuery ).type );
                             return;
                         }
                         case TokenType::TOKEN_IDENTIFIER: {
@@ -274,21 +360,16 @@ namespace GoldScorpion {
                             }
 
                             // Get its type id, and if it is a udt, attach the udt id
-                            std::string typeId = unwrapTypeId( MemoryTracker::unwrapValue( *memoryQuery ).type );
-                            if( typeIsUdt( typeId ) ) {
+                            MemoryDataType type = MemoryTracker::unwrapValue( *memoryQuery ).type;
+                            if( typeIsUdt( type ) ) {
                                 // Udt
-                                std::optional< UserDefinedType > udt = memory.findUdt( typeId );
-                                if( udt ) {
-                                    result = TypeResult::good( udt->id );
+                                if( !memory.findUdt( unwrapTypeId( type ) ) ) {
+                                    Error{ "Internal compiler error (UDT specified as ValueType but UDT not found)", token }.throwException();
                                     return;
                                 }
-
-                                // If we dereference an identifier, but it doesn't have a valid type
-                                // then something terrible happened that wasn't supposed to.
-                                Error{ "Internal compiler error", token }.throwException();
                             }
 
-                            result = TypeResult::good( typeId );
+                            result = TypeResult::good( type );
                             return;
                         }
                         default: {
@@ -331,7 +412,7 @@ namespace GoldScorpion {
                     return lhs;
                 }
 
-                auto lhsUdt = memory.findUdt( *lhs );
+                auto lhsUdt = memory.findUdt( unwrapTypeId( *lhs ) );
                 if( !lhsUdt ) {
                     return TypeResult::err( "Undeclared user-defined type" );
                 }
@@ -341,7 +422,7 @@ namespace GoldScorpion {
                     return TypeResult::err( "User-defined type " + lhsUdt->id + " does not have field " + *rhsIdentifier );
                 }
 
-                return TypeResult::good( unwrapTypeId( rhsUdtField->type ) );
+                return TypeResult::good( rhsUdtField->type );
             }
             default: {
                 // All other operators require both sides to have a well-defined type
@@ -349,8 +430,8 @@ namespace GoldScorpion {
                 if( !rhs ) { return rhs; }
 
                 // For all other operators, if left hand side is a UDT, then RHS must be as well.
-                if( typeIsUdt( *lhs ) ) {
-                    if( *lhs == *rhs ) {
+                if( typeIsUdt( *lhs ) || typeIsFunction( *lhs ) ) {
+                    if( typesMatch( *lhs, *rhs ) ) {
                         return lhs;
                     } else {
                         return TypeResult::err( "Type mismatch" );
