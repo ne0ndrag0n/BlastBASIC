@@ -8,19 +8,18 @@
 
 namespace GoldScorpion {
 
-    struct VerifierArgument {
-        std::string id;
-        std::string typeId;
-    };
-
     struct VerifierSettings {
         MemoryTracker& memory;
         std::optional< Token > nearestToken;
         std::optional< std::string > contextTypeId;
         std::optional< std::string > functionReturnType;
-        bool thisPermitted;
         bool anonymousFunctionPermitted;
         bool withinFunction;
+    };
+
+    struct CheckedParameter {
+        std::string id;
+        std::string typeId;
     };
 
     // Forward Declarations
@@ -95,6 +94,24 @@ namespace GoldScorpion {
         return Token{ TokenType::TOKEN_NONE, {}, 0, 0 };
     }
 
+    static CheckedParameter checkAndExtract( const Parameter& parameter, VerifierSettings settings ) {
+        expectTokenOfType( parameter.name, TokenType::TOKEN_IDENTIFIER, "Internal compiler error (Parameter identifier token not of identifier type)" );
+        std::string paramName = expectTokenString( parameter.name, "Internal compiler error (Parameter identifier token contains no string alternative)" );
+
+        // The typeId must be valid and, if a udt, declared
+        expectTokenType( parameter.type.type, "Internal compiler error (Parameter type identifier not of any discernable type)" );
+        std::optional< std::string > typeId = tokenToTypeId( parameter.type.type );
+        if( !typeId ) {
+            Error{ "Internal compiler error (Unable to obtain type id)", parameter.type.type }.throwException();
+        }
+
+        if( typeIsUdt( ValueType{ *typeId } ) && !settings.memory.findUdt( *typeId ) ) {
+            Error{ "Undeclared user-defined type: " + *typeId, parameter.type.type }.throwException();
+        }
+
+        return CheckedParameter{ paramName, *typeId };
+    }
+
     // mostly checks for internal compiler errors
     static void check( const Primary& node, VerifierSettings settings ) {
         std::visit( overloaded {
@@ -102,7 +119,7 @@ namespace GoldScorpion {
             [ &settings ]( const Token& token ) {
                 switch( token.type ) {
                     case TokenType::TOKEN_THIS: {
-                        if( !settings.thisPermitted ) {
+                        if( !settings.contextTypeId ) {
                             Error{ "\"this\" specifier not permitted in this context", token }.throwException();
                         }
                         break;
@@ -208,7 +225,7 @@ namespace GoldScorpion {
 
         // Operations cannot be performed on functions
         if( typeIsFunction( *lhsType ) || typeIsFunction( *rhsType ) ) {
-            Error{ "Cannot apply BinaryExpression operation to function type", nearestToken }.throwException();
+            Error{ "Cannot apply BinaryExpression operation to function type " + ( typeIsFunction( *lhsType ) ? typeToString( *lhsType ) : typeToString( *rhsType ) ), nearestToken }.throwException();
         }
 
         // Check if types are identical, and if not identical, if they can be coerced
@@ -277,6 +294,11 @@ namespace GoldScorpion {
         // Cannot redefine a variable in the same scope, check for this using memorytracker
         if( settings.memory.find( name, true ) ) {
             Error{ "Redeclaration of identifier " + name + " in the current scope", node.variable.name }.throwException();
+        }
+
+        // Cannot stomp over a UDT declaration
+        if( settings.memory.findUdt( name ) ) {
+            Error{ "Cannot use name of user-defined type " + name + " as VarDeclaration identifier", node.variable.name }.throwException();
         }
 
         // Verify type is either primitive or declared
@@ -367,28 +389,17 @@ namespace GoldScorpion {
         // - No arguments can have duplicate names
         // - No arguments can refer to undeclared user-defined types
         std::set< std::string > usedNames;
-        std::vector< VerifierArgument > arguments;
+        std::vector< FunctionTypeParameter > arguments;
         for( const Parameter& parameter : node.arguments ) {
-            expectTokenOfType( parameter.name, TokenType::TOKEN_IDENTIFIER, "Internal compiler error (FunctionDeclaration Parameter identifier token not of identifier type)" );
-            std::string paramName = expectTokenString( parameter.name, "Internal compiler error (FunctionDeclaration Parameter identifier token contains no string alternative)" );
-            if( usedNames.count( paramName ) ) {
-                Error{ "Duplicate argument identifier: " + paramName, parameter.name }.throwException();
+            CheckedParameter checkedParameter = checkAndExtract( parameter, settings );
+
+            if( usedNames.count( checkedParameter.id ) ) {
+                Error{ "Duplicate argument identifier: " + checkedParameter.id, parameter.name }.throwException();
             } else {
-                usedNames.insert( paramName );
+                usedNames.insert( checkedParameter.id );
             }
 
-            // The typeId must be valid and, if a udt, declared
-            expectTokenType( parameter.type.type, "Internal compiler error (FunctionDeclaration Parameter type identifier not of any discernable type)" );
-            std::optional< std::string > typeId = tokenToTypeId( parameter.type.type );
-            if( !typeId ) {
-                Error{ "Internal compiler error (Unable to obtain type id)", parameter.type.type }.throwException();
-            }
-
-            if( typeIsUdt( ValueType{ *typeId } ) && !settings.memory.findUdt( *typeId ) ) {
-                Error{ "Undeclared user-defined type: " + *typeId, parameter.type.type }.throwException();
-            }
-
-            arguments.push_back( VerifierArgument{ paramName, *typeId } );
+            arguments.push_back( FunctionTypeParameter { checkedParameter.id, checkedParameter.typeId } );
         }
 
         // Return type must be a valid
@@ -446,6 +457,14 @@ namespace GoldScorpion {
 
         // This should clear anything done by the function including the pushed arguments
         settings.memory.closeScope();
+
+        // If function belongs to a type context, the validated function must be added as a field to the type
+        // Otherwise, add the function to the stack
+        if( settings.contextTypeId ) {
+            settings.memory.addUdtField( *settings.contextTypeId, UdtField{ *functionName, FunctionType{ settings.contextTypeId, arguments, settings.functionReturnType } } );
+        } else {
+            settings.memory.push( MemoryElement{ functionName, FunctionType{ {}, arguments, settings.functionReturnType }, 0, 0 } );
+        }
     }
 
     static void check( const TypeDeclaration& node, VerifierSettings settings ) {
@@ -458,35 +477,26 @@ namespace GoldScorpion {
             Error{ "Redeclaration of user-defined type " + typeId + " in the current scope", node.name }.throwException();
         }
 
+        // Cannot stomp an existing VarDeclaration
+        if( settings.memory.find( typeId ) ) {
+            Error{ "Cannot use name of existing variable " + typeId + " as TypeDeclaration identifier", node.name }.throwException();
+        }
+
         // Each parameter must contain an identifier/string token and either a primitive type or a declared user-defined type
         // No two fields may have the same name
         std::set< std::string > declaredNames;
         std::vector< UdtField > fields;
         for( const Parameter& parameter : node.fields ) {
-            expectTokenOfType( parameter.name, TokenType::TOKEN_IDENTIFIER, "Internal compiler error (TypeDeclaration field name token not of identifier type)" );
-            std::string fieldId = expectTokenString( parameter.name, "Internal compiler error (TypeDeclaration field name token of identifier type contains no string alternative)" );
+            CheckedParameter checkedParameter = checkAndExtract( parameter, settings );
 
-            if( declaredNames.count( fieldId ) ) {
-                Error{ "Redeclaration of user-defined type field: " + fieldId, parameter.name }.throwException();
+            if( declaredNames.count( checkedParameter.id ) ) {
+                Error{ "Redeclaration of user-defined type field: " + checkedParameter.id, parameter.name }.throwException();
             } else {
-                declaredNames.insert( fieldId );
-            }
-
-            expectTokenType( parameter.type.type, "Internal compiler error (TypeDeclaration parameter type token not of any discernable type)" );
-            std::optional< std::string > fieldTypeId = tokenToTypeId( parameter.type.type );
-            if( !fieldTypeId ) {
-                Error{ "Internal compiler error (TypeDeclaration parameter type token unable to determine type)", parameter.type.type }.throwException();
-            }
-
-            // If fieldTypeId is a udt, the udt must exist
-            if( typeIsUdt( ValueType{ *fieldTypeId } ) ) {
-                if( !settings.memory.findUdt( *fieldTypeId ) ) {
-                    Error{ "Undeclared user-defined type: " + *fieldTypeId, parameter.type.type }.throwException();
-                }
+                declaredNames.insert( checkedParameter.id );
             }
 
             // Push onto the fields array
-            fields.push_back( UdtField { fieldId, ValueType { *fieldTypeId } } );
+            fields.push_back( UdtField { checkedParameter.id, ValueType { checkedParameter.typeId } } );
         }
 
         // User-defined type must contain at least one field
@@ -496,7 +506,6 @@ namespace GoldScorpion {
 
         // For all functions inside this type, set the contextTypeId so that "this" tokens may have obtainable types
         settings.contextTypeId = typeId;
-        settings.thisPermitted = true;
 
         // Add the user-defined type to the memory tracker
         settings.memory.addUdt( UserDefinedType { typeId, fields } );
@@ -545,7 +554,7 @@ namespace GoldScorpion {
      */
     std::optional< std::string > check( const Program& program ) {
         MemoryTracker memory;
-        VerifierSettings settings{ memory, {}, {}, {}, false, false, false };
+        VerifierSettings settings{ memory, {}, {}, {}, false, false };
 
         for( const auto& declaration : program.statements ) {
             try {

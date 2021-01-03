@@ -1,6 +1,10 @@
 type Vec2u16
     x as u16
     y as u16
+
+    function get() as Vec2u16
+        return this
+    end
 end
 
 def a as u16 = 0

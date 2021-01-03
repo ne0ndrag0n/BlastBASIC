@@ -16,7 +16,7 @@ namespace GoldScorpion {
 	struct FunctionType {
 		std::optional< std::string > udtId;
 		std::vector< FunctionTypeParameter > arguments;
-		std::string returnTypeId;
+		std::optional< std::string > returnTypeId;
 	};
 
 	struct ValueType {
@@ -79,6 +79,7 @@ namespace GoldScorpion {
 
 		void addUdt( const UserDefinedType& udt );
 		std::optional< UserDefinedType > findUdt( const std::string& id, bool currentScope = false ) const;
+		void addUdtField( const std::string& id, const UdtField& field, bool currentScope = false );
 		std::optional< UdtField > findUdtField( const std::string& id, const std::string& fieldId, bool currentScope = false ) const;
 
 		static MemoryElement unwrapValue( const MemoryQuery& query );

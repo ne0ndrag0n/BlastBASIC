@@ -153,6 +153,23 @@ namespace GoldScorpion {
 		return {};
 	}
 
+	void MemoryTracker::addUdtField( const std::string& id, const UdtField& field, bool currentScope ) {
+		long scopeCount = 0;
+		for( auto& udt : udts ) {
+			if( currentScope ) {
+				if( !scopes.empty() && scopeCount < scopes.top().udtItems ) {
+					scopeCount++;
+				} else {
+					break;
+				}
+			}
+
+			if( udt.id == id ) {
+				udt.fields.push_back( field );
+			}
+		}
+	}
+
 	std::optional< UdtField > MemoryTracker::findUdtField( const std::string& id, const std::string& fieldId, bool currentScope ) const {
 		auto udt = findUdt( id, currentScope );
 

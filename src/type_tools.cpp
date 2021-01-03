@@ -165,7 +165,9 @@ namespace GoldScorpion {
 
             typeString += ").";
 
-            typeString += function.returnTypeId;
+            if( function.returnTypeId ) {
+                typeString += *function.returnTypeId;
+            }
 
             return typeString;
         } else {
