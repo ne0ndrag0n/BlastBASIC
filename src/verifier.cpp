@@ -149,7 +149,43 @@ namespace GoldScorpion {
         }, node.value );
     }
 
-    static void check( const BinaryExpression& node, std::optional< Token > nearestToken, VerifierSettings settings ) {
+    static void check( const CallExpression& node, VerifierSettings settings ) {
+        // Identifier must be a callable function with a non-void return type
+        check( *node.identifier, settings );
+        TypeResult identifierType = getType( *node.identifier, settings.memory );
+
+        if( !identifierType ) {
+            Error{ "Unable to determine type of CallExpression identifier: " + identifierType.getError(), settings.nearestToken }.throwException();
+        }
+
+        if( !typeIsFunction( *identifierType ) ) {
+            Error{ "Unable to call non-function type " + typeToString( *identifierType ), settings.nearestToken }.throwException();
+        }
+
+        // In the returned function type, we must make sure the provided argument list matches the argument list of the function
+        // Only the types and the order of the types matter here
+        const FunctionType& functionType = std::get< FunctionType >( *identifierType );
+        if( functionType.arguments.size() != node.arguments.size() ) {
+            Error{ "CallExpression requires " + std::to_string( functionType.arguments.size() ) + " arguments but " + std::to_string( node.arguments.size() ) + " arguments were provided", settings.nearestToken }.throwException();
+        }
+
+        // Iterate through function type specification and make sure types match up
+        for( unsigned int i = 0; i != functionType.arguments.size(); i++ ) {
+            const FunctionTypeParameter& parameter = functionType.arguments[ i ];
+
+            check( *node.arguments[ i ], settings );
+            TypeResult argumentType = getType( *node.arguments[ i ], settings.memory );
+            if( !argumentType ) {
+                Error{ "Unable to determine type of argument" + std::to_string( i ) + "in CallExpression: " + argumentType.getError(), settings.nearestToken }.throwException();
+            }
+
+            if( !( typesMatch( ValueType{ parameter.typeId }, *argumentType ) || integerTypesMatch( ValueType{ parameter.typeId }, *argumentType ) || coercibleToString( ValueType{ parameter.typeId }, *argumentType ) ) ) {
+                Error{ "Expected: Type of argument " + std::to_string( i ) + " to be " + parameter.typeId + " but argument provided is of type " + typeToString( *argumentType ), settings.nearestToken }.throwException();
+            }
+        }
+    }
+
+    static void check( const BinaryExpression& node, VerifierSettings settings ) {
         // Constraints on BinaryExpressions:
         // 1) Left-hand side expression and right-hand side expression must validate
         // 2) Operator must be token-type primary and one of the following: +, -, *, /, %, or .
@@ -167,7 +203,7 @@ namespace GoldScorpion {
         check( *node.op, settings );
         check( *node.rhsValue, settings );
 
-        Token token = expectToken( *node.op, nearestToken, "Expected: Operator of BinaryExpression to be of Token type" );
+        Token token = expectToken( *node.op, settings.nearestToken, "Expected: Operator of BinaryExpression to be of Token type" );
         if( token.type == TokenType::TOKEN_DOT ) {
             // - Left-hand side must return a declared UDT type...
             auto lhsType = getType( *node.lhsValue, settings.memory );
@@ -186,7 +222,7 @@ namespace GoldScorpion {
             // - Right hand side must be a token-type primary....
             if( auto primaryType = std::get_if< std::unique_ptr< Primary > >( &node.rhsValue->value ) ) {
                 // ...of identifier type
-                Token rhsIdentifier = expectToken( **primaryType, nearestToken, "Expected: Expression of Primary token type as right-hand side of BinaryExpression with \".\" operator" );
+                Token rhsIdentifier = expectToken( **primaryType, settings.nearestToken, "Expected: Expression of Primary token type as right-hand side of BinaryExpression with \".\" operator" );
                 expectTokenOfType( rhsIdentifier, TokenType::TOKEN_IDENTIFIER, "Primary expression in RHS of BinaryExpression with \".\' operator must be of identifier type" );
 
                 std::string rhsUdtFieldId = expectTokenString( rhsIdentifier, "Internal compiler error (BinaryExpression dot RHS token has no string alternative)" );
@@ -194,7 +230,7 @@ namespace GoldScorpion {
                     Error{ "Invalid field " + rhsUdtFieldId + " on user-defined type " + typeToString( *lhsType ), rhsIdentifier }.throwException();
                 }
             } else {
-                Error{ "Expected: Expression of Primary type as right-hand side of BinaryExpression with \".\" operator", nearestToken }.throwException();
+                Error{ "Expected: Expression of Primary type as right-hand side of BinaryExpression with \".\" operator", settings.nearestToken }.throwException();
             }
 
             return;
@@ -213,10 +249,10 @@ namespace GoldScorpion {
         );
 
         auto lhsType = getType( *node.lhsValue, settings.memory );
-        if( !lhsType ) { Error{ lhsType.getError(), nearestToken }.throwException(); }
+        if( !lhsType ) { Error{ lhsType.getError(), settings.nearestToken }.throwException(); }
 
         auto rhsType = getType( *node.rhsValue, settings.memory );
-        if( !rhsType ) { Error{ rhsType.getError(), nearestToken }.throwException(); }
+        if( !rhsType ) { Error{ rhsType.getError(), settings.nearestToken }.throwException(); }
 
         // A type is only coercible to string if the operator is plus
         if( typeIsString( *lhsType ) || typeIsString( *rhsType ) ) {
@@ -225,16 +261,16 @@ namespace GoldScorpion {
 
         // Operations cannot be performed on functions
         if( typeIsFunction( *lhsType ) || typeIsFunction( *rhsType ) ) {
-            Error{ "Cannot apply BinaryExpression operation to function type " + ( typeIsFunction( *lhsType ) ? typeToString( *lhsType ) : typeToString( *rhsType ) ), nearestToken }.throwException();
+            Error{ "Cannot apply BinaryExpression operation to function type " + ( typeIsFunction( *lhsType ) ? typeToString( *lhsType ) : typeToString( *rhsType ) ), settings.nearestToken }.throwException();
         }
 
         // Check if types are identical, and if not identical, if they can be coerced
         if( !( typesMatch( *lhsType, *rhsType ) || integerTypesMatch( *lhsType, *rhsType ) || coercibleToString( *lhsType, *rhsType ) ) ) {
-            Error{ "Type mismatch: Expected type " + typeToString( *lhsType ) + " but right-hand side expression is of type " + typeToString( *rhsType ), nearestToken }.throwException();
+            Error{ "Type mismatch: Expected type " + typeToString( *lhsType ) + " but right-hand side expression is of type " + typeToString( *rhsType ), settings.nearestToken }.throwException();
         }
     }
 
-    static void check( const AssignmentExpression& node, std::optional< Token > nearestToken, VerifierSettings settings ) {
+    static void check( const AssignmentExpression& node, VerifierSettings settings ) {
         // Begin with a simple verification of both the left-hand side and the right-hand side
         check( *node.identifier, settings );
         check( *node.expression, settings );
@@ -257,28 +293,30 @@ namespace GoldScorpion {
             Token token = expectToken( *binaryExpression.op, identifierExpression.nearestToken, "BinaryExpression must have an operator of Token type" );
             expectTokenOfType( token, TokenType::TOKEN_DOT, "BinaryExpression must have operator \".\" for left-hand side of AssignmentExpression" );
         } else {
-            Error{ "Invalid left-hand expression type for AssignmentExpression", nearestToken }.throwException();
+            Error{ "Invalid left-hand expression type for AssignmentExpression", settings.nearestToken }.throwException();
         }
 
         // Type of right hand side assignment should match type of identifier on left hand side
         auto lhsType = getType( *node.identifier, settings.memory );
-        if( !lhsType ) { Error{ lhsType.getError(), nearestToken }.throwException(); }
+        if( !lhsType ) { Error{ lhsType.getError(), settings.nearestToken }.throwException(); }
 
         auto rhsType = getType( *node.expression, settings.memory );
-        if( !rhsType ) { Error{ rhsType.getError(), nearestToken }.throwException(); }
+        if( !rhsType ) { Error{ rhsType.getError(), settings.nearestToken }.throwException(); }
 
         if( !( typesMatch( *lhsType, *rhsType ) || integerTypesMatch( *lhsType, *rhsType ) || assignmentCoercible( *lhsType, *rhsType ) ) ) {
-            Error{ "Type mismatch: Expected type " + typeToString( *lhsType ) + " but expression is of type " + typeToString( *rhsType ), nearestToken }.throwException();
+            Error{ "Type mismatch: Expected type " + typeToString( *lhsType ) + " but expression is of type " + typeToString( *rhsType ), settings.nearestToken }.throwException();
         }
     }
 
     static void check( const Expression& node, VerifierSettings settings ) {
+        settings.nearestToken = node.nearestToken;
+
         std::visit( overloaded {
 
-            [ &node, &settings ]( const std::unique_ptr< AssignmentExpression >& expression ) { check( *expression, node.nearestToken, settings ); },
-            [ &node, &settings ]( const std::unique_ptr< BinaryExpression >& expression ) { check( *expression, node.nearestToken, settings ); },
+            [ &node, &settings ]( const std::unique_ptr< AssignmentExpression >& expression ) { check( *expression, settings ); },
+            [ &node, &settings ]( const std::unique_ptr< BinaryExpression >& expression ) { check( *expression, settings ); },
             []( const std::unique_ptr< UnaryExpression >& expression ) { Error{ "Internal compiler error (Expression check not implemented for expression subtype UnaryExpression)", {} }.throwException(); },
-            []( const std::unique_ptr< CallExpression >& expression ) { Error{ "Internal compiler error (Expression check not implemented for expression subtype CallExpression)", {} }.throwException(); },
+            [ &node, &settings ]( const std::unique_ptr< CallExpression >& expression ) { check( *expression, settings ); },
             [ &settings ]( const std::unique_ptr< Primary >& expression ) { check( *expression, settings ); },
 
         }, node.value );

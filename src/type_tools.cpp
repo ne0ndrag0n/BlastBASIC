@@ -244,10 +244,6 @@ namespace GoldScorpion {
             }
 
             for( unsigned int i = 0; i != lhsFunction.arguments.size(); i++ ) {
-                if( lhsFunction.arguments[ i ].id != rhsFunction.arguments[ i ].id ) {
-                    return false;
-                }
-
                 if( lhsFunction.arguments[ i ].typeId != rhsFunction.arguments[ i ].typeId ) {
                     return false;
                 }
@@ -417,6 +413,27 @@ namespace GoldScorpion {
         return result;
     }
 
+    TypeResult getType( const CallExpression& node, MemoryTracker& memory ) {
+        // Get the return type of the expression
+        TypeResult expressionType = getType( *node.identifier, memory );
+        if( !expressionType ) {
+            return TypeResult::err( "Could not deduce type of identifier in CallExpression: " + expressionType.getError() );
+        }
+
+        // The expression must ultimately boil down to a function
+        if( !typeIsFunction( *expressionType ) ) {
+            return TypeResult::err( "Unable to call non-function type " + typeToString( *expressionType ) );
+        }
+
+        // The return type of the function is the type of this CallExpression
+        const FunctionType& function = std::get< FunctionType >( *expressionType );
+        if( !function.returnTypeId ) {
+            return TypeResult::err( "Cannot call function with no return type" );
+        }
+
+        return TypeResult::good( ValueType{ *function.returnTypeId } );
+    }
+
     TypeResult getType( const BinaryExpression& node, MemoryTracker& memory ) {
 
         TypeResult lhs = getType( *node.lhsValue, memory );
@@ -482,6 +499,10 @@ namespace GoldScorpion {
 		if( auto primaryExpression = std::get_if< std::unique_ptr< Primary > >( &node.value ) ) {
 			return getType( **primaryExpression, memory );
 		}
+
+        if( auto callExpression = std::get_if< std::unique_ptr< CallExpression > >( &node.value ) ) {
+            return getType( **callExpression, memory );
+        }
 
 		// Many node types not yet implemented
         return TypeResult::err( "Expression subtype not implemented" );
