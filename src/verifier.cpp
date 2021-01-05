@@ -149,6 +149,17 @@ namespace GoldScorpion {
         }, node.value );
     }
 
+    static void check( const UnaryExpression& node, VerifierSettings settings ) {
+        // The only valid tokens here are "not" and "-"
+        check( *node.op, settings );
+        check( *node.value, settings );
+
+        Token token = expectToken( *node.op, settings.nearestToken, "Expected: Operator of BinaryExpression to be of Token type" );
+        if( !( token.type == TokenType::TOKEN_NOT || token.type == TokenType::TOKEN_MINUS ) ) {
+            Error{ "Expected: \"not\" or \"-\" operator for UnaryExpression", token }.throwException();
+        }
+    }
+
     static void check( const CallExpression& node, VerifierSettings settings ) {
         // Identifier must be a callable function with a non-void return type
         check( *node.identifier, settings );
@@ -313,10 +324,10 @@ namespace GoldScorpion {
 
         std::visit( overloaded {
 
-            [ &node, &settings ]( const std::unique_ptr< AssignmentExpression >& expression ) { check( *expression, settings ); },
-            [ &node, &settings ]( const std::unique_ptr< BinaryExpression >& expression ) { check( *expression, settings ); },
-            []( const std::unique_ptr< UnaryExpression >& expression ) { Error{ "Internal compiler error (Expression check not implemented for expression subtype UnaryExpression)", {} }.throwException(); },
-            [ &node, &settings ]( const std::unique_ptr< CallExpression >& expression ) { check( *expression, settings ); },
+            [ &settings ]( const std::unique_ptr< AssignmentExpression >& expression ) { check( *expression, settings ); },
+            [ &settings ]( const std::unique_ptr< BinaryExpression >& expression ) { check( *expression, settings ); },
+            [ &settings ]( const std::unique_ptr< UnaryExpression >& expression ) { check( *expression, settings ); },
+            [ &settings ]( const std::unique_ptr< CallExpression >& expression ) { check( *expression, settings ); },
             [ &settings ]( const std::unique_ptr< Primary >& expression ) { check( *expression, settings ); },
 
         }, node.value );

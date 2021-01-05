@@ -53,6 +53,8 @@ namespace GoldScorpion {
 
     TypeResult getType( const BinaryExpression& node, MemoryTracker& memory );
 
+    TypeResult getType( const AssignmentExpression& node, MemoryTracker& memory );
+
     TypeResult getType( const Expression& expression, MemoryTracker& memory );
 
 }

@@ -139,10 +139,12 @@ namespace GoldScorpion {
     }
 
     std::string unwrapTypeId( const MemoryDataType& type ) {
-		return std::visit( overloaded {
-			[]( const FunctionType& element ) { Error{ "Internal compiler error (attempted simple unwrap of function type)", {} }.throwException(); return std::string( "" ); },
-			[]( const ValueType& element ) { return element.id; }
-		}, type );
+        if( auto valueType = std::get_if< ValueType >( &type ) ) {
+            return valueType->id;
+        }
+
+        Error{ "Internal compiler error (attempted simple unwrap of function type)", {} }.throwException();
+        return std::string( "" );
     }
 
     std::string typeToString( const MemoryDataType& type ) {
@@ -491,6 +493,25 @@ namespace GoldScorpion {
         }
     }
 
+    TypeResult getType( const AssignmentExpression& node, MemoryTracker& memory ) {
+        // An assignment expression returns the type of the LHS ***IFF*** the RHS matches
+        TypeResult lhs = getType( *node.identifier, memory );
+        if( !lhs ) {
+            return TypeResult::err( "Unable to obtain type of left-hand side of AssignmentExpression: " + lhs.getError() );
+        }
+
+        TypeResult rhs = getType( *node.expression, memory );
+        if( !rhs ) {
+            return TypeResult::err( "Unable to obtain type of right-hand side of AssignmentExpression: " + rhs.getError() );
+        }
+
+        if( typesMatch( *lhs, *rhs ) || integerTypesMatch( *lhs, *rhs ) || assignmentCoercible( *lhs, *rhs ) ) {
+            return TypeResult::good( *lhs );
+        } else {
+            return TypeResult::err( "Types in AssignmentExpression mismatch: " + typeToString( *lhs ) + ", " + typeToString( *rhs ) );
+        }
+    }
+
     TypeResult getType( const Expression& node, MemoryTracker& memory ) {
 		if( auto binaryExpression = std::get_if< std::unique_ptr< BinaryExpression > >( &node.value ) ) {
  			return getType( **binaryExpression, memory );
@@ -504,7 +525,15 @@ namespace GoldScorpion {
             return getType( **callExpression, memory );
         }
 
-		// Many node types not yet implemented
+        if( auto unaryExpression = std::get_if< std::unique_ptr< UnaryExpression > >( &node.value ) ) {
+            // Operators in a unary expression do not change their type
+            return getType( *( ( **unaryExpression ).value ), memory );
+        }
+
+        if( auto assignmentExpression = std::get_if< std::unique_ptr< AssignmentExpression > >( &node.value ) ) {
+            return getType( **assignmentExpression, memory );
+        }
+
         return TypeResult::err( "Expression subtype not implemented" );
     }
 
