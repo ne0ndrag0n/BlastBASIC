@@ -566,15 +566,14 @@ namespace GoldScorpion {
     }
 
     static void check( const Statement& node, VerifierSettings settings ) {
+        settings.nearestToken = node.nearestToken;
+
         std::visit( overloaded {
 
             [ &settings ]( const std::unique_ptr< ExpressionStatement >& statement ) { check( *(statement->value), settings ); },
 			[]( const std::unique_ptr< ForStatement >& statement ) { Error{ "Internal compiler error (Statement check not implemented for statement subtype ForStatement)", {} }.throwException(); },
 			[]( const std::unique_ptr< IfStatement >& statement ) { Error{ "Internal compiler error (Statement check not implemented for statement subtype IfStatement)", {} }.throwException(); },
-			[ &node, settings ]( const std::unique_ptr< ReturnStatement >& statement ) mutable {
-                settings.nearestToken = node.nearestToken;
-                check( *statement, settings );
-            },
+			[ &settings ]( const std::unique_ptr< ReturnStatement >& statement ) { check( *statement, settings ); },
 			[]( const std::unique_ptr< AsmStatement >& statement ) { Error{ "Internal compiler error (Statement check not implemented for statement subtype AsmStatement)", {} }.throwException(); },
 			[]( const std::unique_ptr< WhileStatement >& statement ) { Error{ "Internal compiler error (Statement check not implemented for statement subtype WhileStatement)", {} }.throwException(); }
 
@@ -582,15 +581,14 @@ namespace GoldScorpion {
     }
 
     static void check( const Declaration& node, VerifierSettings settings ) {
+        settings.nearestToken = node.nearestToken;
+
         std::visit( overloaded {
 
             []( const std::unique_ptr< Annotation >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype Annotation)", {} }.throwException(); },
             [ &settings ]( const std::unique_ptr< VarDeclaration >& declaration ) { check( *declaration, settings ); },
             []( const std::unique_ptr< ConstDeclaration >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype ConstDeclaration)", {} }.throwException(); },
-            [ &node, settings ]( const std::unique_ptr< FunctionDeclaration >& declaration ) mutable {
-                settings.nearestToken = node.nearestToken;
-                check( *declaration, settings );
-            },
+            [ &settings ]( const std::unique_ptr< FunctionDeclaration >& declaration ) { check( *declaration, settings ); },
             [ &settings ]( const std::unique_ptr< TypeDeclaration >& declaration ) { check( *declaration, settings ); },
             []( const std::unique_ptr< ImportDeclaration >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype ImportDeclaration)", {} }.throwException(); },
             [ &settings ]( const std::unique_ptr< Statement >& declaration ) { check( *declaration, settings ); }
