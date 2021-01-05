@@ -332,6 +332,7 @@ namespace GoldScorpion {
 		if( readToken( current ) && ( current->type == TokenType::TOKEN_NOT || current->type == TokenType::TOKEN_MINUS ) ) {
 			// Save token
 			Token operatorToken = *current;
+			++current;
 
 			// A terminal unary must follow
 			AstResult< Expression > unary = getUnary( current );
