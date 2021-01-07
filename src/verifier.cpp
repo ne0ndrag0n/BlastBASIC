@@ -1,3 +1,4 @@
+#include "arch/m68k/md/verifier_annotation.hpp"
 #include "verifier.hpp"
 #include "error.hpp"
 #include "type_tools.hpp"
@@ -8,8 +9,12 @@
 
 namespace GoldScorpion {
 
+    using PlatformAnnotationPackage = m68k::md::AnnotationPackage;
+    using PlatformAnnotationSettings = m68k::md::AnnotationSettings;
+
     struct VerifierSettings {
         MemoryTracker& memory;
+        std::vector< PlatformAnnotationPackage >& currentAnnotationPackage;
         std::optional< Token > nearestToken;
         std::optional< std::string > contextTypeId;
         std::optional< std::string > functionReturnType;
@@ -565,6 +570,17 @@ namespace GoldScorpion {
         }
     }
 
+    static void check( const Annotation& node, VerifierSettings settings ) {
+        // Must be at least one directive
+        if( node.directives.empty() ) {
+            Error{ "Must provide at least one expression for annotation", settings.nearestToken }.throwException();
+        }
+
+        // Attempt to get a seties of annotation packages
+        // The package will be consumed by the next declaration
+        settings.currentAnnotationPackage = getAnnotationPackageList( node, PlatformAnnotationSettings{ settings.memory, settings.nearestToken } );
+    }
+
     static void check( const Statement& node, VerifierSettings settings ) {
         settings.nearestToken = node.nearestToken;
 
@@ -582,10 +598,11 @@ namespace GoldScorpion {
 
     static void check( const Declaration& node, VerifierSettings settings ) {
         settings.nearestToken = node.nearestToken;
+        bool freshAnnotation = false;
 
         std::visit( overloaded {
 
-            []( const std::unique_ptr< Annotation >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype Annotation)", {} }.throwException(); },
+            [ &settings, &freshAnnotation ]( const std::unique_ptr< Annotation >& declaration ) { check( *declaration, settings ); freshAnnotation = true; },
             [ &settings ]( const std::unique_ptr< VarDeclaration >& declaration ) { check( *declaration, settings ); },
             []( const std::unique_ptr< ConstDeclaration >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype ConstDeclaration)", {} }.throwException(); },
             [ &settings ]( const std::unique_ptr< FunctionDeclaration >& declaration ) { check( *declaration, settings ); },
@@ -594,6 +611,11 @@ namespace GoldScorpion {
             [ &settings ]( const std::unique_ptr< Statement >& declaration ) { check( *declaration, settings ); }
 
         }, node.value );
+
+        // PlatformAnnotationPackages are cleared if they are not consumed and they are not brand new
+        if( !freshAnnotation ) {
+            settings.currentAnnotationPackage.clear();
+        }
     }
 
     /**
@@ -601,8 +623,9 @@ namespace GoldScorpion {
      */
     std::optional< std::string > check( const Program& program ) {
         MemoryTracker memory;
-        VerifierSettings settings{ memory, {}, {}, {}, false, false };
+        std::vector< PlatformAnnotationPackage > currentAnnotationPackage;
 
+        VerifierSettings settings{ memory, currentAnnotationPackage, {}, {}, {}, false, false };
         for( const auto& declaration : program.statements ) {
             try {
                 check( *declaration, settings );

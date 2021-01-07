@@ -9,7 +9,7 @@ LFLAGS =
 export LD_LIBRARY_PATH := /usr/local/lib64:/usr/lib/gcc4/x64/release/
 export PKG_CONFIG_PATH := /usr/local/lib64/pkgconfig
 
-SRCS = $(wildcard src/*.cpp)
+SRCS = $(wildcard src/*.cpp src/arch/m68k/*.cpp src/arch/m68k/md/*.cpp)
 
 OBJS = $(SRCS:.cpp=.o)
 

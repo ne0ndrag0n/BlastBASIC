@@ -10,6 +10,11 @@ end
 def a as u16 = 0
 def b as Vec2u16
 
+@[interrupt=vblank]
+function vblank()
+    a = a + 1
+end
+
 function addVec( a1 as Vec2u16, b1 as Vec2u16 ) as Vec2u16
     def result as Vec2u16
 
