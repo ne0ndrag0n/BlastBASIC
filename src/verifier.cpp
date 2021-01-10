@@ -339,7 +339,7 @@ namespace GoldScorpion {
     }
 
     static void check( const VarDeclaration& node, VerifierSettings settings ) {
-        // def x as type = value
+        // def x as type [= value]
 
         // Verify x is an identifier containing a string
         expectTokenOfType( node.variable.name, TokenType::TOKEN_IDENTIFIER, "Expected: Identifier as token type for parameter declaration" );
@@ -395,6 +395,62 @@ namespace GoldScorpion {
         }
 
         settings.memory.push( MemoryElement { *identifierTitle, typeId, 0, 0 } );
+    }
+
+    static void check( const ConstDeclaration& node, VerifierSettings settings ) {
+        // const X as type = value
+
+        // Verify x is an identifier containing a string
+        expectTokenOfType( node.variable.name, TokenType::TOKEN_IDENTIFIER, "Expected: Identifier as token type for parameter declaration" );
+        std::string name = expectTokenString( node.variable.name, "Internal compiler error (ConstDeclaration variable.name has no string alternative)" );
+
+        // Cannot redefine a variable in the same scope, check for this using memorytracker
+        if( settings.memory.find( name, true ) ) {
+            Error{ "Redeclaration of identifier " + name + " in the current scope", node.variable.name }.throwException();
+        }
+
+        // Cannot stomp over a UDT declaration
+        if( settings.memory.findUdt( name ) ) {
+            Error{ "Cannot use name of user-defined type " + name + " as VarDeclaration identifier", node.variable.name }.throwException();
+        }
+
+        // Verify type is either primitive or declared
+        expectTokenType( node.variable.type.type, "Expected: Declared user-defined type or one of [u8, u16, u32, s8, s16, s32, string]" );
+
+        // If type is user-defined type (IDENTIFIER) then we must verify the UDT was declared
+        if( node.variable.type.type.type == TokenType::TOKEN_IDENTIFIER ) {
+            std::string typeId = std::get< std::string >( *node.variable.type.type.value );
+            if( !settings.memory.findUdt( typeId ) ) {
+                Error{ "Undeclared user-defined type: " + typeId, node.variable.type.type }.throwException();
+            }
+        }
+
+        auto identifierTitle = getIdentifierName( node.variable.name );
+        if( !identifierTitle ) {
+            Error{ "Internal compiler error (ConstDeclaration variable.name is not an identifier)", node.variable.name }.throwException();
+        }
+
+        std::optional< std::string > typeIdConversion = tokenToTypeId( node.variable.type.type );
+        if( !typeIdConversion ) {
+            Error{ "Internal compiler error (ConstDeclaration variable.type should be properly verified)", node.variable.type.type }.throwException();
+        }
+
+        ValueType typeId{ *typeIdConversion };
+
+        // Validate expression
+        check( *node.value, settings );
+
+        // Get type of expression
+        auto expressionType = getType( *node.value, settings.memory );
+        if( !expressionType ) {
+            Error{ "Internal compiler error (ConstDeclaration validated Expression failed to yield a type)", {} }.throwException();
+        }
+
+        if( !( typesMatch( typeId, *expressionType ) || integerTypesMatch( typeId, *expressionType ) || assignmentCoercible( typeId, *expressionType ) ) ) {
+            Error{ "Type mismatch: Expected type " + typeToString( typeId ) + " but expression is of type " + typeToString( *expressionType ), node.variable.type.type }.throwException();
+        }
+
+        settings.memory.insert( MemoryElement { *identifierTitle, typeId, 0, 0 }, true );
     }
 
     static void check( const ReturnStatement& node, VerifierSettings settings ) {
@@ -612,7 +668,7 @@ namespace GoldScorpion {
 
             [ &settings, &freshAnnotation ]( const std::unique_ptr< Annotation >& declaration ) { check( *declaration, settings ); freshAnnotation = true; },
             [ &settings ]( const std::unique_ptr< VarDeclaration >& declaration ) { check( *declaration, settings ); },
-            []( const std::unique_ptr< ConstDeclaration >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype ConstDeclaration)", {} }.throwException(); },
+            [ &settings ]( const std::unique_ptr< ConstDeclaration >& declaration ) { check( *declaration, settings ); },
             [ &settings ]( const std::unique_ptr< FunctionDeclaration >& declaration ) { check( *declaration, settings ); },
             [ &settings ]( const std::unique_ptr< TypeDeclaration >& declaration ) { check( *declaration, settings ); },
             []( const std::unique_ptr< ImportDeclaration >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype ImportDeclaration)", {} }.throwException(); },
