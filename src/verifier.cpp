@@ -430,6 +430,9 @@ namespace GoldScorpion {
     }
 
     static void check( const FunctionDeclaration& node, VerifierSettings settings ) {
+        // Copy array instantly - it will be cleared by successive checks to the function body expressions
+        std::vector< PlatformAnnotationPackage > annotationPackages = settings.currentAnnotationPackage;
+
         if( !node.name && !settings.anonymousFunctionPermitted ) {
             Error{ "Anonymous function declaration not permitted here", settings.nearestToken }.throwException();
         }
@@ -518,6 +521,11 @@ namespace GoldScorpion {
             settings.memory.addUdtField( *settings.contextTypeId, UdtField{ *functionName, FunctionType{ settings.contextTypeId, arguments, settings.functionReturnType } } );
         } else {
             settings.memory.push( MemoryElement{ functionName, FunctionType{ {}, arguments, settings.functionReturnType }, 0, 0 } );
+        }
+
+        // After function is fully-validated, check annotations that may be attached
+        for( const PlatformAnnotationPackage& package : annotationPackages ) {
+            m68k::md::checkFunction( package.id, settings.nearestToken, settings.functionReturnType );
         }
     }
 

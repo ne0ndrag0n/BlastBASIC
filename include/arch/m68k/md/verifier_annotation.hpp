@@ -32,4 +32,8 @@ namespace GoldScorpion::m68k::md {
 
     std::vector< AnnotationPackage > getAnnotationPackageList( const Annotation& annotation, AnnotationSettings settings );
 
+    void checkInterrupt( const std::optional< std::string >& functionReturnType, const std::optional< Token >& nearestToken );
+
+    void checkFunction( const std::string& directive, const std::optional< Token >& nearestToken, const std::optional< std::string >& functionReturnType );
+
 }
