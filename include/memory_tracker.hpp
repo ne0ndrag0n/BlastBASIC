@@ -52,20 +52,26 @@ namespace GoldScorpion {
 		long offset;
 	};
 
-	using MemoryQuery = std::variant< GlobalMemoryElement, StackMemoryElement >;
+	struct ConstMemoryElement {
+		MemoryElement value;
+		long offset;
+	};
+
+	using MemoryQuery = std::variant< GlobalMemoryElement, ConstMemoryElement, StackMemoryElement >;
 	struct Scope {
 		long stackItems;
 		long udtItems;
 	};
 
 	class MemoryTracker {
+		std::vector< MemoryElement > textSegment;
 		std::vector< MemoryElement > dataSegment;
 		std::vector< MemoryElement > stack;
 		std::vector< UserDefinedType > udts;
 		std::stack< Scope > scopes;
 
 	public:
-		void insert( MemoryElement element );
+		void insert( MemoryElement element, bool constant = false );
 
 		void push( const MemoryElement& element );
 		std::optional< MemoryElement > pop();

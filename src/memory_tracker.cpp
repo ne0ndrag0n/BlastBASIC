@@ -6,6 +6,7 @@ namespace GoldScorpion {
 	MemoryElement MemoryTracker::unwrapValue( const MemoryQuery& query ) {
 		return std::visit( overloaded {
 			[]( const GlobalMemoryElement& element ) { return element.value; },
+			[]( const ConstMemoryElement& element ) { return element.value; },
 			[]( const StackMemoryElement& element ) { return element.value; }
 		}, query );
 	}
@@ -13,12 +14,17 @@ namespace GoldScorpion {
 	long MemoryTracker::unwrapOffset( const MemoryQuery& query ) {
 		return std::visit( overloaded {
 			[]( const GlobalMemoryElement& element ) { return element.offset; },
+			[]( const ConstMemoryElement& element ) { return element.offset; },
 			[]( const StackMemoryElement& element ) { return element.offset; }
 		}, query );
 	}
 
-	void MemoryTracker::insert( MemoryElement element ) {
-		dataSegment.push_back( element );
+	void MemoryTracker::insert( MemoryElement element, bool constant ) {
+		if( constant ) {
+			textSegment.push_back( element );
+		} else {
+			dataSegment.push_back( element );
+		}
 	}
 
 	void MemoryTracker::push( const MemoryElement& element ) {
@@ -46,6 +52,7 @@ namespace GoldScorpion {
 	}
 
 	void MemoryTracker::clearMemory() {
+		textSegment.clear();
 		dataSegment.clear();
 		stack.clear();
 		udts.clear();
@@ -115,6 +122,20 @@ namespace GoldScorpion {
 		for( const auto& entry : dataSegment ) {
 			if( entry.id && *entry.id == id ) {
 				return GlobalMemoryElement {
+					entry,
+					offset
+				};
+			} else {
+				offset += entry.size;
+			}
+		}
+
+		// The variable wasn't found in the data segment
+		// Step 3: Search the application's read-only text segment
+		offset = 0;
+		for( const auto& entry : textSegment ) {
+			if( entry.id && *entry.id == id ) {
+				return ConstMemoryElement {
 					entry,
 					offset
 				};

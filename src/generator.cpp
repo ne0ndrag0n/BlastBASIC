@@ -376,6 +376,9 @@ namespace GoldScorpion {
 									}
 								);
 							},
+							[]( const ConstMemoryElement& element ) {
+								// TODO: Some kind of generation required that sets a dc.b/dc.w/dc.l directive in a given segment
+							},
 							[ primaryType, &assembly ]( const StackMemoryElement& element ) {
 								// Must push a series of instructions:
 								// 1. Move stack pointer into a0
