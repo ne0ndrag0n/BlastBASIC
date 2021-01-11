@@ -348,16 +348,9 @@ namespace GoldScorpion {
 
 					// Switch immediately to a plaintext state if the token just added was one of the following:
 					// "asm" - enter bodyState, which will add symbols to component until a "\n end" sequence is seen
-					// "import" - enter lineState, which will add symbols to component until a "\n" is seen
 					// When either of these states terminate, a TokenType::TOKEN_TEXT is added to the stream with "component" as value.
 					if( tokens.back().type == TokenType::TOKEN_ASM ) {
 						bodyState = true;
-						ring.clear();
-						continue;
-					}
-
-					if( tokens.back().type == TokenType::TOKEN_IMPORT ) {
-						lineState = true;
 						ring.clear();
 						continue;
 					}

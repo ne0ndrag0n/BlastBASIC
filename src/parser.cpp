@@ -1356,7 +1356,7 @@ namespace GoldScorpion {
 			// Get a literal string + \n or it's a compiler error
 			++current;
 			auto literalStringResult = readToken( current );
-			if( literalStringResult && literalStringResult->type == TokenType::TOKEN_TEXT ) {
+			if( literalStringResult && literalStringResult->type == TokenType::TOKEN_LITERAL_STRING ) {
 				++current;
 
 				auto newlineResult = readToken( current );
@@ -1367,7 +1367,11 @@ namespace GoldScorpion {
 							std::get< std::string >( *literalStringResult->value )
 						} )
 					};
+				} else {
+					Error{ "Expected: newline following ImportDeclaration", readToken( current ) }.throwException();
 				}
+			} else {
+				Error{ "Expected: Literal string following \"import\" statement", readToken( current ) }.throwException();
 			}
 		}
 
