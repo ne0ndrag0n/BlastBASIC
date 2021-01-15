@@ -19,7 +19,7 @@ namespace GoldScorpion {
 
 		static Result good( Object object ) {
 			Result enhancedResult;
-			enhancedResult.result = object;
+			enhancedResult.result = std::move( object );
 			return enhancedResult;
 		};
 

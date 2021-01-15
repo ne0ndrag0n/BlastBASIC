@@ -1,4 +1,3 @@
-#include "ast.hpp"
 #include "compiler.hpp"
 #include "variant_visitor.hpp"
 #include "utility.hpp"
@@ -12,55 +11,58 @@
 
 namespace GoldScorpion {
 
-    int compile( const std::string& parseFilename, bool printLex, bool printAst ) {
-		auto fileResult = GoldScorpion::Utility::fileToString( parseFilename );
+	Result< Program, std::string > fileToProgram( const std::string& parseFilename, bool printLex, bool printAst ) {
+		auto fileResult = Utility::fileToString( parseFilename );
 
-		if( auto file = std::get_if< GoldScorpion::Utility::File >( &fileResult ) ) {
-			auto tokenResult = GoldScorpion::getTokens( file->contents );
+		if( auto file = std::get_if< Utility::File >( &fileResult ) ) {
+			auto tokenResult = getTokens( file->contents );
 
-			if( auto tokens = std::get_if< std::vector< GoldScorpion::Token > >( &tokenResult ) ) {
-				GoldScorpion::printSuccess( "Lexed file " + parseFilename );
+			if( auto tokens = std::get_if< std::vector< Token > >( &tokenResult ) ) {
+				printSuccess( "Lexed file " + parseFilename );
 
 				if( printLex ) {
-					for( const GoldScorpion::Token& token : *tokens ) {
+					for( const Token& token : *tokens ) {
 						std::cout << token.toString() << std::endl;
 					}
 				}
 
 				// Try this and see if anything crashes
-				auto parserResult = GoldScorpion::getProgram( *tokens );
-				if( auto program = std::get_if< GoldScorpion::Program >( &parserResult ) ) {
-					GoldScorpion::printSuccess( "Parsed file " + parseFilename );
+				auto parserResult = getProgram( *tokens );
+				if( auto program = std::get_if< Program >( &parserResult ) ) {
+					printSuccess( "Parsed file " + parseFilename );
 
 					if( printAst ) {
 						GoldScorpion::printAst( *program );
 					}
 
 					if( auto error = check( *program ) ) {
-						GoldScorpion::printError( "Failed to validate file " + parseFilename + ": " + *error );
-						return 5;
+						return Result< Program, std::string >::err( "Failed to validate file " + parseFilename + ": " + *error );
 					} else {
-						GoldScorpion::printSuccess( "Validated file " + parseFilename );
+						printSuccess( "Validated file " + parseFilename );
+						return Result< Program, std::string >::good( std::move( *program ) );
 					}
-
-					return 0;
 				} else {
-					std::string error = std::get< std::string >( std::move( parserResult ) );
-					GoldScorpion::printError( "Could not parse file " + parseFilename + ": " + error );
-					return 4;
+					return Result< Program, std::string >::err( "Could not parse file " + parseFilename + ": " + std::get< std::string >( std::move( parserResult ) ) );
 				}
 
 			} else {
-				GoldScorpion::printError( "Could not lex file " + parseFilename + ": " + std::get< std::string >( tokenResult ) );
-				return 3;
+				return Result< Program, std::string >::err( "Could not lex file " + parseFilename + ": " + std::get< std::string >( tokenResult ) );
 			}
 
 		} else {
-			GoldScorpion::printError( "Could not open file " + parseFilename + ": " + std::get< std::string >( fileResult ) );
-			return 2;
+			return Result< Program, std::string >::err( "Could not open file " + parseFilename + ": " + std::get< std::string >( fileResult ) );
+		}
+	}
+
+    int compile( const std::string& parseFilename, bool printLex, bool printAst ) {
+		Result< Program, std::string > result = fileToProgram( parseFilename, printLex, printAst );
+
+		if( !result ) {
+			printError( result.getError() );
+			return 1;
 		}
 
-        return 0;
+		return 0;
     }
 
 }
