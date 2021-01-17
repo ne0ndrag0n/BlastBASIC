@@ -33,6 +33,14 @@ namespace GoldScorpion {
 			return result.operator bool();
 		}
 
+		Object claim() {
+			if( !result ) {
+				throw std::runtime_error( "Attempted to dereference Result with error inside" );
+			}
+
+			return std::move( *result );
+		}
+
 		Object& operator*() {
 			if( !result ) {
 				throw std::runtime_error( "Attempted to dereference Result with error inside" );

@@ -20,6 +20,7 @@ namespace GoldScorpion {
         std::optional< std::string > functionReturnType;
         bool anonymousFunctionPermitted;
         bool withinFunction;
+        bool topLevelPermitted;
     };
 
     struct CheckedParameter {
@@ -645,6 +646,19 @@ namespace GoldScorpion {
         settings.currentAnnotationPackage = getAnnotationPackageList( node, PlatformAnnotationSettings{ settings.memory, settings.nearestToken } );
     }
 
+    static void check( const ImportDeclaration& node, VerifierSettings settings ) {
+        // ImportDeclaration only valid at top level declaration
+        if( !settings.topLevelPermitted ) {
+            Error{ "ImportDeclaration only valid at top level of file", settings.nearestToken }.throwException();
+        }
+
+        if( node.path == "" || node.path.empty() ) {
+            Error{ "ImportDeclaration must contain valid path", settings.nearestToken }.throwException();
+        }
+
+        // Actual path will be validated by the file function
+    }
+
     static void check( const Statement& node, VerifierSettings settings ) {
         settings.nearestToken = node.nearestToken;
 
@@ -664,6 +678,10 @@ namespace GoldScorpion {
         settings.nearestToken = node.nearestToken;
         bool freshAnnotation = false;
 
+        if( !std::holds_alternative< std::unique_ptr< ImportDeclaration > >( node.value ) ) {
+            settings.topLevelPermitted = false;
+        }
+
         std::visit( overloaded {
 
             [ &settings, &freshAnnotation ]( const std::unique_ptr< Annotation >& declaration ) { check( *declaration, settings ); freshAnnotation = true; },
@@ -671,7 +689,7 @@ namespace GoldScorpion {
             [ &settings ]( const std::unique_ptr< ConstDeclaration >& declaration ) { check( *declaration, settings ); },
             [ &settings ]( const std::unique_ptr< FunctionDeclaration >& declaration ) { check( *declaration, settings ); },
             [ &settings ]( const std::unique_ptr< TypeDeclaration >& declaration ) { check( *declaration, settings ); },
-            []( const std::unique_ptr< ImportDeclaration >& declaration ) { Error{ "Internal compiler error (Declaration check not implemented for declaration subtype ImportDeclaration)", {} }.throwException(); },
+            [ &settings ]( const std::unique_ptr< ImportDeclaration >& declaration ) { check( *declaration, settings ); },
             [ &settings ]( const std::unique_ptr< Statement >& declaration ) { check( *declaration, settings ); }
 
         }, node.value );
@@ -689,7 +707,7 @@ namespace GoldScorpion {
         MemoryTracker memory;
         std::vector< PlatformAnnotationPackage > currentAnnotationPackage;
 
-        VerifierSettings settings{ memory, currentAnnotationPackage, {}, {}, {}, false, false };
+        VerifierSettings settings{ memory, currentAnnotationPackage, {}, {}, {}, false, false, true };
         for( const auto& declaration : program.statements ) {
             try {
                 check( *declaration, settings );

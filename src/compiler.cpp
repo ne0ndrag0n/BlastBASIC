@@ -38,6 +38,31 @@ namespace GoldScorpion {
 					if( auto error = check( *program ) ) {
 						return Result< Program, std::string >::err( "Failed to validate file " + parseFilename + ": " + *error );
 					} else {
+						// Iterate through first-level of freshly-parsed, freshly-checked tree and replace ImportDeclarations with subtrees
+						for( unsigned int i = 0; i < program->statements.size(); i++ ) {
+							const std::unique_ptr< Declaration >& declaration = program->statements[ i ];
+
+							// Only care about ImportDeclaration
+							if( auto importDeclaration = std::get_if< std::unique_ptr< ImportDeclaration > >( &declaration->value ) ) {
+								// Attempt to convert path to new AST
+								Result< Program, std::string > subresult = fileToProgram( (*importDeclaration)->path, printLex, printAst );
+								if( subresult ) {
+									// Erase the original item
+									program->statements.erase( program->statements.begin() + i );
+
+									// Insert new items at each i, incrementing i each time
+									for( std::unique_ptr< Declaration >& declaration : (*subresult).statements ) {
+										program->statements.insert( program->statements.begin() + i, std::move( declaration ) );
+										// These statements were already validated and are being added to the current list of statements
+										// Skip past them
+										i++;
+									}
+								} else {
+									return Result< Program, std::string >::err( "Could not import file " + (*importDeclaration)->path + ": " + subresult.getError()  );
+								}
+							}
+						}
+
 						printSuccess( "Validated file " + parseFilename );
 						return Result< Program, std::string >::good( std::move( *program ) );
 					}
