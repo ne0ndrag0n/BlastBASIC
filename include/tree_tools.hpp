@@ -3,6 +3,7 @@
 #include "token.hpp"
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace GoldScorpion {
 

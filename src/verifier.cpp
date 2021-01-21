@@ -13,6 +13,7 @@ namespace GoldScorpion {
     using PlatformAnnotationSettings = m68k::md::AnnotationSettings;
 
     struct VerifierSettings {
+        std::string fileId;
         MemoryTracker& memory;
         std::vector< PlatformAnnotationPackage >& currentAnnotationPackage;
         std::optional< Token > nearestToken;
@@ -703,11 +704,11 @@ namespace GoldScorpion {
     /**
      * Run a verification step to make sure items are logically consistent
      */
-    std::optional< std::string > check( const Program& program ) {
+    std::optional< std::string > check( const std::string& fileId, const Program& program ) {
         MemoryTracker memory;
         std::vector< PlatformAnnotationPackage > currentAnnotationPackage;
 
-        VerifierSettings settings{ memory, currentAnnotationPackage, {}, {}, {}, false, false, true };
+        VerifierSettings settings{ fileId, memory, currentAnnotationPackage, {}, {}, {}, false, false, true };
         for( const auto& declaration : program.statements ) {
             try {
                 check( *declaration, settings );

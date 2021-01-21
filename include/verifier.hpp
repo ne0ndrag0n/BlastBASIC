@@ -6,6 +6,6 @@
 
 namespace GoldScorpion {
 
-    std::optional< std::string > check( const Program& program );
+    std::optional< std::string > check( const std::string& fileId, const Program& program );
 
 }

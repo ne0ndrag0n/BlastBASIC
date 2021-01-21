@@ -11,7 +11,7 @@
 
 namespace GoldScorpion {
 
-	Result< Program, std::string > fileToProgram( const std::string& parseFilename, bool printLex, bool printAst ) {
+	Result< Program, std::string > fileToProgram( const std::string& parseFilename, CompilerSettings settings ) {
 		auto fileResult = Utility::fileToString( parseFilename );
 
 		if( auto file = std::get_if< Utility::File >( &fileResult ) ) {
@@ -20,7 +20,7 @@ namespace GoldScorpion {
 			if( auto tokens = std::get_if< std::vector< Token > >( &tokenResult ) ) {
 				printSuccess( "Lexed file " + parseFilename );
 
-				if( printLex ) {
+				if( settings.printLex ) {
 					for( const Token& token : *tokens ) {
 						std::cout << token.toString() << std::endl;
 					}
@@ -31,11 +31,11 @@ namespace GoldScorpion {
 				if( auto program = std::get_if< Program >( &parserResult ) ) {
 					printSuccess( "Parsed file " + parseFilename );
 
-					if( printAst ) {
+					if( settings.printAst ) {
 						GoldScorpion::printAst( *program );
 					}
 
-					if( auto error = check( *program ) ) {
+					if( auto error = check( parseFilename, *program ) ) {
 						return Result< Program, std::string >::err( "Failed to validate file " + parseFilename + ": " + *error );
 					} else {
 						printSuccess( "Validated file " + parseFilename );
@@ -55,7 +55,10 @@ namespace GoldScorpion {
 	}
 
     int compile( const std::string& parseFilename, bool printLex, bool printAst ) {
-		Result< Program, std::string > result = fileToProgram( parseFilename, printLex, printAst );
+		SymbolResolver symbols;
+		std::set< std::string > activeFiles;
+
+		Result< Program, std::string > result = fileToProgram( parseFilename, CompilerSettings{ activeFiles, symbols, printLex, printAst } );
 
 		if( !result ) {
 			printError( result.getError() );
