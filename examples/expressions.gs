@@ -1,5 +1,3 @@
-import "examples/simple.gs"
-
 type Vec2u16
     x as u16
     y as u16
