@@ -19,10 +19,10 @@ namespace GoldScorpion {
     struct VariableSymbol { std::string id; SymbolType type; };
     struct ConstantSymbol { std::string id; SymbolType type; };
     struct FunctionSymbol { std::string id; std::vector< SymbolArgument > arguments; std::optional< SymbolType > functionReturnType; };
-    struct UdtSymbol { std:;string id; std::vector< SymbolArgument > fields; };
+    struct UdtSymbol { std::string id; std::vector< SymbolArgument > fields; };
     struct Symbol {
         std::variant< VariableSymbol, ConstantSymbol, FunctionSymbol, UdtSymbol > symbol;
-        bool public = false;
+        bool external = false;
     };
 
     struct SymbolTable {
@@ -32,17 +32,22 @@ namespace GoldScorpion {
         std::vector< Symbol > symbols;
     };
 
-    class SymbolManager {
+    class SymbolResolver {
         std::vector< SymbolTable > symbolTables;
 
+        std::optional< SymbolTable > getByFileId( const std::string& id );
+
     public:
-        void addFile( const std::string& id, const Program& program );
+        void addFile( const std::string& id );
+        void addOuterScope( const std::string& id, const std::string& outerScopeId );
 
         std::optional< Symbol > findSymbol( const std::string& fileId, const std::string& symbolId );
         void addSymbol( const std::string& fileId, Symbol symbol );
 
-        void openScope();
-        std::vector< Symbol > closeScope();
+        void openScope( const std::string& fileId );
+        std::vector< Symbol > closeScope( const std::string& fileId );
+
+        static std::string getSymbolId( const Symbol& symbol );
     };
 
 }
