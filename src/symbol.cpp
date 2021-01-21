@@ -3,7 +3,7 @@
 
 namespace GoldScorpion {
 
-    std::string SymbolResolver::getSymbolId( const Symbol& symbol ) {
+    std::string getSymbolId( const Symbol& symbol ) {
         return std::visit( overloaded {
             []( const VariableSymbol& symbol ) {
                 return symbol.id;

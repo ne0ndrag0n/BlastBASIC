@@ -46,8 +46,8 @@ namespace GoldScorpion {
 
         void openScope( const std::string& fileId );
         std::vector< Symbol > closeScope( const std::string& fileId );
-
-        static std::string getSymbolId( const Symbol& symbol );
     };
+
+    std::string getSymbolId( const Symbol& symbol );
 
 }
