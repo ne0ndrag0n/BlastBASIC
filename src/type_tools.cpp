@@ -138,6 +138,36 @@ namespace GoldScorpion {
         return {};
     }
 
+    FunctionType symbolToFunctionType( const FunctionSymbol& symbol ) {
+        // Must assemble arguments and returnTypeId for FunctionType
+        FunctionType type;
+
+        for( const auto& argument : symbol.arguments ) {
+            type.arguments.push_back( FunctionTypeParameter{ argument.id, getSymbolTypeId( argument.type ) } );
+        }
+
+        if( symbol.functionReturnType ) {
+            type.returnTypeId = getSymbolTypeId( *( symbol.functionReturnType ) );
+        }
+
+        return type;
+    }
+
+    bool tokenIsPrimitiveType( const Token& token ) {
+        switch( token.type ) {
+            default:
+                return false;
+            case TokenType::TOKEN_U8:
+            case TokenType::TOKEN_U16:
+            case TokenType::TOKEN_U32:
+            case TokenType::TOKEN_S8:
+            case TokenType::TOKEN_S16:
+            case TokenType::TOKEN_S32:
+            case TokenType::TOKEN_STRING:
+                return true;
+        }
+    }
+
     std::string unwrapTypeId( const MemoryDataType& type ) {
         if( auto valueType = std::get_if< ValueType >( &type ) ) {
             return valueType->id;
@@ -353,12 +383,12 @@ namespace GoldScorpion {
         }
     }
 
-    TypeResult getType( const Primary& node, MemoryTracker& memory ) {
+    TypeResult getType( const Primary& node, TypeSettings settings ) {
         TypeResult result;
 
         std::visit(
             overloaded {
-                [ &memory, &result ]( const Token& token ){
+                [ &settings, &result ]( const Token& token ){
                     switch( token.type ) {
                         case TokenType::TOKEN_LITERAL_INTEGER: {
                             result = TypeResult::good( ValueType{ getLiteralType( expectLong( token ) ) } );
@@ -370,34 +400,43 @@ namespace GoldScorpion {
                         }
                         case TokenType::TOKEN_THIS: {
                             // Type of "this" token is obtainable from the pointer on the stack
-                            auto thisQuery = memory.find( "this" );
+                            auto thisQuery = settings.symbols.findSymbol( settings.fileId, "this" );
                             if( !thisQuery ) {
                                 Error{ "Internal compiler error (unable to determine type of \"this\" token)", token }.throwException();
                             }
 
-                            result = TypeResult::good( MemoryTracker::unwrapValue( *thisQuery ).type );
+                            // Symbol type of thisQuery must be VariableSymbol
+                            if( auto variableSymbol = std::get_if< VariableSymbol >( &( thisQuery->symbol ) ) ) {
+                                if( auto udtType = std::get_if< SymbolUdtType >( &( variableSymbol->type ) ) ) {
+                                    result = TypeResult::good( ValueType{ udtType->id } );
+                                    return;
+                                } else {
+                                    Error{ "Internal compiler error (\"this\" token only valid for SymbolUdtType)", token }.throwException();
+                                }
+                            } else {
+                                Error{ "Internal compiler error (type of \"this\" token does not point to instance of a variable)", token }.throwException();
+                            }
                             return;
                         }
                         case TokenType::TOKEN_IDENTIFIER: {
                             // Look up identifier in memory
                             std::string id = expectString( token );
-                            auto memoryQuery = memory.find( id );
+                            auto memoryQuery = settings.symbols.findSymbol( settings.fileId, id );
                             if( !memoryQuery ) {
                                 result = TypeResult::err( "Undefined variable: " + id );
                                 return;
                             }
 
-                            // Get its type id, and if it is a udt, attach the udt id
-                            MemoryDataType type = MemoryTracker::unwrapValue( *memoryQuery ).type;
-                            if( typeIsUdt( type ) ) {
-                                // Udt
-                                if( !memory.findUdt( unwrapTypeId( type ) ) ) {
-                                    Error{ "Internal compiler error (UDT specified as ValueType but UDT not found)", token }.throwException();
-                                    return;
-                                }
+                            // Determine whether to return FunctionType or ValueType by identifier returned
+                            if( auto variableSymbol = std::get_if< VariableSymbol >( &( memoryQuery->symbol ) ) ) {
+                                result = TypeResult::good( ValueType{ getSymbolTypeId( variableSymbol->type ) } );
+                            } else if( auto constantSymbol = std::get_if< ConstantSymbol >( &( memoryQuery->symbol ) ) ) {
+                                result = TypeResult::good( ValueType{ getSymbolTypeId( constantSymbol->type ) } );
+                            } else if( auto functionSymbol = std::get_if< FunctionSymbol >( &( memoryQuery->symbol ) ) ) {
+                                result = TypeResult::good( symbolToFunctionType( *functionSymbol ) );
+                            } else {
+                                Error{ "Internal compiler error (Identifier token cannot refer to UDT)", token }.throwException();
                             }
-
-                            result = TypeResult::good( type );
                             return;
                         }
                         default: {
@@ -405,8 +444,8 @@ namespace GoldScorpion {
                         }
                     }
                 },
-                [ &memory, &result ]( const std::unique_ptr< Expression >& expression ){
-                    result = getType( *expression, memory );
+                [ &settings, &result ]( const std::unique_ptr< Expression >& expression ){
+                    result = getType( *expression, settings );
                 }
             },
             node.value
@@ -415,9 +454,9 @@ namespace GoldScorpion {
         return result;
     }
 
-    TypeResult getType( const CallExpression& node, MemoryTracker& memory ) {
+    TypeResult getType( const CallExpression& node, TypeSettings settings ) {
         // Get the return type of the expression
-        TypeResult expressionType = getType( *node.identifier, memory );
+        TypeResult expressionType = getType( *node.identifier, settings );
         if( !expressionType ) {
             return TypeResult::err( "Could not deduce type of identifier in CallExpression: " + expressionType.getError() );
         }
@@ -436,10 +475,10 @@ namespace GoldScorpion {
         return TypeResult::good( ValueType{ *function.returnTypeId } );
     }
 
-    TypeResult getType( const BinaryExpression& node, MemoryTracker& memory ) {
+    TypeResult getType( const BinaryExpression& node, TypeSettings settings ) {
 
-        TypeResult lhs = getType( *node.lhsValue, memory );
-        TypeResult rhs = getType( *node.rhsValue, memory );
+        TypeResult lhs = getType( *node.lhsValue, settings );
+        TypeResult rhs = getType( *node.rhsValue, settings );
 
         // If operator is dot then type of the expression is the field on the left hand side
         TokenType tokenOp;
@@ -461,17 +500,33 @@ namespace GoldScorpion {
                     return lhs;
                 }
 
-                auto lhsUdt = memory.findUdt( unwrapTypeId( *lhs ) );
+                std::string typeId = unwrapTypeId( *lhs );
+                auto lhsUdt = settings.symbols.findSymbol( settings.fileId, typeId );
                 if( !lhsUdt ) {
                     return TypeResult::err( "Undeclared user-defined type" );
                 }
 
-                auto rhsUdtField = memory.findUdtField( lhsUdt->id, *rhsIdentifier );
-                if( !rhsUdtField ) {
-                    return TypeResult::err( "User-defined type " + lhsUdt->id + " does not have field " + *rhsIdentifier );
-                }
+                if( auto asUdt = std::get_if< UdtSymbol >( &( lhsUdt->symbol ) ) ) {
+                    // Find field of name rhsIdentifier
+                    for( const SymbolField& argument : asUdt->fields ) {
+                        if( argument.id == *rhsIdentifier ) {
+                            // Field name found
+                            // Is it ValueType or FunctionType?
+                            if( auto variableSymbol = std::get_if< std::shared_ptr< VariableSymbol > >( &argument.value ) ) {
+                                return TypeResult::good( ValueType{ getSymbolTypeId( ( *variableSymbol )->type ) } );
+                            } else {
+                                FunctionType result = symbolToFunctionType( *( std::get< std::shared_ptr< FunctionSymbol > >( argument.value ) ) );
+                                result.udtId = typeId;
+                                return TypeResult::good( result );
+                            }
+                        }
+                    }
 
-                return TypeResult::good( rhsUdtField->type );
+                    // If we got here, field name wasn't found
+                    return TypeResult::err( "User-defined type " + typeId + " does not have field of name " + *rhsIdentifier );
+                } else {
+                    return TypeResult::err( "Cannot apply dot operator to non-user-defined type " + typeId );
+                }
             }
             default: {
                 // All other operators require both sides to have a well-defined type
@@ -493,14 +548,14 @@ namespace GoldScorpion {
         }
     }
 
-    TypeResult getType( const AssignmentExpression& node, MemoryTracker& memory ) {
+    TypeResult getType( const AssignmentExpression& node, TypeSettings settings ) {
         // An assignment expression returns the type of the LHS ***IFF*** the RHS matches
-        TypeResult lhs = getType( *node.identifier, memory );
+        TypeResult lhs = getType( *node.identifier, settings );
         if( !lhs ) {
             return TypeResult::err( "Unable to obtain type of left-hand side of AssignmentExpression: " + lhs.getError() );
         }
 
-        TypeResult rhs = getType( *node.expression, memory );
+        TypeResult rhs = getType( *node.expression, settings );
         if( !rhs ) {
             return TypeResult::err( "Unable to obtain type of right-hand side of AssignmentExpression: " + rhs.getError() );
         }
@@ -512,26 +567,26 @@ namespace GoldScorpion {
         }
     }
 
-    TypeResult getType( const Expression& node, MemoryTracker& memory ) {
+    TypeResult getType( const Expression& node, TypeSettings settings ) {
 		if( auto binaryExpression = std::get_if< std::unique_ptr< BinaryExpression > >( &node.value ) ) {
- 			return getType( **binaryExpression, memory );
+ 			return getType( **binaryExpression, settings );
 		}
 
 		if( auto primaryExpression = std::get_if< std::unique_ptr< Primary > >( &node.value ) ) {
-			return getType( **primaryExpression, memory );
+			return getType( **primaryExpression, settings );
 		}
 
         if( auto callExpression = std::get_if< std::unique_ptr< CallExpression > >( &node.value ) ) {
-            return getType( **callExpression, memory );
+            return getType( **callExpression, settings );
         }
 
         if( auto unaryExpression = std::get_if< std::unique_ptr< UnaryExpression > >( &node.value ) ) {
             // Operators in a unary expression do not change their type
-            return getType( *( ( **unaryExpression ).value ), memory );
+            return getType( *( ( **unaryExpression ).value ), settings );
         }
 
         if( auto assignmentExpression = std::get_if< std::unique_ptr< AssignmentExpression > >( &node.value ) ) {
-            return getType( **assignmentExpression, memory );
+            return getType( **assignmentExpression, settings );
         }
 
         return TypeResult::err( "Expression subtype not implemented" );

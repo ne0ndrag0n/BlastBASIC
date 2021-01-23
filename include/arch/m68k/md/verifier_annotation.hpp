@@ -2,6 +2,7 @@
 #include "ast.hpp"
 #include "memory_tracker.hpp"
 #include "token.hpp"
+#include "symbol.hpp"
 #include <variant>
 #include <string>
 #include <vector>
@@ -24,7 +25,7 @@ namespace GoldScorpion::m68k::md {
     };
 
     struct AnnotationSettings {
-        MemoryTracker& memory;
+        SymbolResolver& symbols;
         std::optional< Token > nearestToken;
     };
 

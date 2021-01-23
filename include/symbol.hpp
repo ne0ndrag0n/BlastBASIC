@@ -1,10 +1,12 @@
 #pragma once
 #include "ast.hpp"
 #include "token.hpp"
+#include "error.hpp"
 #include <string>
 #include <vector>
 #include <variant>
 #include <optional>
+#include <memory>
 #include <stack>
 
 namespace GoldScorpion {
@@ -15,11 +17,15 @@ namespace GoldScorpion {
     using SymbolType = std::variant< SymbolNativeType, SymbolFunctionType, SymbolUdtType >;
 
     struct SymbolArgument { std::string id; SymbolType type; };
+    struct SymbolField {
+        std::string id;
+        std::variant< std::shared_ptr< struct VariableSymbol >, std::shared_ptr< struct FunctionSymbol > > value;
+    };
 
     struct VariableSymbol { std::string id; SymbolType type; };
     struct ConstantSymbol { std::string id; SymbolType type; };
     struct FunctionSymbol { std::string id; std::vector< SymbolArgument > arguments; std::optional< SymbolType > functionReturnType; };
-    struct UdtSymbol { std::string id; std::vector< SymbolArgument > fields; };
+    struct UdtSymbol { std::string id; std::vector< SymbolField > fields; };
     struct Symbol {
         std::variant< VariableSymbol, ConstantSymbol, FunctionSymbol, UdtSymbol > symbol;
         bool external = false;
@@ -43,11 +49,13 @@ namespace GoldScorpion {
 
         std::optional< Symbol > findSymbol( const std::string& fileId, const std::string& symbolId );
         void addSymbol( const std::string& fileId, Symbol symbol );
+        void addFieldToSymbol( const std::string& fileId, const std::string& symbolId, SymbolField field );
 
         void openScope( const std::string& fileId );
         std::vector< Symbol > closeScope( const std::string& fileId );
     };
 
     std::string getSymbolId( const Symbol& symbol );
-
+    std::string getSymbolTypeId( const SymbolType& symbolType );
+    bool fieldPresent( const std::string& fieldId, const UdtSymbol& symbol );
 }

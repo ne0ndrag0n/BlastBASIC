@@ -1,5 +1,6 @@
 #include "symbol.hpp"
 #include "variant_visitor.hpp"
+#include "type_tools.hpp"
 
 namespace GoldScorpion {
 
@@ -18,6 +19,30 @@ namespace GoldScorpion {
                 return symbol.id;
             },
         }, symbol.symbol );
+    }
+
+    std::string getSymbolTypeId( const SymbolType& symbolType ) {
+         return std::visit( overloaded{
+            [ & ]( const SymbolNativeType& type ) {
+                return *tokenTypeToTypeId( type.type );
+            },
+            [ & ]( const SymbolUdtType& type ) {
+                return type.id;
+            },
+            [ & ]( const SymbolFunctionType& type ) {
+                return type.id;
+            }
+        }, symbolType );
+    }
+
+    bool fieldPresent( const std::string& fieldId, const UdtSymbol& symbol ) {
+        for( const SymbolField& field : symbol.fields ) {
+            if( field.id == fieldId ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     std::optional< SymbolTable > SymbolResolver::getByFileId( const std::string& id ) {
@@ -97,6 +122,14 @@ namespace GoldScorpion {
                 symbolTable->scopes.top().push_back( symbol );
             } else {
                 symbolTable->symbols.push_back( symbol );
+            }
+        }
+    }
+
+    void SymbolResolver::addFieldToSymbol( const std::string& fileId, const std::string& symbolId, SymbolField field ) {
+        if( auto query = findSymbol( fileId, symbolId ) ) {
+            if( auto asUdt = std::get_if< UdtSymbol >( &( query->symbol ) ) ) {
+                asUdt->fields.push_back( field );
             }
         }
     }

@@ -14,7 +14,7 @@ namespace GoldScorpion {
 
     struct VerifierSettings {
         std::string fileId;
-        MemoryTracker& memory;
+        SymbolResolver& symbols;
         std::vector< PlatformAnnotationPackage >& currentAnnotationPackage;
         std::optional< Token > nearestToken;
         std::optional< std::string > contextTypeId;
@@ -112,8 +112,11 @@ namespace GoldScorpion {
             Error{ "Internal compiler error (Unable to obtain type id)", parameter.type.type }.throwException();
         }
 
-        if( typeIsUdt( ValueType{ *typeId } ) && !settings.memory.findUdt( *typeId ) ) {
-            Error{ "Undeclared user-defined type: " + *typeId, parameter.type.type }.throwException();
+        if( !tokenIsPrimitiveType( parameter.type.type ) ) {
+            auto symbolQuery = settings.symbols.findSymbol( settings.fileId, *typeId );
+            if( !symbolQuery || !std::holds_alternative< UdtSymbol >( symbolQuery->symbol ) ) {
+                Error{ "Undeclared user-defined type: " + *typeId, parameter.type.type }.throwException();
+            }
         }
 
         return CheckedParameter{ paramName, *typeId };
@@ -170,7 +173,7 @@ namespace GoldScorpion {
     static void check( const CallExpression& node, VerifierSettings settings ) {
         // Identifier must be a callable function with a non-void return type
         check( *node.identifier, settings );
-        TypeResult identifierType = getType( *node.identifier, settings.memory );
+        TypeResult identifierType = getType( *node.identifier, TypeSettings{ settings.fileId, settings.symbols } );
 
         if( !identifierType ) {
             Error{ "Unable to determine type of CallExpression identifier: " + identifierType.getError(), settings.nearestToken }.throwException();
@@ -192,7 +195,7 @@ namespace GoldScorpion {
             const FunctionTypeParameter& parameter = functionType.arguments[ i ];
 
             check( *node.arguments[ i ], settings );
-            TypeResult argumentType = getType( *node.arguments[ i ], settings.memory );
+            TypeResult argumentType = getType( *node.arguments[ i ], TypeSettings{ settings.fileId, settings.symbols } );
             if( !argumentType ) {
                 Error{ "Unable to determine type of argument" + std::to_string( i ) + "in CallExpression: " + argumentType.getError(), settings.nearestToken }.throwException();
             }
@@ -224,7 +227,7 @@ namespace GoldScorpion {
         Token token = expectToken( *node.op, settings.nearestToken, "Expected: Operator of BinaryExpression to be of Token type" );
         if( token.type == TokenType::TOKEN_DOT ) {
             // - Left-hand side must return a declared UDT type...
-            auto lhsType = getType( *node.lhsValue, settings.memory );
+            auto lhsType = getType( *node.lhsValue, TypeSettings{ settings.fileId, settings.symbols } );
             if( !lhsType || !typeIsUdt( *lhsType ) ) {
                 std::string error = "Expected: Declared user-defined type as left-hand side of BinaryExpression with \".\" operator";
                 if( !lhsType ) {
@@ -233,7 +236,8 @@ namespace GoldScorpion {
                 Error{ error, token }.throwException();
             }
 
-            if( !settings.memory.findUdt( unwrapTypeId( *lhsType ) ) ) {
+            auto udtQuery = settings.symbols.findSymbol( settings.fileId, unwrapTypeId( *lhsType ) );
+            if( !udtQuery || !std::holds_alternative< UdtSymbol >( udtQuery->symbol ) ) {
                 Error{ "Undeclared user-defined type: " + typeToString( *lhsType ), token }.throwException();
             }
 
@@ -244,7 +248,7 @@ namespace GoldScorpion {
                 expectTokenOfType( rhsIdentifier, TokenType::TOKEN_IDENTIFIER, "Primary expression in RHS of BinaryExpression with \".\' operator must be of identifier type" );
 
                 std::string rhsUdtFieldId = expectTokenString( rhsIdentifier, "Internal compiler error (BinaryExpression dot RHS token has no string alternative)" );
-                if( !settings.memory.findUdtField( unwrapTypeId( *lhsType ), rhsUdtFieldId ) ) {
+                if( !fieldPresent( rhsUdtFieldId, std::get< UdtSymbol >( udtQuery->symbol ) ) ) {
                     Error{ "Invalid field " + rhsUdtFieldId + " on user-defined type " + typeToString( *lhsType ), rhsIdentifier }.throwException();
                 }
             } else {
@@ -266,10 +270,10 @@ namespace GoldScorpion {
             "Expected: Operator of BinaryExpression to be one of \"+\",\"-\",\"*\",\"/\",\"%\",\".\""
         );
 
-        auto lhsType = getType( *node.lhsValue, settings.memory );
+        auto lhsType = getType( *node.lhsValue, TypeSettings{ settings.fileId, settings.symbols } );
         if( !lhsType ) { Error{ lhsType.getError(), settings.nearestToken }.throwException(); }
 
-        auto rhsType = getType( *node.rhsValue, settings.memory );
+        auto rhsType = getType( *node.rhsValue, TypeSettings{ settings.fileId, settings.symbols } );
         if( !rhsType ) { Error{ rhsType.getError(), settings.nearestToken }.throwException(); }
 
         // A type is only coercible to string if the operator is plus
@@ -315,10 +319,10 @@ namespace GoldScorpion {
         }
 
         // Type of right hand side assignment should match type of identifier on left hand side
-        auto lhsType = getType( *node.identifier, settings.memory );
+        auto lhsType = getType( *node.identifier, TypeSettings{ settings.fileId, settings.symbols } );
         if( !lhsType ) { Error{ lhsType.getError(), settings.nearestToken }.throwException(); }
 
-        auto rhsType = getType( *node.expression, settings.memory );
+        auto rhsType = getType( *node.expression, TypeSettings{ settings.fileId, settings.symbols } );
         if( !rhsType ) { Error{ rhsType.getError(), settings.nearestToken }.throwException(); }
 
         if( !( typesMatch( *lhsType, *rhsType ) || integerTypesMatch( *lhsType, *rhsType ) || assignmentCoercible( *lhsType, *rhsType ) ) ) {
@@ -347,25 +351,26 @@ namespace GoldScorpion {
         expectTokenOfType( node.variable.name, TokenType::TOKEN_IDENTIFIER, "Expected: Identifier as token type for parameter declaration" );
         std::string name = expectTokenString( node.variable.name, "Internal compiler error (VarDeclaration variable.name has no string alternative)" );
 
-        // Cannot redefine a variable in the same scope, check for this using memorytracker
-        if( settings.memory.find( name, true ) ) {
+        // Cannot redefine a variable in the same scope, check for this using symbol table
+        if( settings.symbols.findSymbol( settings.fileId, name ) ) {
             Error{ "Redeclaration of identifier " + name + " in the current scope", node.variable.name }.throwException();
-        }
-
-        // Cannot stomp over a UDT declaration
-        if( settings.memory.findUdt( name ) ) {
-            Error{ "Cannot use name of user-defined type " + name + " as VarDeclaration identifier", node.variable.name }.throwException();
         }
 
         // Verify type is either primitive or declared
         expectTokenType( node.variable.type.type, "Expected: Declared user-defined type or one of [u8, u16, u32, s8, s16, s32, string]" );
 
         // If type is user-defined type (IDENTIFIER) then we must verify the UDT was declared
+        SymbolType symbolType;
         if( node.variable.type.type.type == TokenType::TOKEN_IDENTIFIER ) {
             std::string typeId = std::get< std::string >( *node.variable.type.type.value );
-            if( !settings.memory.findUdt( typeId ) ) {
+            auto udtQuery = settings.symbols.findSymbol( settings.fileId, typeId );
+            if( !udtQuery || !std::holds_alternative< UdtSymbol >( udtQuery->symbol ) ) {
                 Error{ "Undeclared user-defined type: " + typeId, node.variable.type.type }.throwException();
             }
+
+            symbolType = SymbolUdtType{ typeId };
+        } else {
+            symbolType = SymbolNativeType{ node.variable.type.type.type };
         }
 
         auto identifierTitle = getIdentifierName( node.variable.name );
@@ -386,7 +391,7 @@ namespace GoldScorpion {
             check( **node.value, settings );
 
             // Get type of expression
-            auto expressionType = getType( **node.value, settings.memory );
+            auto expressionType = getType( **node.value, TypeSettings{ settings.fileId, settings.symbols } );
             if( !expressionType ) {
                 Error{ "Internal compiler error (VarDeclaration validated Expression failed to yield a type)", {} }.throwException();
             }
@@ -396,7 +401,7 @@ namespace GoldScorpion {
             }
         }
 
-        settings.memory.push( MemoryElement { *identifierTitle, typeId, 0, 0 } );
+        settings.symbols.addSymbol( settings.fileId, Symbol{ VariableSymbol{ *identifierTitle, symbolType }, false } );
     }
 
     static void check( const ConstDeclaration& node, VerifierSettings settings ) {
@@ -406,25 +411,26 @@ namespace GoldScorpion {
         expectTokenOfType( node.variable.name, TokenType::TOKEN_IDENTIFIER, "Expected: Identifier as token type for parameter declaration" );
         std::string name = expectTokenString( node.variable.name, "Internal compiler error (ConstDeclaration variable.name has no string alternative)" );
 
-        // Cannot redefine a variable in the same scope, check for this using memorytracker
-        if( settings.memory.find( name, true ) ) {
+        // Cannot redefine a variable in the same scope, check for this using symbol table
+        if( settings.symbols.findSymbol( settings.fileId, name ) ) {
             Error{ "Redeclaration of identifier " + name + " in the current scope", node.variable.name }.throwException();
-        }
-
-        // Cannot stomp over a UDT declaration
-        if( settings.memory.findUdt( name ) ) {
-            Error{ "Cannot use name of user-defined type " + name + " as VarDeclaration identifier", node.variable.name }.throwException();
         }
 
         // Verify type is either primitive or declared
         expectTokenType( node.variable.type.type, "Expected: Declared user-defined type or one of [u8, u16, u32, s8, s16, s32, string]" );
 
         // If type is user-defined type (IDENTIFIER) then we must verify the UDT was declared
+        SymbolType symbolType;
         if( node.variable.type.type.type == TokenType::TOKEN_IDENTIFIER ) {
             std::string typeId = std::get< std::string >( *node.variable.type.type.value );
-            if( !settings.memory.findUdt( typeId ) ) {
+            auto udtQuery = settings.symbols.findSymbol( settings.fileId, typeId );
+            if( !udtQuery || !std::holds_alternative< UdtSymbol >( udtQuery->symbol ) ) {
                 Error{ "Undeclared user-defined type: " + typeId, node.variable.type.type }.throwException();
             }
+
+            symbolType = SymbolUdtType{ typeId };
+        } else {
+            symbolType = SymbolNativeType{ node.variable.type.type.type };
         }
 
         auto identifierTitle = getIdentifierName( node.variable.name );
@@ -443,7 +449,7 @@ namespace GoldScorpion {
         check( *node.value, settings );
 
         // Get type of expression
-        auto expressionType = getType( *node.value, settings.memory );
+        auto expressionType = getType( *node.value, TypeSettings{ settings.fileId, settings.symbols } );
         if( !expressionType ) {
             Error{ "Internal compiler error (ConstDeclaration validated Expression failed to yield a type)", {} }.throwException();
         }
@@ -452,7 +458,7 @@ namespace GoldScorpion {
             Error{ "Type mismatch: Expected type " + typeToString( typeId ) + " but expression is of type " + typeToString( *expressionType ), node.variable.type.type }.throwException();
         }
 
-        settings.memory.insert( MemoryElement { *identifierTitle, typeId, 0, 0 }, true );
+        settings.symbols.addSymbol( settings.fileId, Symbol{ VariableSymbol{ *identifierTitle, symbolType }, false } );
     }
 
     static void check( const ReturnStatement& node, VerifierSettings settings ) {
@@ -475,7 +481,7 @@ namespace GoldScorpion {
 
             check( **node.expression, settings );
 
-            auto typeId = getType( **node.expression, settings.memory );
+            auto typeId = getType( **node.expression, TypeSettings{ settings.fileId, settings.symbols } );
             if( !typeId ) {
                 Error{ "Internal compiler error (ReturnStatement unable to determine type for expression)", settings.nearestToken }.throwException();
             }
@@ -504,7 +510,7 @@ namespace GoldScorpion {
         // - No arguments can have duplicate names
         // - No arguments can refer to undeclared user-defined types
         std::set< std::string > usedNames;
-        std::vector< FunctionTypeParameter > arguments;
+        std::vector< SymbolArgument > arguments;
         for( const Parameter& parameter : node.arguments ) {
             CheckedParameter checkedParameter = checkAndExtract( parameter, settings );
 
@@ -514,17 +520,35 @@ namespace GoldScorpion {
                 usedNames.insert( checkedParameter.id );
             }
 
-            arguments.push_back( FunctionTypeParameter { checkedParameter.id, checkedParameter.typeId } );
+            std::optional< TokenType > primitiveAttempt = typeIdToTokenType( checkedParameter.typeId );
+            SymbolType symbolType;
+            if( primitiveAttempt ) {
+                symbolType = SymbolNativeType{ *primitiveAttempt };
+            } else {
+                symbolType = SymbolUdtType{ checkedParameter.typeId };
+            }
+            arguments.push_back(
+                SymbolArgument {
+                    checkedParameter.id,
+                    symbolType
+                }
+            );
         }
 
         // Return type must be a valid
+        std::optional< SymbolType > functionReturnType;
         if( node.returnType ) {
             expectTokenType( *node.returnType, "Internal compiler error (FunctionDeclaration return type identifier not of any discernable type)" );
             if( node.returnType->type == TokenType::TOKEN_IDENTIFIER ) {
                 std::string typeId = expectTokenString( *node.returnType, "Internal compiler error (FunctionDeclaration return type identifier contains no string alternative)" );
-                if( !settings.memory.findUdt( typeId ) ) {
+                auto udtQuery = settings.symbols.findSymbol( settings.fileId, typeId );
+                if( !udtQuery || !std::holds_alternative< UdtSymbol >( udtQuery->symbol ) ) {
                     Error{ "Undeclared user-defined type: " + typeId, *node.returnType }.throwException();
                 }
+
+                functionReturnType = SymbolUdtType{ typeId };
+            } else {
+                functionReturnType = SymbolNativeType{ node.returnType->type };
             }
 
             auto typeId = tokenToTypeId( *node.returnType );
@@ -538,28 +562,30 @@ namespace GoldScorpion {
         }
 
         // All subdeclarations must validate properly - pass down settings
-        settings.memory.openScope();
+        settings.symbols.openScope( settings.fileId );
         // anonymousFunctionPermitted does not propagate, set within function
         settings.anonymousFunctionPermitted = true;
         settings.withinFunction = true;
         // Push arguments onto stack right-to-left so that they are in scope when subsequent checks are performed
         for( auto argument = arguments.crbegin(); argument != arguments.crend(); ++argument ) {
             // Just gotta have something in scope with the ID + type ID
-            settings.memory.push( MemoryElement {
-                argument->id,
-                ValueType { argument->typeId },
-                0,
-                0
-            } );
+            settings.symbols.addSymbol(
+                settings.fileId,
+                Symbol {
+                    VariableSymbol { argument->id, argument->type },
+                    false
+                }
+            );
         }
         // If there is a context ID, the last variable pushed will be the "this" pointer
         if( settings.contextTypeId ) {
-            settings.memory.push( MemoryElement {
-                "this",
-                ValueType { *settings.contextTypeId },
-                0,
-                0
-            } );
+            settings.symbols.addSymbol(
+                settings.fileId,
+                Symbol {
+                    VariableSymbol { "this", SymbolUdtType{ *settings.contextTypeId } },
+                    false
+                }
+            );
         }
         for( const auto& declaration : node.body ) {
             check( *declaration, settings );
@@ -571,14 +597,25 @@ namespace GoldScorpion {
         }
 
         // This should clear anything done by the function including the pushed arguments
-        settings.memory.closeScope();
+        settings.symbols.closeScope( settings.fileId );
 
         // If function belongs to a type context, the validated function must be added as a field to the type
         // Otherwise, add the function to the stack
         if( settings.contextTypeId ) {
-            settings.memory.addUdtField( *settings.contextTypeId, UdtField{ *functionName, FunctionType{ settings.contextTypeId, arguments, settings.functionReturnType } } );
+            if( !functionName ) {
+                Error{ "Internal compiler error (Expected function name here)", settings.nearestToken }.throwException();
+            }
+
+            settings.symbols.addFieldToSymbol( settings.fileId, *settings.contextTypeId, SymbolField {
+                *functionName,
+                std::make_shared< FunctionSymbol >( FunctionSymbol { *functionName, arguments, functionReturnType } )
+            } );
         } else {
-            settings.memory.push( MemoryElement{ functionName, FunctionType{ {}, arguments, settings.functionReturnType }, 0, 0 } );
+            if( !functionName ) {
+                Error{ "Internal compiler error (Expected function name here; anonymous functions currently broken)", settings.nearestToken }.throwException();
+            }
+
+            settings.symbols.addSymbol( settings.fileId, Symbol{ FunctionSymbol{ *functionName, arguments, functionReturnType }, false } );
         }
 
         // After function is fully-validated, check annotations that may be attached
@@ -593,19 +630,14 @@ namespace GoldScorpion {
         std::string typeId = expectTokenString( node.name, "Internal compiler error (TypeDeclaration token of identifier type contains no string alternative)" );
 
         // Typeid must not already exist in the current scope
-        if( settings.memory.findUdt( typeId, true ) ) {
-            Error{ "Redeclaration of user-defined type " + typeId + " in the current scope", node.name }.throwException();
-        }
-
-        // Cannot stomp an existing VarDeclaration
-        if( settings.memory.find( typeId ) ) {
-            Error{ "Cannot use name of existing variable " + typeId + " as TypeDeclaration identifier", node.name }.throwException();
+        if( settings.symbols.findSymbol( settings.fileId, typeId ) ) {
+            Error{ "Redeclaration of symbol " + typeId + " in the current scope", node.name }.throwException();
         }
 
         // Each parameter must contain an identifier/string token and either a primitive type or a declared user-defined type
         // No two fields may have the same name
         std::set< std::string > declaredNames;
-        std::vector< UdtField > fields;
+        std::vector< SymbolField > fields;
         for( const Parameter& parameter : node.fields ) {
             CheckedParameter checkedParameter = checkAndExtract( parameter, settings );
 
@@ -616,7 +648,20 @@ namespace GoldScorpion {
             }
 
             // Push onto the fields array
-            fields.push_back( UdtField { checkedParameter.id, ValueType { checkedParameter.typeId } } );
+            std::optional< TokenType > primitiveAttempt = typeIdToTokenType( checkedParameter.typeId );
+            SymbolType symbolType;
+            if( primitiveAttempt ) {
+                symbolType = SymbolNativeType{ *primitiveAttempt };
+            } else {
+                symbolType = SymbolUdtType{ checkedParameter.typeId };
+            }
+            fields.push_back( SymbolField {
+                checkedParameter.id,
+                std::make_shared< VariableSymbol >( VariableSymbol {
+                    checkedParameter.id,
+                    symbolType
+                } )
+            } );
         }
 
         // User-defined type must contain at least one field
@@ -627,8 +672,8 @@ namespace GoldScorpion {
         // For all functions inside this type, set the contextTypeId so that "this" tokens may have obtainable types
         settings.contextTypeId = typeId;
 
-        // Add the user-defined type to the memory tracker
-        settings.memory.addUdt( UserDefinedType { typeId, fields } );
+        // Add the user-defined type to the symbol table
+        settings.symbols.addSymbol( settings.fileId, Symbol{ UdtSymbol{ typeId, fields }, false } );
 
         // Check all member functions
         for( const std::unique_ptr< FunctionDeclaration >& function : node.functions ) {
@@ -644,7 +689,7 @@ namespace GoldScorpion {
 
         // Attempt to get a seties of annotation packages
         // The package will be consumed by the next declaration
-        settings.currentAnnotationPackage = getAnnotationPackageList( node, PlatformAnnotationSettings{ settings.memory, settings.nearestToken } );
+        settings.currentAnnotationPackage = getAnnotationPackageList( node, PlatformAnnotationSettings{ settings.symbols, settings.nearestToken } );
     }
 
     static void check( const ImportDeclaration& node, VerifierSettings settings ) {
@@ -704,11 +749,10 @@ namespace GoldScorpion {
     /**
      * Run a verification step to make sure items are logically consistent
      */
-    std::optional< std::string > check( const std::string& fileId, const Program& program ) {
-        MemoryTracker memory;
+    std::optional< std::string > check( const std::string& fileId, const Program& program, SymbolResolver& symbols ) {
         std::vector< PlatformAnnotationPackage > currentAnnotationPackage;
 
-        VerifierSettings settings{ fileId, memory, currentAnnotationPackage, {}, {}, {}, false, false, true };
+        VerifierSettings settings{ fileId, symbols, currentAnnotationPackage, {}, {}, {}, false, false, true };
         for( const auto& declaration : program.statements ) {
             try {
                 check( *declaration, settings );

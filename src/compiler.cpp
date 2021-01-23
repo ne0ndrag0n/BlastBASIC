@@ -35,7 +35,7 @@ namespace GoldScorpion {
 						GoldScorpion::printAst( *program );
 					}
 
-					if( auto error = check( parseFilename, *program ) ) {
+					if( auto error = check( parseFilename, *program, settings.symbols ) ) {
 						return Result< Program, std::string >::err( "Failed to validate file " + parseFilename + ": " + *error );
 					} else {
 						printSuccess( "Validated file " + parseFilename );

@@ -2,11 +2,17 @@
 #include "token.hpp"
 #include "memory_tracker.hpp"
 #include "result_type.hpp"
+#include "symbol.hpp"
 #include "ast.hpp"
 #include <string>
 #include <optional>
 
 namespace GoldScorpion {
+
+    struct TypeSettings {
+        std::string fileId;
+        SymbolResolver& symbols;
+    };
 
     using TypeResult = Result< MemoryDataType, std::string >;
 
@@ -15,6 +21,10 @@ namespace GoldScorpion {
     std::optional< std::string > tokenTypeToTypeId( const TokenType type );
 
     std::optional< std::string > tokenToTypeId( const Token& token );
+
+    FunctionType symbolToFunctionType( const FunctionSymbol& symbol );
+
+    bool tokenIsPrimitiveType( const Token& token );
 
     std::string unwrapTypeId( const MemoryDataType& type );
 
@@ -47,14 +57,14 @@ namespace GoldScorpion {
     // Only valid for integer fields
     MemoryDataType promotePrimitiveTypes( const MemoryDataType& lhs, const MemoryDataType& rhs );
 
-    TypeResult getType( const Primary& node, MemoryTracker& memory );
+    TypeResult getType( const Primary& node, TypeSettings settings );
 
-    TypeResult getType( const CallExpression& node, MemoryTracker& memory );
+    TypeResult getType( const CallExpression& node, TypeSettings settings );
 
-    TypeResult getType( const BinaryExpression& node, MemoryTracker& memory );
+    TypeResult getType( const BinaryExpression& node, TypeSettings settings );
 
-    TypeResult getType( const AssignmentExpression& node, MemoryTracker& memory );
+    TypeResult getType( const AssignmentExpression& node, TypeSettings settings );
 
-    TypeResult getType( const Expression& expression, MemoryTracker& memory );
+    TypeResult getType( const Expression& expression, TypeSettings settings );
 
 }
