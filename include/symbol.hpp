@@ -2,6 +2,7 @@
 #include "ast.hpp"
 #include "token.hpp"
 #include "error.hpp"
+#include "result_type.hpp"
 #include <string>
 #include <vector>
 #include <variant>
@@ -15,6 +16,8 @@ namespace GoldScorpion {
     struct SymbolUdtType { std::string id; };
     struct SymbolFunctionType { std::string id; };
     using SymbolType = std::variant< SymbolNativeType, SymbolFunctionType, SymbolUdtType >;
+
+    using SymbolTypeResult = Result< SymbolType, std::string >;
 
     struct SymbolArgument { std::string id; SymbolType type; };
     struct SymbolField {

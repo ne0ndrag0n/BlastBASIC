@@ -55,14 +55,14 @@ namespace GoldScorpion::m68k::md {
         return result;
     }
 
-    void checkInterrupt( const std::optional< std::string >& functionReturnType, const std::optional< Token >& nearestToken ) {
+    void checkInterrupt( const std::optional< SymbolType >& functionReturnType, const std::optional< Token >& nearestToken ) {
         // No interrupt can have a return type
         if( functionReturnType ) {
             Error{ "Function annotated with type \"interrupt\" cannot return any type", nearestToken }.throwException();
         }
     }
 
-    void checkFunction( const std::string& directive, const std::optional< Token >& nearestToken, const std::optional< std::string >& functionReturnType ) {
+    void checkFunction( const std::string& directive, const std::optional< Token >& nearestToken, const std::optional< SymbolType >& functionReturnType ) {
         switch( Utility::hash( directive.c_str() ) ) {
             case Utility::hash( "interrupt" ): {
                 return checkInterrupt( functionReturnType, nearestToken );

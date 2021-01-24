@@ -1,6 +1,5 @@
 #pragma once
 #include "token.hpp"
-#include "memory_tracker.hpp"
 #include "result_type.hpp"
 #include "symbol.hpp"
 #include "ast.hpp"
@@ -9,12 +8,11 @@
 
 namespace GoldScorpion {
 
-    struct TypeSettings {
+    struct SymbolTypeSettings {
         std::string fileId;
         SymbolResolver& symbols;
     };
-
-    using TypeResult = Result< MemoryDataType, std::string >;
+    using SymbolTypeResult = Result< SymbolType, std::string >;
 
     std::optional< TokenType > typeIdToTokenType( const std::string& id );
 
@@ -22,49 +20,33 @@ namespace GoldScorpion {
 
     std::optional< std::string > tokenToTypeId( const Token& token );
 
-    FunctionType symbolToFunctionType( const FunctionSymbol& symbol );
-
     bool tokenIsPrimitiveType( const Token& token );
 
-    std::string unwrapTypeId( const MemoryDataType& type );
+    bool typesComparable( const SymbolType& lhs, const SymbolType& rhs );
 
-    std::string typeToString( const MemoryDataType& type );
+    bool typeIsFunction( const SymbolType& type );
 
-    bool typesComparable( const MemoryDataType& lhs, const MemoryDataType& rhs );
+    bool typeIsUdt( const SymbolType& type );
 
-    bool typeIsValue( const MemoryDataType& type );
+    bool typeIsInteger( const SymbolType& type );
 
-    bool typeIsFunction( const MemoryDataType& type );
+    bool typeIsString( const SymbolType& type );
 
-    bool typeIsUdt( const MemoryDataType& type );
+    bool typesMatch( const SymbolType& lhs, const SymbolType& rhs, SymbolTypeSettings settings );
 
-    bool typeIsInteger( const MemoryDataType& typeId );
+    bool integerTypesMatch( const SymbolType& lhs, const SymbolType& rhs );
 
-    bool typeIsString( const MemoryDataType& type );
+    bool assignmentCoercible( const SymbolType& lhs, const SymbolType& rhs );
 
-    bool typesMatch( const MemoryDataType& lhs, const MemoryDataType& rhs );
+    bool coercibleToString( const SymbolType& lhs, const SymbolType& rhs );
 
-    bool integerTypesMatch( const MemoryDataType& lhs, const MemoryDataType& rhs );
+    SymbolNativeType promotePrimitiveTypes( const SymbolNativeType& lhs, const SymbolNativeType& rhs );
 
-    bool assignmentCoercible( const MemoryDataType& lhs, const MemoryDataType& rhs );
-
-    bool coercibleToString( const MemoryDataType& lhs, const MemoryDataType& rhs );
-
-    std::optional< long > getPrimitiveTypeSize( const MemoryDataType& type );
-
-    std::optional< long > getUdtTypeSize( const MemoryDataType& type, const MemoryTracker& memory );
-
-    // Only valid for integer fields
-    MemoryDataType promotePrimitiveTypes( const MemoryDataType& lhs, const MemoryDataType& rhs );
-
-    TypeResult getType( const Primary& node, TypeSettings settings );
-
-    TypeResult getType( const CallExpression& node, TypeSettings settings );
-
-    TypeResult getType( const BinaryExpression& node, TypeSettings settings );
-
-    TypeResult getType( const AssignmentExpression& node, TypeSettings settings );
-
-    TypeResult getType( const Expression& expression, TypeSettings settings );
+    // New symbol type stuff that will replace the type stuff immediately above
+    SymbolTypeResult getType( const Primary& node, SymbolTypeSettings settings );
+    SymbolTypeResult getType( const CallExpression& node, SymbolTypeSettings settings );
+    SymbolTypeResult getType( const BinaryExpression& node, SymbolTypeSettings settings );
+    SymbolTypeResult getType( const AssignmentExpression& node, SymbolTypeSettings settings );
+    SymbolTypeResult getType( const Expression& node, SymbolTypeSettings settings );
 
 }
