@@ -585,7 +585,7 @@ namespace GoldScorpion {
 
             settings.symbols.addFieldToSymbol( settings.fileId, *settings.contextTypeId, SymbolField {
                 *functionName,
-                std::make_shared< FunctionSymbol >( FunctionSymbol { *functionName, arguments, settings.functionReturnType } )
+               FunctionSymbol { *functionName, arguments, settings.functionReturnType }
             } );
         } else {
             if( !functionName ) {
@@ -626,10 +626,10 @@ namespace GoldScorpion {
 
             fields.push_back( SymbolField {
                 checkedParameter.id,
-                std::make_shared< VariableSymbol >( VariableSymbol {
+                VariableSymbol {
                     checkedParameter.id,
                     checkedParameter.typeId
-                } )
+                }
             } );
         }
 

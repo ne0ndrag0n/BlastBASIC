@@ -397,11 +397,11 @@ namespace GoldScorpion {
                         if( argument.id == *rhsIdentifier ) {
                             // Field name found
                             // Discriminate VariableSymbol or FunctionSymbol and return that
-                            if( auto asVariable = std::get_if< std::shared_ptr< VariableSymbol > >( &argument.value ) ) {
-                                return SymbolTypeResult::good( ( **asVariable ).type );
+                            if( auto asVariable = std::get_if< VariableSymbol >( &argument.value ) ) {
+                                return SymbolTypeResult::good( ( *asVariable ).type );
                             }
 
-                            if( std::holds_alternative< std::shared_ptr< FunctionSymbol > >( argument.value ) ) {
+                            if( std::holds_alternative< FunctionSymbol >( argument.value ) ) {
                                 return SymbolTypeResult::good( SymbolFunctionType{ argument.id } );
                             }
 

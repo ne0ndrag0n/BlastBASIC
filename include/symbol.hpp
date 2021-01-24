@@ -20,14 +20,14 @@ namespace GoldScorpion {
     using SymbolTypeResult = Result< SymbolType, std::string >;
 
     struct SymbolArgument { std::string id; SymbolType type; };
-    struct SymbolField {
-        std::string id;
-        std::variant< std::shared_ptr< struct VariableSymbol >, std::shared_ptr< struct FunctionSymbol > > value;
-    };
 
     struct VariableSymbol { std::string id; SymbolType type; };
     struct ConstantSymbol { std::string id; SymbolType type; };
     struct FunctionSymbol { std::string id; std::vector< SymbolArgument > arguments; std::optional< SymbolType > functionReturnType; };
+    struct SymbolField {
+        std::string id;
+        std::variant< VariableSymbol, FunctionSymbol > value;
+    };
     struct UdtSymbol { std::string id; std::vector< SymbolField > fields; };
     struct Symbol {
         std::variant< VariableSymbol, ConstantSymbol, FunctionSymbol, UdtSymbol > symbol;
