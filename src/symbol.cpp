@@ -45,14 +45,14 @@ namespace GoldScorpion {
         return false;
     }
 
-    std::optional< SymbolTable > SymbolResolver::getByFileId( const std::string& id ) {
-        for( const SymbolTable& symbolTable : symbolTables ) {
+    SymbolTable* SymbolResolver::getByFileId( const std::string& id ) {
+        for( SymbolTable& symbolTable : symbolTables ) {
             if( symbolTable.fileId == id ) {
-                return symbolTable;
+                return &symbolTable;
             }
         }
 
-        return {};
+        return nullptr;
     }
 
     void SymbolResolver::addFile( const std::string& id ) {
@@ -74,7 +74,7 @@ namespace GoldScorpion {
     }
 
     std::optional< Symbol > SymbolResolver::findSymbol( const std::string& fileId, const std::string& symbolId ) {
-        std::optional< SymbolTable > symbolTable = getByFileId( fileId );
+        SymbolTable* symbolTable = getByFileId( fileId );
         if( !symbolTable ) {
             return {};
         }

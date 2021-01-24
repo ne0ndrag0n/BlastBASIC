@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/gs",
-            "args": [ "--debug-lex", "--debug-parse", "-f ${workspaceFolder}/examples/expressions.gs" ],
+            "args": [ "--debug-lex", "--debug-parse", "-f examples/expressions.gs" ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

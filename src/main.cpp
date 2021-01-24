@@ -1,5 +1,6 @@
 #include "log.hpp"
 #include "compiler.hpp"
+#include "utility.hpp"
 #include <rang.hpp>
 #include <CLI11.hpp>
 
@@ -32,6 +33,6 @@ int main( int argc, char** argv ) {
 		GoldScorpion::printError( "no input files" );
 		return 1;
 	} else {
-		return GoldScorpion::compile( parseFilename, printLex, printAst );
+		return GoldScorpion::compile( GoldScorpion::Utility::stringTrim( parseFilename ), printLex, printAst );
 	}
 }

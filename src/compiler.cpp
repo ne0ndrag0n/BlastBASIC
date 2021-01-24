@@ -15,6 +15,8 @@ namespace GoldScorpion {
 		auto fileResult = Utility::fileToString( parseFilename );
 
 		if( auto file = std::get_if< Utility::File >( &fileResult ) ) {
+			settings.symbols.addFile( parseFilename );
+
 			auto tokenResult = getTokens( file->contents );
 
 			if( auto tokens = std::get_if< std::vector< Token > >( &tokenResult ) ) {

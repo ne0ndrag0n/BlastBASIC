@@ -44,7 +44,7 @@ namespace GoldScorpion {
     class SymbolResolver {
         std::vector< SymbolTable > symbolTables;
 
-        std::optional< SymbolTable > getByFileId( const std::string& id );
+        SymbolTable* getByFileId( const std::string& id );
 
     public:
         void addFile( const std::string& id );
