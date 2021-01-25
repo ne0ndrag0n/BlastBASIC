@@ -20,12 +20,16 @@ namespace GoldScorpion {
 
 	struct DataType {
 		Token type;
-		std::optional< Token > arraySize;
+		std::vector< Token > arrayDimensions;
 
 		std::string toString() const {
 			std::string typeString = type.toString();
-			if( arraySize ) {
-				typeString += " Size: " + arraySize->toString();
+			if( arrayDimensions.size() ) {
+				typeString += "   Dimensions:";
+
+				for( const Token& token : arrayDimensions ) {
+					typeString += " " + token.toString();
+				}
 			}
 
 			return typeString;

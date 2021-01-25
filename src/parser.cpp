@@ -79,31 +79,38 @@ namespace GoldScorpion {
 					++current;
 
 					// Check if array type
-					std::optional< Token > arraySize;
+					std::vector< Token > arrayDimensions;
 					auto leftBracketResult = readToken( current );
 					if( leftBracketResult && leftBracketResult->type == TokenType::TOKEN_LEFT_BRACKET ) {
 						++current;
 
-						// Must be a number or identifier here
-						auto numericResult = readToken( current );
-						if( numericResult && ( numericResult->type == TokenType::TOKEN_IDENTIFIER || numericResult->type == TokenType::TOKEN_LITERAL_INTEGER ) ) {
-							++current;
-							arraySize = *numericResult;
-
-							// Must be a closing bracket now
-							if( readToken( current ) && current->type == TokenType::TOKEN_RIGHT_BRACKET ) {
+						while( true ) {
+							auto arrayDimension = readToken( current );
+							if( arrayDimension && ( arrayDimension->type == TokenType::TOKEN_IDENTIFIER || arrayDimension->type == TokenType::TOKEN_LITERAL_INTEGER ) ) {
 								++current;
+
+								arrayDimensions.push_back( *arrayDimension );
+
+								// Keep going if there's a comma
+								if( readToken( current ) && current->type == TokenType::TOKEN_COMMA ) {
+									++current;
+								} else {
+									break;
+								}
 							} else {
-								// Current will be incremented in the last step
-								Error{ "Expected: closing \"]\" following an array size", readToken( current ) }.throwException();
+								Error{ "Expected: integer or const identifier for array size", readToken( current ) }.throwException();
 							}
+						}
+
+						if( readToken( current ) && current->type == TokenType::TOKEN_RIGHT_BRACKET ) {
+							++current;
 						} else {
-							Error{ "Expected: integer or identifier following \"[\"", readToken( current ) }.throwException();
+							Error{ "Expected: closing \"]\" following an array size", readToken( current ) }.throwException();
 						}
 					}
 
 					return ParameterReturn{
-						Parameter{ *nameResult, DataType{ *typeResult, arraySize } },
+						Parameter{ *nameResult, DataType{ *typeResult, arrayDimensions } },
 						current
 					};
 				}
