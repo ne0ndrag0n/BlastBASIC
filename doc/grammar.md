@@ -72,7 +72,7 @@ bitwise    -> term ( ( ">>" | "<<" ) term )*
 term       -> factor ( ( "-" | "+" ) factor )*
 factor     -> unary ( ( "/" | "*" | "%" ) unary )*
 unary      -> ( "not" | "-" ) unary | call
-call       -> primary ( "(" arguments? ")" | "." IDENTIFIER )*
+call       -> primary ( "(" arguments? ")" | "[" arguments "]" | "." IDENTIFIER )*
 primary    -> "this" | NUMBER | STRING | IDENTIFIER | "(" expression ")"
                | "super" "." IDENTIFIER
 ```

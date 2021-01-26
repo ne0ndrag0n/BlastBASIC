@@ -351,6 +351,7 @@ namespace GoldScorpion {
             [ &settings ]( const std::unique_ptr< BinaryExpression >& expression ) { check( *expression, settings ); },
             [ &settings ]( const std::unique_ptr< UnaryExpression >& expression ) { check( *expression, settings ); },
             [ &settings ]( const std::unique_ptr< CallExpression >& expression ) { check( *expression, settings ); },
+            [ &settings ]( const std::unique_ptr< ArrayExpression >& expression ) { Error{ "Internal compiler error (Expression check not implemented for expression subtype ArrayExpression)", {} }.throwException(); },
             [ &settings ]( const std::unique_ptr< Primary >& expression ) { check( *expression, settings ); },
 
         }, node.value );

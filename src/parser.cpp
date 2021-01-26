@@ -260,6 +260,44 @@ namespace GoldScorpion {
 						Error{ "Expected: closing \")\"", readToken( current ) }.throwException();
 					}
 
+				} else if( readToken( current ) && current->type == TokenType::TOKEN_LEFT_BRACKET ) {
+					// Need to parse a dimension list
+					current++;
+
+					std::vector< std::unique_ptr< Expression > > arguments;
+					while( AstResult< Expression > firstExpression = getExpression( current ) ) {
+						current = firstExpression->nextIterator;
+						arguments.emplace_back( std::move( firstExpression->node ) );
+
+						// Keep eating expressions while a comma is present
+						while( readToken( current ) && current->type == TokenType::TOKEN_COMMA ) {
+							current++;
+
+							if( AstResult< Expression > expression = getExpression( current ) ) {
+								current = expression->nextIterator;
+								arguments.emplace_back( std::move( expression->node ) );
+							} else {
+								// Error if an expression doesn't follow a comma
+								Error{ "Expected: Expression following a \",\"", readToken( current ) }.throwException();
+							}
+						}
+					}
+
+					if( readToken( current ) && current->type == TokenType::TOKEN_RIGHT_BRACKET ) {
+						// Eat current
+						current++;
+
+						queue.emplace( std::make_unique< Expression >( Expression {
+							std::make_unique< ArrayExpression >( ArrayExpression {
+								nullptr,
+								std::move( arguments )
+							} ),
+							{}
+						} ) );
+					} else {
+						Error{ "Expected: closing \"]\"", readToken( current ) }.throwException();
+					}
+
 				} else if( readToken( current ) && current->type == TokenType::TOKEN_DOT ) {
 					// Eat current
 					current++;
@@ -294,9 +332,15 @@ namespace GoldScorpion {
 			// Begin building the tree from treeStack
 			while( !queue.empty() ) {
 				// Queue will contain either null function calls or identifiers
-				// When encountering a call: primary = call with current primary as identifier
+				// When encountering a call or array: primary = call with current primary as identifier
 				// When encounering an identifier: primary = dot with lhs primary and rhs identifier
 				if( auto result = std::get_if< std::unique_ptr< CallExpression > >( &queue.front()->value ) ) {
+					(*result)->identifier = std::move( primary->node );
+					primary->node = std::make_unique< Expression >( Expression {
+						std::move( *result ),
+						{}
+					} );
+				} else if( auto result = std::get_if< std::unique_ptr< ArrayExpression > >( &queue.front()->value ) ) {
 					(*result)->identifier = std::move( primary->node );
 					primary->node = std::make_unique< Expression >( Expression {
 						std::move( *result ),

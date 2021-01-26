@@ -45,6 +45,11 @@ namespace GoldScorpion {
 		std::vector< std::unique_ptr< struct Expression > > arguments;
 	};
 
+	struct ArrayExpression {
+		std::unique_ptr< Expression > identifier;
+		std::vector< std::unique_ptr< struct Expression > > indices;
+	};
+
 	struct UnaryExpression {
 		std::unique_ptr< Primary > op;
 		std::unique_ptr< struct Expression > value;
@@ -67,6 +72,7 @@ namespace GoldScorpion {
 			std::unique_ptr< BinaryExpression >,
 			std::unique_ptr< UnaryExpression >,
 			std::unique_ptr< CallExpression >,
+			std::unique_ptr< ArrayExpression >,
 			std::unique_ptr< Primary >
 		> value;
 		std::optional< Token > nearestToken;

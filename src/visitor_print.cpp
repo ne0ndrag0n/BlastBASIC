@@ -64,6 +64,17 @@ namespace GoldScorpion {
 		}
 	}
 
+	static void visit( const ArrayExpression& node, int indent ) {
+		std::cout << indentText( indent, "ArrayExpression" ) << std::endl;
+		std::cout << indentText( indent, "<operand>" ) << std::endl;
+		visit( *node.identifier, indent + 1 );
+
+		std::cout << indentText( indent, "<indices>" ) << std::endl;
+		for( const std::unique_ptr< Expression >& index : node.indices ) {
+			visit( *index, indent + 1 );
+		}
+	}
+
 	static void visit( const Primary& node, int indent ) {
 		std::cout << indentText( indent, "Primary" ) << std::endl;
 
@@ -93,6 +104,7 @@ namespace GoldScorpion {
 			[ indent ]( const std::unique_ptr< BinaryExpression >& expression ) { visit( *expression, indent ); },
 			[ indent ]( const std::unique_ptr< UnaryExpression >& expression ) { visit( *expression, indent ); },
 			[ indent ]( const std::unique_ptr< CallExpression >& expression ) { visit( *expression, indent ); },
+			[ indent ]( const std::unique_ptr< ArrayExpression >& expression ) { visit( *expression, indent ); },
 			[ indent ]( const std::unique_ptr< Primary >& expression ) { visit( *expression, indent ); }
 		}, node.value );
 	}
@@ -134,7 +146,7 @@ namespace GoldScorpion {
 		int i = 0;
 		for( const auto& body : node.bodies ) {
 			std::cout << indentText( indent + 1, "<body " + std::to_string( i ) + ">" ) << std::endl;
-			
+
 			for( const auto& declaration : body ) {
 				visit( *declaration, indent + 2 );
 			}
