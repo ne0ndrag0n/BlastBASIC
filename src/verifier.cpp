@@ -457,7 +457,12 @@ namespace GoldScorpion {
             Error{ "Type mismatch: Expected type " + getSymbolTypeId( symbolType ) + " but expression is of type " + getSymbolTypeId( *expressionType ), node.variable.type.type }.throwException();
         }
 
-        settings.symbols.addSymbol( settings.fileId, Symbol{ ConstantSymbol{ *identifierTitle, symbolType }, false } );
+        // Get constant value and add constant to symbol table
+        std::stack< ConstantExpressionValue > stack;
+        settings.symbols.addSymbol( settings.fileId, Symbol{
+            ConstantSymbol{ *identifierTitle, symbolType, evaluateConst( *node.value, ConstEvaluationSettings{ settings.fileId, stack, settings.symbols, settings.nearestToken } ) },
+            false
+        } );
     }
 
     static void check( const ReturnStatement& node, VerifierSettings settings ) {
