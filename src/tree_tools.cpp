@@ -1,7 +1,10 @@
 #include "tree_tools.hpp"
+#include "error.hpp"
 #include <variant>
 
 namespace GoldScorpion {
+
+    static void evaluateConstantExpression( const Expression& node, ConstEvaluationSettings settings );
 
     std::optional< std::string > getIdentifierName( const Token& token ) {
         if( token.type == TokenType::TOKEN_IDENTIFIER && token.value ) {
@@ -181,6 +184,57 @@ namespace GoldScorpion {
         }
 
         return false;
+    }
+
+    static void evaluateConstantExpression( const Primary& node, ConstEvaluationSettings settings ) {
+        // The only acceptable types here are subexpressions, or tokens of either literal integer, literal string, or identifier type
+        if( auto subexpression = std::get_if< std::unique_ptr< Expression > > ( &node.value ) ) {
+            return evaluateConstantExpression( **subexpression, settings );
+        }
+
+        Token token = std::get< Token >( node.value );
+        switch( token.type ) {
+            case TokenType::TOKEN_LITERAL_INTEGER: {
+                settings.stack.push( std::get< long >( *( token.value ) ) );
+                return;
+            }
+            case TokenType::TOKEN_LITERAL_STRING: {
+                settings.stack.push( std::get< std::string >( *( token.value ) ) );
+                return;
+            }
+            case TokenType::TOKEN_IDENTIFIER: {
+                // Get identifier, then get type. Must return a constant symbol.
+                std::string identifier = std::get< std::string >( *( token.value ) );
+                auto symbolQuery = settings.symbols.findSymbol( settings.fileId, identifier );
+                if( !symbolQuery ) {
+                    Error{ "Cannot find symbol: " + identifier, token }.throwException();
+                }
+
+                if( !std::holds_alternative< ConstantSymbol >( symbolQuery->symbol ) ) {
+                    Error{ "Symbol \"" + std::get< std::string >( *( token.value ) ) + "\" is a non-constant symbol", token }.throwException();
+                }
+
+                settings.stack.push( std::get< ConstantSymbol >( symbolQuery->symbol ).value );
+                return;
+            }
+            default:
+                Error{ "Internal compiler error (Token of unexpected type encountered while trying to evaluate constant expression", token }.throwException();
+        }
+    }
+
+    static void evaluateConstantExpression( const Expression& node, ConstEvaluationSettings settings ) {
+        if( auto primary = std::get_if< std::unique_ptr< Primary > >( &node.value ) ) {
+            return evaluateConstantExpression( **primary, settings );
+        }
+
+        Error{ "Expression part is non-constant and cannot be evaluated at compile-time", settings.nearestToken }.throwException();
+    }
+
+    ConstantExpressionValue evaluateConst( const Expression& node, ConstEvaluationSettings settings ) {
+        evaluateConstantExpression( node, settings );
+
+        // todo
+        return 0;
     }
 
 }

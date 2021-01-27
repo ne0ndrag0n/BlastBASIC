@@ -13,6 +13,7 @@
 
 namespace GoldScorpion {
 
+    using ConstantExpressionValue = std::variant< long, std::string >;
     using SymbolTypeHandle = size_t;
 
     struct SymbolNativeType { TokenType type; };
@@ -26,7 +27,7 @@ namespace GoldScorpion {
     struct SymbolArgument { std::string id; SymbolType type; };
 
     struct VariableSymbol { std::string id; SymbolType type; };
-    struct ConstantSymbol { std::string id; SymbolType type; };
+    struct ConstantSymbol { std::string id; SymbolType type; ConstantExpressionValue value; };
     struct FunctionSymbol { std::string id; std::vector< SymbolArgument > arguments; std::optional< SymbolType > functionReturnType; };
     struct SymbolField {
         std::string id;
