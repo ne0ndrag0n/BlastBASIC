@@ -9,13 +9,17 @@
 #include <optional>
 #include <memory>
 #include <stack>
+#include <cstddef>
 
 namespace GoldScorpion {
+
+    using SymbolTypeHandle = size_t;
 
     struct SymbolNativeType { TokenType type; };
     struct SymbolUdtType { std::string id; };
     struct SymbolFunctionType { std::string id; };
-    using SymbolType = std::variant< SymbolNativeType, SymbolFunctionType, SymbolUdtType >;
+    struct SymbolArrayType { std::vector< long > dimensions; SymbolTypeHandle base; };
+    using SymbolType = std::variant< SymbolNativeType, SymbolFunctionType, SymbolUdtType, SymbolArrayType >;
 
     using SymbolTypeResult = Result< SymbolType, std::string >;
 
@@ -43,6 +47,7 @@ namespace GoldScorpion {
 
     class SymbolResolver {
         std::vector< SymbolTable > symbolTables;
+        static std::vector< SymbolType > handles;
 
         SymbolTable* getByFileId( const std::string& id );
 
@@ -56,6 +61,9 @@ namespace GoldScorpion {
 
         void openScope( const std::string& fileId );
         std::vector< Symbol > closeScope( const std::string& fileId );
+
+        static SymbolType toSymbolType( SymbolTypeHandle handle );
+        static SymbolTypeHandle addSymbolType( SymbolType incoming );
     };
 
     std::string getSymbolId( const Symbol& symbol );

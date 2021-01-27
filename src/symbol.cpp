@@ -4,6 +4,27 @@
 
 namespace GoldScorpion {
 
+    std::vector< SymbolType > SymbolResolver::handles;
+
+    SymbolType SymbolResolver::toSymbolType( SymbolTypeHandle handle ) {
+        return handles[ handle ];
+    }
+
+    SymbolTypeHandle SymbolResolver::addSymbolType( SymbolType incoming ) {
+        for( size_t i = 0; i != handles.size(); i++ ) {
+            const SymbolType& type = handles[ i ];
+            if( incoming.index() == type.index() ) {
+                // Cheap way to do this is to just compare the type id which will be equal for equivalent types
+                if( getSymbolTypeId( incoming ) == getSymbolTypeId( type ) ) {
+                    return i;
+                }
+            }
+        }
+
+        handles.push_back( incoming );
+        return handles.size() - 1;
+    }
+
     std::string getSymbolId( const Symbol& symbol ) {
         return std::visit( overloaded {
             []( const VariableSymbol& symbol ) {
@@ -31,6 +52,19 @@ namespace GoldScorpion {
             },
             [ & ]( const SymbolFunctionType& type ) {
                 return type.id;
+            },
+            [ & ]( const SymbolArrayType& type ) {
+                std::string dimensionString = getSymbolTypeId( SymbolResolver::toSymbolType( type.base ) ) +  "[";
+
+                for( size_t i = 0; i != type.dimensions.size(); i++ ) {
+                    dimensionString += std::to_string( type.dimensions[ i ] );
+                    if( i != type.dimensions.size() - 1 ) {
+                        dimensionString += ",";
+                    }
+                }
+                dimensionString += "]";
+
+                return dimensionString;
             }
         }, symbolType );
     }
