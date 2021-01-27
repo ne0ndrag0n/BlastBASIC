@@ -232,9 +232,7 @@ namespace GoldScorpion {
 
     ConstantExpressionValue evaluateConst( const Expression& node, ConstEvaluationSettings settings ) {
         evaluateConstantExpression( node, settings );
-
-        // todo
-        return 0;
+        return settings.stack.top();
     }
 
 }
