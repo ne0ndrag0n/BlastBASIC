@@ -107,45 +107,53 @@ namespace GoldScorpion {
         }
     }
 
-    std::optional< Symbol > SymbolResolver::findSymbol( const std::string& fileId, const std::string& symbolId ) {
+    Symbol* SymbolResolver::getSymbol( const std::string& fileId, const std::string& symbolId ) {
         SymbolTable* symbolTable = getByFileId( fileId );
         if( !symbolTable ) {
-            return {};
+            return nullptr;
         }
 
         // Step 1: Search scopes from top of stack down
-        std::stack< std::vector< Symbol > > scopes = symbolTable->scopes;
-        while( !scopes.empty() ) {
-            const std::vector< Symbol >& scope = scopes.top();
-            for( const Symbol& symbol : scope ) {
+        for( auto it = symbolTable->scopes.rbegin(); it != symbolTable->scopes.rend(); ++it ) {
+            std::vector< Symbol >& scope = *it;
+            for( Symbol& symbol : scope ) {
                 if( getSymbolId( symbol ) == symbolId ) {
-                    return symbol;
+                    return &symbol;
                 }
             }
-
-            scopes.pop();
         }
 
         // Step 2: Search symbols in own file
-        for( const Symbol& symbol : symbolTable->symbols ) {
+        for( Symbol& symbol : symbolTable->symbols ) {
             if( getSymbolId( symbol ) == symbolId ) {
-                return symbol;
+                return &symbol;
             }
         }
 
         // Step 3: Search public symbols in all outer scopes (files)
         for( const std::string& outerScope : symbolTable->outerScopes ) {
             if( auto externalSymbolTable = getByFileId( outerScope ) ) {
-                for( const Symbol& symbol : externalSymbolTable->symbols ) {
+                for( Symbol& symbol : externalSymbolTable->symbols ) {
                     if( symbol.external && getSymbolId( symbol ) == symbolId ) {
-                        return symbol;
+                        return &symbol;
                     }
                 }
             }
         }
 
         // The symbol wasn't found in the given context
-        return {};
+        return nullptr;
+    }
+
+    std::optional< Symbol > SymbolResolver::findSymbol( const std::string& fileId, const std::string& symbolId ) {
+        Symbol* symbol = getSymbol( fileId, symbolId );
+
+        if( symbol ) {
+            // Copy
+            return *symbol;
+        } else {
+            return {};
+        }
     }
 
     void SymbolResolver::addSymbol( const std::string& fileId, Symbol symbol ) {
@@ -153,7 +161,7 @@ namespace GoldScorpion {
             // If there are any scopes open, add to the scope
             // Otherwise add to the file symbols
             if( !symbolTable->scopes.empty() ) {
-                symbolTable->scopes.top().push_back( symbol );
+                symbolTable->scopes.back().push_back( symbol );
             } else {
                 symbolTable->symbols.push_back( symbol );
             }
@@ -161,7 +169,7 @@ namespace GoldScorpion {
     }
 
     void SymbolResolver::addFieldToSymbol( const std::string& fileId, const std::string& symbolId, SymbolField field ) {
-        if( auto query = findSymbol( fileId, symbolId ) ) {
+        if( auto query = getSymbol( fileId, symbolId ) ) {
             if( auto asUdt = std::get_if< UdtSymbol >( &( query->symbol ) ) ) {
                 asUdt->fields.push_back( field );
             }
@@ -170,15 +178,15 @@ namespace GoldScorpion {
 
     void SymbolResolver::openScope( const std::string& fileId ) {
         if( auto symbolTable = getByFileId( fileId ) ) {
-            symbolTable->scopes.push( std::vector< Symbol >{} );
+            symbolTable->scopes.push_back( std::vector< Symbol >{} );
         }
     }
 
     std::vector< Symbol > SymbolResolver::closeScope( const std::string& fileId ) {
         if( auto symbolTable = getByFileId( fileId ) ) {
             if( !symbolTable->scopes.empty() ) {
-                std::vector< Symbol > symbols = symbolTable->scopes.top();
-                symbolTable->scopes.pop();
+                std::vector< Symbol > symbols = symbolTable->scopes.back();
+                symbolTable->scopes.pop_back();
                 return symbols;
             }
         }

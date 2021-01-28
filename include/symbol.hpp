@@ -42,7 +42,7 @@ namespace GoldScorpion {
     struct SymbolTable {
         std::string fileId;
         std::vector< std::string > outerScopes;
-        std::stack< std::vector< Symbol > > scopes;
+        std::vector< std::vector< Symbol > > scopes;
         std::vector< Symbol > symbols;
     };
 
@@ -51,6 +51,7 @@ namespace GoldScorpion {
         static std::vector< SymbolType > handles;
 
         SymbolTable* getByFileId( const std::string& id );
+        Symbol* getSymbol( const std::string& fileId, const std::string& symbolId );
 
     public:
         void addFile( const std::string& id );
