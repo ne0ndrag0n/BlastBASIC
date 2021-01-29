@@ -18,7 +18,7 @@ namespace GoldScorpion {
 
     struct SymbolNativeType { TokenType type; };
     struct SymbolUdtType { std::string id; };
-    struct SymbolFunctionType { std::string id; };
+    struct SymbolFunctionType { std::string id; std::optional< std::string > associatedTypeId; };
     struct SymbolArrayType { std::vector< long > dimensions; SymbolTypeHandle base; };
     using SymbolType = std::variant< SymbolNativeType, SymbolFunctionType, SymbolUdtType, SymbolArrayType >;
 

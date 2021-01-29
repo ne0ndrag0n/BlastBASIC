@@ -186,14 +186,42 @@ namespace GoldScorpion {
             Error{ "Unable to call non-function type " + getSymbolTypeId( *identifierType ), settings.nearestToken }.throwException();
         }
 
+        SymbolFunctionType type = std::get< SymbolFunctionType >( *identifierType );
+
         // In the returned function type, we must make sure the provided argument list matches the argument list of the function
         // Only the types and the order of the types matter here
-        auto functionQuery = settings.symbols.findSymbol( settings.fileId, getSymbolTypeId( *identifierType ) );
-        if( !functionQuery || !std::holds_alternative< FunctionSymbol >( functionQuery->symbol ) ) {
-            Error{ "Cannot find symbol or symbol not of function type: " + getSymbolTypeId( *identifierType ), settings.nearestToken }.throwException();
+        FunctionSymbol functionType;
+        if( type.associatedTypeId ) {
+            // Must get associated UDT first, then search the type ID out of that
+            auto udtQuery = settings.symbols.findSymbol( settings.fileId, *type.associatedTypeId );
+            if( !udtQuery || !std::holds_alternative< UdtSymbol >( udtQuery->symbol ) ) {
+                Error{ "Internal compiler error (User-defined type defined on SymbolFunctionType, but user-defined type does not exist)", settings.nearestToken }.throwException();
+            }
+
+            bool found = false;
+            for( const SymbolField& field : std::get< UdtSymbol >( udtQuery->symbol ).fields ) {
+                if( field.id == type.id ) {
+                    if( !std::holds_alternative< FunctionSymbol >( field.value ) ) {
+                        Error{ "Internal compiler error (Cannot call non-function symbol \"" + type.id + "\" on user-defined type \"" + *type.associatedTypeId + "\")", settings.nearestToken }.throwException();
+                    }
+
+                    functionType = std::get< FunctionSymbol >( field.value );
+                    found = true;
+                    break;
+                }
+            }
+
+            if( !found ) {
+                Error{ "Symbol \"" + type.id + "\" not found on user-defined type \"" + *type.associatedTypeId + "\"", settings.nearestToken }.throwException();
+            }
+        } else {
+            auto functionQuery = settings.symbols.findSymbol( settings.fileId, type.id );
+            if( !functionQuery || !std::holds_alternative< FunctionSymbol >( functionQuery->symbol ) ) {
+                Error{ "Cannot find symbol or symbol not of function type: " + type.id, settings.nearestToken }.throwException();
+            }
+            functionType = std::get< FunctionSymbol >( functionQuery->symbol );
         }
 
-        const FunctionSymbol& functionType = std::get< FunctionSymbol >( functionQuery->symbol );
         if( functionType.arguments.size() != node.arguments.size() ) {
             Error{ "CallExpression requires " + std::to_string( functionType.arguments.size() ) + " arguments but " + std::to_string( node.arguments.size() ) + " arguments were provided", settings.nearestToken }.throwException();
         }

@@ -318,7 +318,7 @@ namespace GoldScorpion {
                 } else if( auto constantSymbol = std::get_if< ConstantSymbol >( &( memoryQuery->symbol ) ) ) {
                     return SymbolTypeResult::good( constantSymbol->type );
                 } else if( auto functionSymbol = std::get_if< FunctionSymbol >( &( memoryQuery->symbol ) ) ) {
-                    return SymbolTypeResult::good( SymbolFunctionType{ functionSymbol->id } );
+                    return SymbolTypeResult::good( SymbolFunctionType{ functionSymbol->id, {} } );
                 } else {
                     Error{ "Internal compiler error (Identifier token cannot indirectly refer to UDT)", token }.throwException();
                 }
@@ -348,12 +348,38 @@ namespace GoldScorpion {
 
         // The return type of the function is the type of this CallExpression
         const SymbolFunctionType& functionRef = std::get< SymbolFunctionType >( *expressionType );
-        auto functionQuery = settings.symbols.findSymbol( settings.fileId, functionRef.id );
-        if( !functionQuery || !std::holds_alternative< FunctionSymbol >( functionQuery->symbol ) ) {
-            Error{ "Internal compiler error (function symbol said to exist does not exist)", {} }.throwException();
+        FunctionSymbol function;
+        if( functionRef.associatedTypeId ) {
+            auto udtQuery = settings.symbols.findSymbol( settings.fileId, *functionRef.associatedTypeId );
+            if( !udtQuery || !std::holds_alternative< UdtSymbol >( udtQuery->symbol ) ) {
+                Error{ "Internal compiler error (User-defined type defined on SymbolFunctionType, but user-defined type does not exist)", {} }.throwException();
+            }
+
+            bool found = false;
+            for( const SymbolField& field : std::get< UdtSymbol >( udtQuery->symbol ).fields ) {
+                if( field.id == functionRef.id ) {
+                    if( !std::holds_alternative< FunctionSymbol >( field.value ) ) {
+                        Error{ "Internal compiler error (Cannot call non-function symbol \"" + functionRef.id + "\" on user-defined type \"" + *functionRef.associatedTypeId + "\")", {} }.throwException();
+                    }
+
+                    function = std::get< FunctionSymbol >( field.value );
+                    found = true;
+                    break;
+                }
+            }
+
+            if( !found ) {
+                return SymbolTypeResult::err( "Symbol \"" + functionRef.id + "\" not found on user-defined type \"" + *functionRef.associatedTypeId + "\"" );
+            }
+        } else {
+            auto functionQuery = settings.symbols.findSymbol( settings.fileId, functionRef.id );
+            if( !functionQuery || !std::holds_alternative< FunctionSymbol >( functionQuery->symbol ) ) {
+                Error{ "Internal compiler error (function symbol said to exist does not exist)", {} }.throwException();
+            }
+
+            function = std::get< FunctionSymbol >( functionQuery->symbol );
         }
 
-        const FunctionSymbol& function = std::get< FunctionSymbol >( functionQuery->symbol );
         if( !function.functionReturnType ) {
             return SymbolTypeResult::err( "Cannot call function with no return type" );
         }
@@ -402,7 +428,7 @@ namespace GoldScorpion {
                             }
 
                             if( std::holds_alternative< FunctionSymbol >( argument.value ) ) {
-                                return SymbolTypeResult::good( SymbolFunctionType{ argument.id } );
+                                return SymbolTypeResult::good( SymbolFunctionType{ argument.id, asUdt->id } );
                             }
 
                             return SymbolTypeResult::err( "Internal compiler error (unexpected UDT field type)" );
