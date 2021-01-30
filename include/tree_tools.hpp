@@ -17,6 +17,8 @@ namespace GoldScorpion {
 		std::optional< Token > nearestToken;
 	};
 
+	bool constantIsArray( const ConstantExpressionValue& value );
+
 	std::optional< std::string > getIdentifierName( const Expression& node );
 
 	std::optional< std::string > getIdentifierName( const Token& token );

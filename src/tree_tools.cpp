@@ -6,6 +6,11 @@ namespace GoldScorpion {
 
     static void evaluateConstantExpression( const Expression& node, ConstEvaluationSettings settings );
 
+    bool constantIsArray( const ConstantExpressionValue& value ) {
+        return std::holds_alternative< std::vector< long > >( value ) ||
+               std::holds_alternative< std::vector< std::string > >( value );
+    }
+
     std::optional< std::string > getIdentifierName( const Token& token ) {
         if( token.type == TokenType::TOKEN_IDENTIFIER && token.value ) {
             if( auto stringResult = std::get_if< std::string >( &*token.value ) ) {
@@ -240,7 +245,11 @@ namespace GoldScorpion {
             Error{ "Internal compiler error (BinaryExpression operator not of token type)", settings.nearestToken }.throwException();
         }
 
-        if( std::holds_alternative< std::string >( left ) || std::holds_alternative< std::string >( right ) ) {
+
+        if( constantIsArray( left ) || constantIsArray( right ) ) {
+            // Cannot apply a binaryexpression operation to an array
+            Error{ "Array type invalid as operand in constant BinaryExpression", operatorToken }.throwException();
+        } else if( std::holds_alternative< std::string >( left ) || std::holds_alternative< std::string >( right ) ) {
             // If either side contains a string then the total value will be coerced to string, and the "+" operator is the only valid operator.
             if( operatorToken.type != TokenType::TOKEN_PLUS ) {
                 Error{ "Only the concatenation \"+\" operator is valid for an expression combining a numeric and a string type", operatorToken }.throwException();
@@ -292,6 +301,11 @@ namespace GoldScorpion {
             operatorToken = *token;
         } else {
             Error{ "Internal compiler error (UnaryExpression operator not of token type)", settings.nearestToken }.throwException();
+        }
+
+        if( constantIsArray( operand ) ) {
+            // Cannot apply a unaryexpression operation to an array
+            Error{ "Array type invalid as operand in constant UnaryExpression", operatorToken }.throwException();
         }
 
         // Strings not valid for unary expression
