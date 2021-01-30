@@ -24,6 +24,8 @@ namespace GoldScorpion {
 
     bool typesComparable( const SymbolType& lhs, const SymbolType& rhs );
 
+    bool typeIsArray( const SymbolType& type );
+
     bool typeIsFunction( const SymbolType& type );
 
     bool typeIsUdt( const SymbolType& type );

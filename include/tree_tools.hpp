@@ -17,6 +17,8 @@ namespace GoldScorpion {
 		std::optional< Token > nearestToken;
 	};
 
+	long flattenArrayIndex( const std::vector< long >& dimensions, const std::vector< long >& indices );
+
 	bool constantIsArray( const ConstantExpressionValue& value );
 
 	std::optional< std::string > getIdentifierName( const Expression& node );

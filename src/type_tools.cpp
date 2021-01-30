@@ -158,6 +158,10 @@ namespace GoldScorpion {
         return lhs.index() == rhs.index();
     }
 
+    bool typeIsArray( const SymbolType& type ) {
+        return std::holds_alternative< SymbolArrayType >( type );
+    }
+
     bool typeIsFunction( const SymbolType& type ) {
         return std::holds_alternative< SymbolFunctionType >( type );
     }

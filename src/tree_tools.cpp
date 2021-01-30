@@ -1,10 +1,32 @@
 #include "tree_tools.hpp"
+#include "type_tools.hpp"
 #include "error.hpp"
 #include <variant>
 
 namespace GoldScorpion {
 
     static void evaluateConstantExpression( const Expression& node, ConstEvaluationSettings settings );
+
+    long flattenArrayIndex( const std::vector< long >& dimensions, const std::vector< long >& indices ) {
+        // x + y * width + z * width * height + w * width * depth * height + ...
+
+        // There should be as many indices as there are dimensions
+
+        long index = 0;
+        for( long i = 0; i != ( long )indices.size(); i++ ) {
+            long addValue = indices[ i ];
+
+            if( i != 0 ) {
+                for( long j = 0; j != i; j++ ) {
+                    addValue *= dimensions[ j ];
+                }
+            }
+
+            index += addValue;
+        }
+
+        return index;
+    }
 
     bool constantIsArray( const ConstantExpressionValue& value ) {
         return std::holds_alternative< std::vector< long > >( value ) ||
@@ -327,6 +349,66 @@ namespace GoldScorpion {
         }
     }
 
+    static void evaluateConstantExpression( const ArrayExpression& node, ConstEvaluationSettings settings ) {
+        evaluateConstantExpression( *node.identifier, settings );
+        ConstantExpressionValue array = settings.stack.top();
+        settings.stack.pop();
+
+        if( !constantIsArray( array ) ) {
+            Error{ "Array notation invalid on non-array operand", settings.nearestToken }.throwException();
+        }
+
+        // Using the node identifier, retrieve its name and type
+        std::optional< std::string > arrayIdentifier = getIdentifierName( *node.identifier );
+        if( !arrayIdentifier ) {
+            Error{ "Internal compiler error (unable to retrieve identifier name for array type)", settings.nearestToken }.throwException();
+        }
+
+        // Get the symbol so we can get the dimensions
+        ConstantSymbol symbol;
+        if( auto query = settings.symbols.findSymbol( settings.fileId, *arrayIdentifier ) ) {
+            if( auto constant = std::get_if< ConstantSymbol >( &query->symbol ) ) {
+                symbol = *constant;
+            } else {
+                Error{ "Internal compiler error (symbol not constant symbol as expected)", settings.nearestToken }.throwException();
+            }
+        } else {
+            Error{ "Internal compiler error (cannot find expected symbol)", settings.nearestToken }.throwException();
+        }
+
+        // Get the dimensions out of the symbol type
+        std::vector< long > dimensions;
+        if( auto asArrayType = std::get_if< SymbolArrayType >( &symbol.type ) ) {
+            dimensions = asArrayType->dimensions;
+        } else {
+            Error{ "Internal compiler error (expected constant type to be array)", settings.nearestToken }.throwException();
+        }
+
+        // Convert the ArrayExpression index expressions to actual indices
+        std::vector< long > indices;
+        for( const auto& expression : node.indices ) {
+            evaluateConstantExpression( *expression, settings );
+            ConstantExpressionValue index = settings.stack.top();
+            settings.stack.pop();
+
+            if( auto asIndex = std::get_if< long >( &index ) ) {
+                indices.push_back( *asIndex );
+            } else {
+                Error{ "Expected numeric constant expression for array index", settings.nearestToken }.throwException();
+            }
+        }
+
+        if( auto longArray = std::get_if< std::vector< long > >( &array ) ) {
+            const auto& arr = *longArray;
+            settings.stack.push( arr.at( flattenArrayIndex( dimensions, indices ) ) );
+        } else if( auto stringArray = std::get_if< std::vector< std::string > >( &array ) ) {
+            const auto& arr = *stringArray;
+            settings.stack.push( arr.at( flattenArrayIndex( dimensions, indices ) ) );
+        } else {
+            Error{ "Internal compiler error (unexpected ConstantExpressionValue array encountered)", settings.nearestToken }.throwException();
+        }
+    }
+
     static void evaluateConstantExpression( const Expression& node, ConstEvaluationSettings settings ) {
         if( auto primary = std::get_if< std::unique_ptr< Primary > >( &node.value ) ) {
             return evaluateConstantExpression( **primary, settings );
@@ -338,6 +420,10 @@ namespace GoldScorpion {
 
         if( auto unary = std::get_if< std::unique_ptr< UnaryExpression > >( &node.value ) ) {
             return evaluateConstantExpression( **unary, settings );
+        }
+
+        if( auto array = std::get_if< std::unique_ptr< ArrayExpression > >( &node.value ) ) {
+            return evaluateConstantExpression( **array, settings );
         }
 
         Error{ "Expression contains non-constant part and cannot be evaluated at compile-time", settings.nearestToken }.throwException();
