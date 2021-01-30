@@ -9,8 +9,9 @@ end
 
 def a as u16 = 0
 def b as Vec2u16
+def c as u8[ 64 ]
 
-const LEET as u16 = 1337
+const LEET as u16 = 1330 + 7
 
 @[interrupt=vblank]
 function vblank()

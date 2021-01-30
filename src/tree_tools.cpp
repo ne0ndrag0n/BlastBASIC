@@ -222,12 +222,111 @@ namespace GoldScorpion {
         }
     }
 
+    static void evaluateConstantExpression( const BinaryExpression& node, ConstEvaluationSettings settings ) {
+        // Push both sides onto the stack - beginning with the right
+        evaluateConstantExpression( *node.rhsValue, settings );
+        evaluateConstantExpression( *node.lhsValue, settings );
+
+        ConstantExpressionValue left = settings.stack.top();
+        settings.stack.pop();
+        ConstantExpressionValue right = settings.stack.top();
+        settings.stack.pop();
+
+        // Attempt to extract operator
+        Token operatorToken;
+        if( auto token = std::get_if< Token >( &node.op->value ) ) {
+            operatorToken = *token;
+        } else {
+            Error{ "Internal compiler error (BinaryExpression operator not of token type)", settings.nearestToken }.throwException();
+        }
+
+        if( std::holds_alternative< std::string >( left ) || std::holds_alternative< std::string >( right ) ) {
+            // If either side contains a string then the total value will be coerced to string, and the "+" operator is the only valid operator.
+            if( operatorToken.type != TokenType::TOKEN_PLUS ) {
+                Error{ "Only the concatenation \"+\" operator is valid for an expression combining a numeric and a string type", operatorToken }.throwException();
+            }
+
+            std::string result;
+            if( auto leftString = std::get_if< std::string >( &left ) ) {
+                result = *leftString;
+                result += std::to_string( std::get< long >( right ) );
+            } else {
+                result = std::to_string( std::get< long >( left ) );
+                result += std::get< std::string >( right );
+            }
+
+            settings.stack.push( result );
+        } else {
+            // Both sides are long and can be operated on directly
+            switch( operatorToken.type ) {
+                case TokenType::TOKEN_PLUS: {
+                    settings.stack.push( std::get< long >( left ) + std::get< long >( right ) );
+                    return;
+                }
+                case TokenType::TOKEN_MINUS: {
+                    settings.stack.push( std::get< long >( left ) - std::get< long >( right ) );
+                    return;
+                }
+                case TokenType::TOKEN_ASTERISK: {
+                    settings.stack.push( std::get< long >( left ) * std::get< long >( right ) );
+                    return;
+                }
+                case TokenType::TOKEN_FORWARD_SLASH: {
+                    settings.stack.push( std::get< long >( left ) / std::get< long >( right ) );
+                    return;
+                }
+                default:
+                    Error{ "Invalid operator in constant expression", operatorToken }.throwException();
+            }
+        }
+    }
+
+    static void evaluateConstantExpression( const UnaryExpression& node, ConstEvaluationSettings settings ) {
+        evaluateConstantExpression( *node.value, settings );
+
+        ConstantExpressionValue operand = settings.stack.top();
+        settings.stack.pop();
+
+        Token operatorToken;
+        if( auto token = std::get_if< Token >( &node.op->value ) ) {
+            operatorToken = *token;
+        } else {
+            Error{ "Internal compiler error (UnaryExpression operator not of token type)", settings.nearestToken }.throwException();
+        }
+
+        // Strings not valid for unary expression
+        if( std::holds_alternative< std::string >( operand ) ) {
+            Error{ "String operand not valid for unary expression in constant", operatorToken }.throwException();
+        }
+
+        switch( operatorToken.type ) {
+            case TokenType::TOKEN_MINUS: {
+                settings.stack.push( std::get< long >( operand ) * -1 );
+                return;
+            }
+            case TokenType::TOKEN_NOT: {
+                settings.stack.push( !std::get< long >( operand ) );
+                return;
+            }
+            default:
+                Error{ "Invalid operator in constant expression", operatorToken }.throwException();
+        }
+    }
+
     static void evaluateConstantExpression( const Expression& node, ConstEvaluationSettings settings ) {
         if( auto primary = std::get_if< std::unique_ptr< Primary > >( &node.value ) ) {
             return evaluateConstantExpression( **primary, settings );
         }
 
-        Error{ "Expression part is non-constant and cannot be evaluated at compile-time", settings.nearestToken }.throwException();
+        if( auto binary = std::get_if< std::unique_ptr< BinaryExpression > >( &node.value ) ) {
+            return evaluateConstantExpression( **binary, settings );
+        }
+
+        if( auto unary = std::get_if< std::unique_ptr< UnaryExpression > >( &node.value ) ) {
+            return evaluateConstantExpression( **unary, settings );
+        }
+
+        Error{ "Expression contains non-constant part and cannot be evaluated at compile-time", settings.nearestToken }.throwException();
     }
 
     ConstantExpressionValue evaluateConst( const Expression& node, ConstEvaluationSettings settings ) {
