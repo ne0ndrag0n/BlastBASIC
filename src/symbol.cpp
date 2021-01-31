@@ -54,7 +54,7 @@ namespace GoldScorpion {
                 return type.id;
             },
             [ & ]( const SymbolArrayType& type ) {
-                std::string dimensionString = getSymbolTypeId( SymbolResolver::toSymbolType( type.base ) ) +  "[";
+                std::string dimensionString = getSymbolTypeId( toSymbolType( type.base ) ) +  "[";
 
                 for( size_t i = 0; i != type.dimensions.size(); i++ ) {
                     dimensionString += std::to_string( type.dimensions[ i ] );
@@ -192,6 +192,19 @@ namespace GoldScorpion {
         }
 
         return std::vector< Symbol >{};
+    }
+
+    SymbolType toSymbolType( const ArrayIntermediateType& type ) {
+       if( auto unwrap = std::get_if< SymbolNativeType >( &type ) ) {
+           return *unwrap;
+       } else if( auto unwrap = std::get_if< SymbolUdtType >( &type ) ) {
+           return *unwrap;
+       } else if( auto unwrap = std::get_if< SymbolFunctionType >( &type ) ) {
+           return *unwrap;
+       } else {
+           Error{ "Internal compiler error (unknown type in ArrayIntermediateType)", {} }.throwException();
+           throw "";
+       }
     }
 
 }
