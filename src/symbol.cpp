@@ -207,4 +207,17 @@ namespace GoldScorpion {
        }
     }
 
+    ArrayIntermediateType toArrayIntermediateType( const SymbolType& type ) {
+        ArrayIntermediateType arrayType;
+
+        std::visit( overloaded {
+            [ &arrayType ]( const SymbolNativeType& type ) { arrayType = type; },
+            [ &arrayType ]( const SymbolFunctionType& type ) { arrayType = type; },
+            [ &arrayType ]( const SymbolUdtType& type ) { arrayType = type; },
+            []( const SymbolArrayType& ) { Error{ "Internal compiler error (cannot wrap an array in an array intermediate type)", {} }.throwException(); }
+        }, type );
+
+        return arrayType;
+    }
+
 }

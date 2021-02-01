@@ -73,4 +73,5 @@ namespace GoldScorpion {
     std::string getSymbolTypeId( const SymbolType& symbolType );
     bool fieldPresent( const std::string& fieldId, const UdtSymbol& symbol );
     SymbolType toSymbolType( const ArrayIntermediateType& type );
+    ArrayIntermediateType toArrayIntermediateType( const SymbolType& type );
 }

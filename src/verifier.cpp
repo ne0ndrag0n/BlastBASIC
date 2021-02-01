@@ -414,6 +414,30 @@ namespace GoldScorpion {
             symbolType = SymbolNativeType{ node.variable.type.type.type };
         }
 
+        // If this is an array type we need to wrap the type
+        if( node.variable.type.arrayDimensions.size() ) {
+            SymbolArrayType wrapType = SymbolArrayType{ std::vector< long >(), toArrayIntermediateType( symbolType ) };
+
+            // Iterate through and get dimensions
+            for( const Token& dimension : node.variable.type.arrayDimensions ) {
+                // Hack to get around constant evaluation of each parameter
+                std::unique_ptr< Expression > primary = std::make_unique< Expression >( Expression {
+                    std::make_unique< Primary >( Primary { dimension } ),
+                    {}
+                } );
+
+                std::stack< ConstantExpressionValue > stack;
+                ConstantExpressionValue dimensionValue = evaluateConst( *primary, ConstEvaluationSettings{ settings.fileId, stack, settings.symbols, settings.nearestToken } );
+                if( auto dimensionLong = std::get_if< long >( &dimensionValue ) ) {
+                    wrapType.dimensions.push_back( *dimensionLong );
+                } else {
+                    Error{ "Internal compiler error (VarDeclaration array dimension does not evaluate to long value)", dimension }.throwException();
+                }
+            }
+
+            symbolType = wrapType;
+        }
+
         auto identifierTitle = getIdentifierName( node.variable.name );
         if( !identifierTitle ) {
             Error{ "Internal compiler error (VarDeclaration variable.name is not an identifier)", node.variable.name }.throwException();
